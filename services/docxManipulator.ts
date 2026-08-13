@@ -38,7 +38,7 @@ export const injectContentIntoDocx = async (
         
         let docXml = docFile.asText();
         
-        // Nhãn tiêu đề động theo 3 chế độ
+        // Nhãn tiêu đề động
         let label = "Tích hợp NLS & AI";
         if (mode === 'NLS') {
           label = "Tích hợp NLS";
@@ -74,7 +74,6 @@ export const injectContentIntoDocx = async (
           const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           if (lines.length === 0) return "";
 
-          // Mặc định màu chữ đỏ tươi cho phần chèn nội dung NLS/AI
           let rPrHeader = `<w:b/><w:color w:val="FF0000"/>`; 
           let rPrBody = `<w:color w:val="FF0000"/>`;
 
@@ -89,7 +88,7 @@ export const injectContentIntoDocx = async (
               rPrBody += style.fontTag;
           }
 
-          // 1. Tạo dòng Tiêu đề
+          // 1. Dòng Tiêu đề
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
@@ -98,7 +97,7 @@ export const injectContentIntoDocx = async (
                             </w:r>
                           </w:p>`;
 
-          // 2. Tạo các dòng Liệt kê nội dung
+          // 2. Các dòng Liệt kê
           lines.forEach(line => {
               let cleanLine = line
                   .replace(/\*\*/g, "") 
@@ -121,7 +120,7 @@ export const injectContentIntoDocx = async (
           return xmlBlock;
         };
 
-        // --- HÀM 3: TÌM KIẾM XUYÊN THẤU (FUZZY XML SEARCH) ---
+        // --- HÀM 3: TÌM KIẾM FUZZY XML ---
         const findFuzzyIndex = (xml: string, keyword: string) => {
             let idx = xml.indexOf(keyword);
             if (idx !== -1) return idx;
@@ -136,23 +135,21 @@ export const injectContentIntoDocx = async (
             return match ? match.index : -1;
         };
 
-        // --- HÀM MỚI BỔ SUNG: VẼ BẢNG TỔNG HỢP NLS/AI BẰNG XML CHO WORD ---
+        // --- HÀM 4: VẼ BẢNG TỔNG HỢP NLS/AI NẰM Ở CUỐI FILE ---
         const createSummaryTableXml = (tableData: Array<any>) => {
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
           let rowsXml = "";
-          // Row Header (Tiêu đề bảng)
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
               <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
-          // Data Rows (Các dòng nội dung)
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
@@ -186,7 +183,7 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 4. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU ---
+        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU (MỤC I) ---
         const keywords = ["Phẩm chất năng lực", "2. Phát triển năng lực", "2. Năng lực", "2. năng lực", "II. MỤC TIÊU", "II. Mục tiêu", "Năng lực cần đạt", "3. Năng lực"];
         
         let targetIndices: number[] = [];
@@ -220,17 +217,10 @@ export const injectContentIntoDocx = async (
                      }
                  }
              });
-        } else {
-            const xmlBlock = createXmlBlock(content.objectives_addition, { fontSize: null, fontTag: "" });
-            if (xmlBlock) {
-                const bodyTag = "<w:body>";
-                const bodyIndex = newXml.indexOf(bodyTag);
-                if (bodyIndex !== -1) newXml = newXml.substring(0, bodyIndex + bodyTag.length) + xmlBlock + newXml.substring(bodyIndex + bodyTag.length);
-            }
         }
         docXml = newXml;
 
-        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG ---
+        // --- 6. CHÈN SONG SONG: PHẦN CHUNG (TIÊU ĐỀ) VÀ PHẦN CHI TIẾT (Ô BẢNG) ---
         if (Array.isArray(content.activities_enhancement)) {
             content.activities_enhancement.forEach((item, index) => {
                 const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -275,35 +265,48 @@ export const injectContentIntoDocx = async (
                      const xmlBlock = createXmlBlock(actContent, currentStyle);
 
                      if (xmlBlock) {
-                         // NÂNG CẤP BỔ SUNG: Bắt từ khóa ô trong Bảng CV 5512 với phạm vi 15.000 ký tự
-                         const cellKeywords = ["HS thực hiện", "thực hiện nhiệm vụ", "Học sinh thực hiện", "Báo cáo kết quả", "Sản phẩm", "Phương án đánh giá", "Cột HS"];
-                         let targetCellPos = -1;
+                         // LƯỢT 1 (PHẦN CHUNG): Chèn dưới Tiêu đề Hoạt động
+                         const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
+                         let addedOffset = 0;
 
+                         if (headerInsertPos !== -1) {
+                             const splitPos = headerInsertPos + "</w:p>".length;
+                             docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                             addedOffset = xmlBlock.length;
+                         }
+
+                         // LƯỢT 2 (PHẦN CHI TIẾT): Tìm ô Bảng chứa "- HS tiến hành" / "- HS sử dụng"
+                         const cellKeywords = [
+                             "- HS tiến hành",
+                             "- HS sử dụng",
+                             "HS tiến hành",
+                             "HS sử dụng",
+                             "HS thực hiện nhiệm vụ",
+                             "HS thực hiện"
+                         ];
+
+                         let targetCellPos = -1;
                          for (const cKey of cellKeywords) {
-                             const foundPos = docXml.indexOf(cKey, actIndex);
+                             const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
                              if (foundPos !== -1 && foundPos - actIndex < 15000) {
                                  targetCellPos = foundPos;
                                  break;
                              }
                          }
 
-                         let insertPos = -1;
                          if (targetCellPos !== -1) {
-                             insertPos = docXml.indexOf("</w:p>", targetCellPos);
-                         } else {
-                             insertPos = docXml.indexOf("</w:p>", actIndex);
-                         }
-
-                         if (insertPos !== -1) {
-                             const splitPos = insertPos + "</w:p>".length;
-                             docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                             const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
+                             if (cellInsertPos !== -1) {
+                                 const splitPos = cellInsertPos + "</w:p>".length;
+                                 docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                             }
                          }
                      }
                 }
             });
         }
 
-        // --- 6. CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
+        // --- 7. CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
             const tableXml = createSummaryTableXml(content.summary_table);
             if (tableXml) {
