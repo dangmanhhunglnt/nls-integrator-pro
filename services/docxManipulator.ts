@@ -277,14 +277,14 @@ export const injectContentIntoDocx = async (
                      const xmlBlock = createXmlBlock(actContent, currentStyle);
 
                      if (xmlBlock) {
-                         // NÂNG CẤP: Tìm ô trong Bảng (Table Cell <w:tc>) gần nhất chứa từ khóa hành động HS
-                         const cellKeywords = ["HS thực hiện", "thực hiện nhiệm vụ", "Học sinh thực hiện", "Báo cáo kết quả", "Sản phẩm"];
+                         // Tìm ô trong Bảng (Table Cell <w:tc>) chứa từ khóa hành động của Học sinh trong bảng CV 5512
+                         const cellKeywords = ["HS thực hiện", "thực hiện nhiệm vụ", "Học sinh thực hiện", "Báo cáo kết quả", "Sản phẩm", "Phương án đánh giá"];
                          let targetCellPos = -1;
 
                          for (const cKey of cellKeywords) {
                              const foundPos = docXml.indexOf(cKey, actIndex);
-                             // Chỉ chấp nhận ô nằm trong phạm vi 5000 ký tự sau tên Hoạt động
-                             if (foundPos !== -1 && foundPos - actIndex < 5000) {
+                             // Chỉ chấp nhận ô nằm trong phạm vi 8000 ký tự sau tên Hoạt động
+                             if (foundPos !== -1 && foundPos - actIndex < 8000) {
                                  targetCellPos = foundPos;
                                  break;
                              }
