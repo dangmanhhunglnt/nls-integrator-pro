@@ -230,18 +230,18 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN VÀO Ô TRONG BẢNG) ---
+        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG ---
         if (Array.isArray(content.activities_enhancement)) {
-            content.activities_enhancement.forEach(item => {
+            content.activities_enhancement.forEach((item, index) => {
                 const actName = (item as any).activity_name || (item as any).activity_title || "";
                 const actContent = (item as any).enhanced_content || (item as any).content || "";
 
-                if (!actName) return;
+                if (!actName && !actContent) return;
 
                 let safeName = escapeXml(actName);
                 let actIndex = findFuzzyIndex(docXml, safeName);
 
-                if (actIndex === -1) {
+                if (actIndex === -1 && safeName) {
                     const coreKeywords = ["Khởi động", "Hình thành kiến thức", "Luyện tập", "Vận dụng", "Mở đầu", "Kết nối"];
                     for (const key of coreKeywords) {
                         if (safeName.includes(key)) {
@@ -261,14 +261,12 @@ export const injectContentIntoDocx = async (
                 }
 
                 if (actIndex === -1) {
-                     const matchNum = safeName.match(/\d+/);
-                     if (matchNum) {
-                         const num = matchNum[0];
-                         const variants = [`Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`, `Nhiệm vụ ${num}`];
-                         for (const v of variants) {
-                             actIndex = findFuzzyIndex(docXml, v);
-                             if (actIndex !== -1) break;
-                         }
+                     const matchNum = safeName ? safeName.match(/\d+/) : null;
+                     const num = matchNum ? matchNum[0] : String(index + 1);
+                     const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`, `Nhiệm vụ ${num}`];
+                     for (const v of variants) {
+                         actIndex = findFuzzyIndex(docXml, v);
+                         if (actIndex !== -1) break;
                      }
                 }
 
@@ -277,14 +275,13 @@ export const injectContentIntoDocx = async (
                      const xmlBlock = createXmlBlock(actContent, currentStyle);
 
                      if (xmlBlock) {
-                         // NÂNG CẤP: Tìm ô trong Bảng (Table Cell <w:tc>) gần nhất chứa từ khóa hành động HS
-                         const cellKeywords = ["HS thực hiện", "thực hiện nhiệm vụ", "Học sinh thực hiện", "Báo cáo kết quả", "Sản phẩm"];
+                         // NÂNG CẤP BỔ SUNG: Bắt từ khóa ô trong Bảng CV 5512 với phạm vi 15.000 ký tự
+                         const cellKeywords = ["HS thực hiện", "thực hiện nhiệm vụ", "Học sinh thực hiện", "Báo cáo kết quả", "Sản phẩm", "Phương án đánh giá", "Cột HS"];
                          let targetCellPos = -1;
 
                          for (const cKey of cellKeywords) {
                              const foundPos = docXml.indexOf(cKey, actIndex);
-                             // Chỉ chấp nhận ô nằm trong phạm vi 5000 ký tự sau tên Hoạt động
-                             if (foundPos !== -1 && foundPos - actIndex < 5000) {
+                             if (foundPos !== -1 && foundPos - actIndex < 15000) {
                                  targetCellPos = foundPos;
                                  break;
                              }
@@ -292,10 +289,8 @@ export const injectContentIntoDocx = async (
 
                          let insertPos = -1;
                          if (targetCellPos !== -1) {
-                             // Nếu tìm thấy ô trong bảng, chèn vào ngay sau đoạn <w:p> của ô đó
                              insertPos = docXml.indexOf("</w:p>", targetCellPos);
                          } else {
-                             // Ngược lại chèn sau đoạn tiêu đề Hoạt động như cũ
                              insertPos = docXml.indexOf("</w:p>", actIndex);
                          }
 
@@ -308,7 +303,7 @@ export const injectContentIntoDocx = async (
             });
         }
 
-        // --- 6. HÀM MỚI BỔ SUNG: TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
+        // --- 6. CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
             const tableXml = createSummaryTableXml(content.summary_table);
             if (tableXml) {
