@@ -1,6 +1,7 @@
 export interface EnhancedActivityItem {
   activity_name: string;
   enhanced_content: string;
+  location?: string;
 }
 
 export interface GeneratedNLSContent {
@@ -9,6 +10,7 @@ export interface GeneratedNLSContent {
   activities_enhancement: EnhancedActivityItem[];
 }
 
+export type IntegrationMode = 'NLS_AI' | 'NLS' | 'NAI';
 export type SubjectType = string;
 export type GradeType = string;
 
@@ -27,4 +29,14 @@ export interface AppState {
   };
   generatedContent: GeneratedNLSContent | null;
   result: { fileName: string; blob: Blob } | null;
+}
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string;
+  plan: 'FREE' | 'PRO' | 'SCHOOL';
+  usageCount: number; // Số lượt giáo án đã tích hợp
+  maxUsage: number;   // Giới hạn (Ví dụ: Free = 3 lượt, Pro = 9999)
+  expireDate?: string; // Hạn dùng gói Pro
 }

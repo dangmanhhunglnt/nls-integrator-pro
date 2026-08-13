@@ -1,10 +1,28 @@
 import PizZip from 'pizzip';
-import { GeneratedNLSContent } from '../types';
+import mammoth from 'mammoth';
+import { GeneratedNLSContent, IntegrationMode } from '../types';
 
+/**
+ * 1. HÀM ĐỌC VÀ TRÍCH XUẤT VĂN BẢN TỪ FILE WORD (.DOCX)
+ */
+export async function extractTextFromDocx(file: File): Promise<string> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value || "";
+  } catch (error) {
+    console.error("Lỗi khi đọc nội dung file Word:", error);
+    return "";
+  }
+}
+
+/**
+ * 2. HÀM TÍCH HỢP NỘI DUNG VÀO DOCUMENT.XML CỦA FILE WORD
+ */
 export const injectContentIntoDocx = async (
   file: File,
   content: GeneratedNLSContent,
-  mode: 'NLS' | 'NAI',
+  mode: IntegrationMode,
   _log: (msg: string) => void
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
@@ -19,16 +37,19 @@ export const injectContentIntoDocx = async (
         if (!docFile) throw new Error("File Word không hợp lệ (thiếu document.xml)");
         
         let docXml = docFile.asText();
-        const label = mode === 'NLS' ? "Tích hợp NLS" : "Tích hợp AI";
+        
+        // Nhãn tiêu đề động theo 3 chế độ
+        let label = "Tích hợp NLS & AI";
+        if (mode === 'NLS') {
+          label = "Tích hợp NLS";
+        } else if (mode === 'NAI') {
+          label = "Tích hợp AI";
+        }
 
-        // --- HÀM 1: PHÁT HIỆN STYLE (CẢI TIẾN: KHÔNG ÉP CỠ CHỮ) ---
+        // --- HÀM 1: PHÁT HIỆN STYLE (TỰ ĐỘNG THỪA KẾ FONT/SIZE) ---
         const detectStyle = (xml: string, index: number) => {
-            // Quét ngược 10.000 ký tự để tìm định dạng chuẩn nhất
             const chunk = xml.substring(Math.max(0, index - 10000), index); 
             
-            // Tìm cỡ chữ (w:sz)
-            // QUAN TRỌNG: Không đặt default là "28" nữa. Nếu không thấy thì để null.
-            // Để Word tự quyết định dựa trên Style của đoạn văn đó.
             let fontSize = null;
             const szMatch = chunk.match(/<w:sz\s+w:val=["'](\d+)["'][^>]*\/>/g);
             if (szMatch && szMatch.length > 0) {
@@ -37,8 +58,6 @@ export const injectContentIntoDocx = async (
                  if (m) fontSize = m[1];
             }
 
-            // Tìm Font chữ (w:rFonts)
-            // Tương tự, nếu không thấy thì để null để thừa kế
             let fontTag = ""; 
             const fontMatch = chunk.match(/<w:rFonts\s+[^>]*\/>/g);
             if (fontMatch && fontMatch.length > 0) {
@@ -48,18 +67,17 @@ export const injectContentIntoDocx = async (
             return { fontSize, fontTag };
         };
 
-        // --- HÀM 2: TẠO KHỐI XML (HEADER + LIST) ---
+        // --- HÀM 2: TẠO KHỐI XML (MÀU ĐỎ + THỪA KẾ STYLE GỐC) ---
         const createXmlBlock = (text: string, style: { fontSize: string | null, fontTag: string }) => {
           if (!text) return "";
           
           const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           if (lines.length === 0) return "";
 
-          // Style cơ bản: Màu xanh dương đậm (2E74B5)
-          let rPrHeader = `<w:b/><w:color w:val="2E74B5"/>`; 
-          let rPrBody = `<w:color w:val="2E74B5"/>`;
+          // Mặc định màu chữ đỏ tươi cho phần chèn nội dung NLS/AI
+          let rPrHeader = `<w:b/><w:color w:val="FF0000"/>`; 
+          let rPrBody = `<w:color w:val="FF0000"/>`;
 
-          // Chỉ áp dụng Font/Size nếu thực sự tìm thấy trong văn bản gốc
           if (style.fontSize) {
               const szTag = `<w:sz w:val="${style.fontSize}"/><w:szCs w:val="${style.fontSize}"/>`;
               rPrHeader += szTag;
@@ -80,9 +98,8 @@ export const injectContentIntoDocx = async (
                             </w:r>
                           </w:p>`;
 
-          // 2. Tạo các dòng Liệt kê
+          // 2. Tạo các dòng Liệt kê nội dung
           lines.forEach(line => {
-              // Lọc rác
               let cleanLine = line
                   .replace(/\*\*/g, "") 
                   .replace(/__/, "")
@@ -109,7 +126,6 @@ export const injectContentIntoDocx = async (
             let idx = xml.indexOf(keyword);
             if (idx !== -1) return idx;
 
-            // Xử lý dấu cách đặc biệt và thẻ XML xen giữa
             const words = keyword.split(/[\s\u00A0]+/).map(w => escapeRegex(w));
             if (words.length === 0) return -1;
 
@@ -120,8 +136,7 @@ export const injectContentIntoDocx = async (
             return match ? match.index : -1;
         };
 
-        // --- 4. CHÈN NĂNG LỰC ---
-        const objectiveLines = content.objectives_addition.split('\n').filter(l => l.trim());
+        // --- 4. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU ---
         const keywords = ["Phẩm chất năng lực", "2. Phát triển năng lực", "2. Năng lực", "2. năng lực", "II. MỤC TIÊU", "II. Mục tiêu", "Năng lực cần đạt", "3. Năng lực"];
         
         let targetIndices: number[] = [];
@@ -139,7 +154,7 @@ export const injectContentIntoDocx = async (
         const reverseIndices = [...targetIndices].reverse(); 
         
         if (targetIndices.length > 0) {
-             reverseIndices.forEach((index, reverseI) => {
+             reverseIndices.forEach((index) => {
                  let contentToInsert = content.objectives_addition;
                  if (contentToInsert) {
                      const currentStyle = detectStyle(newXml, index);
@@ -156,7 +171,6 @@ export const injectContentIntoDocx = async (
                  }
              });
         } else {
-            // Fallback: Không ép size, để tự nhiên
             const xmlBlock = createXmlBlock(content.objectives_addition, { fontSize: null, fontTag: "" });
             if (xmlBlock) {
                 const bodyTag = "<w:body>";
@@ -166,13 +180,16 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 5. CHÈN HOẠT ĐỘNG ---
+        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG ---
         if (Array.isArray(content.activities_enhancement)) {
             content.activities_enhancement.forEach(item => {
-                let safeName = escapeXml(item.activity_name);
-                let actIndex = -1;
+                const actName = (item as any).activity_name || (item as any).activity_title || "";
+                const actContent = (item as any).enhanced_content || (item as any).content || "";
 
-                actIndex = findFuzzyIndex(docXml, safeName);
+                if (!actName) return;
+
+                let safeName = escapeXml(actName);
+                let actIndex = findFuzzyIndex(docXml, safeName);
 
                 if (actIndex === -1) {
                     const coreKeywords = ["Khởi động", "Hình thành kiến thức", "Luyện tập", "Vận dụng", "Mở đầu", "Kết nối"];
@@ -212,7 +229,7 @@ export const injectContentIntoDocx = async (
                      
                      if (insertPos !== -1) {
                          const splitPos = insertPos + closingTag.length;
-                         const xmlBlock = createXmlBlock(item.enhanced_content, currentStyle);
+                         const xmlBlock = createXmlBlock(actContent, currentStyle);
                          
                          if (xmlBlock) {
                              docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
