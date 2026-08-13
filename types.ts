@@ -4,10 +4,19 @@ export interface EnhancedActivityItem {
   location?: string;
 }
 
+export interface SummaryTableItem {
+  stt: string;
+  code: string;
+  component: string;
+  expression: string;
+  activity: string;
+}
+
 export interface GeneratedNLSContent {
   objectives_addition: string;
   materials_addition: string;
   activities_enhancement: EnhancedActivityItem[];
+  summary_table?: SummaryTableItem[];
 }
 
 export type IntegrationMode = 'NLS_AI' | 'NLS' | 'NAI';
@@ -30,6 +39,7 @@ export interface AppState {
   generatedContent: GeneratedNLSContent | null;
   result: { fileName: string; blob: Blob } | null;
 }
+
 export interface UserProfile {
   uid: string;
   email: string;

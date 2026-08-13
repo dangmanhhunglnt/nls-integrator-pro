@@ -109,11 +109,11 @@ export const injectContentIntoDocx = async (
 
               if (cleanLine) {
                   xmlBlock += `<w:p>
-                                 <w:pPr><w:ind w:left="720"/></w:pPr> 
-                                 <w:r>
-                                    <w:rPr>${rPrBody}</w:rPr>
-                                    <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                                 </w:r>
+                                   <w:pPr><w:ind w:left="720"/></w:pPr> 
+                                   <w:r>
+                                      <w:rPr>${rPrBody}</w:rPr>
+                                      <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                                   </w:r>
                                </w:p>`;
               }
           });
@@ -134,6 +134,56 @@ export const injectContentIntoDocx = async (
             
             const match = regex.exec(xml);
             return match ? match.index : -1;
+        };
+
+        // --- HÀM MỚI BỔ SUNG: VẼ BẢNG TỔNG HỢP NLS/AI BẰNG XML CHO WORD ---
+        const createSummaryTableXml = (tableData: Array<any>) => {
+          if (!Array.isArray(tableData) || tableData.length === 0) return "";
+
+          let rowsXml = "";
+          // Row Header (Tiêu đề bảng)
+          rowsXml += `
+            <w:tr>
+              <w:trPr><w:tblHeader/></w:trPr>
+              <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
+            </w:tr>`;
+
+          // Data Rows (Các dòng nội dung)
+          tableData.forEach((item) => {
+            rowsXml += `
+              <w:tr>
+                <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.stt || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>${escapeXml(String(item.code || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.component || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.expression || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.activity || ''))}</w:t></w:r></w:p></w:tc>
+              </w:tr>`;
+          });
+
+          return `
+            <w:p>
+              <w:pPr><w:jc w:val="center"/><w:spacing w:before="300" w:after="150"/></w:pPr>
+              <w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t>BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC</w:t></w:r>
+            </w:p>
+            <w:tbl>
+              <w:tblPr>
+                <w:tblW w:w="0" w:type="auto"/>
+                <w:tblBorders>
+                  <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                  <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                  <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                  <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                  <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                  <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                </w:tblBorders>
+              </w:tblPr>
+              ${rowsXml}
+            </w:tbl>
+            <w:p/>`;
         };
 
         // --- 4. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU ---
@@ -180,7 +230,7 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG ---
+        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN VÀO Ô TRONG BẢNG) ---
         if (Array.isArray(content.activities_enhancement)) {
             content.activities_enhancement.forEach(item => {
                 const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -224,19 +274,50 @@ export const injectContentIntoDocx = async (
 
                 if (actIndex !== -1) {
                      const currentStyle = detectStyle(docXml, actIndex);
-                     const closingTag = "</w:p>";
-                     const insertPos = docXml.indexOf(closingTag, actIndex);
-                     
-                     if (insertPos !== -1) {
-                         const splitPos = insertPos + closingTag.length;
-                         const xmlBlock = createXmlBlock(actContent, currentStyle);
-                         
-                         if (xmlBlock) {
+                     const xmlBlock = createXmlBlock(actContent, currentStyle);
+
+                     if (xmlBlock) {
+                         // NÂNG CẤP: Tìm ô trong Bảng (Table Cell <w:tc>) gần nhất chứa từ khóa hành động HS
+                         const cellKeywords = ["HS thực hiện", "thực hiện nhiệm vụ", "Học sinh thực hiện", "Báo cáo kết quả", "Sản phẩm"];
+                         let targetCellPos = -1;
+
+                         for (const cKey of cellKeywords) {
+                             const foundPos = docXml.indexOf(cKey, actIndex);
+                             // Chỉ chấp nhận ô nằm trong phạm vi 5000 ký tự sau tên Hoạt động
+                             if (foundPos !== -1 && foundPos - actIndex < 5000) {
+                                 targetCellPos = foundPos;
+                                 break;
+                             }
+                         }
+
+                         let insertPos = -1;
+                         if (targetCellPos !== -1) {
+                             // Nếu tìm thấy ô trong bảng, chèn vào ngay sau đoạn <w:p> của ô đó
+                             insertPos = docXml.indexOf("</w:p>", targetCellPos);
+                         } else {
+                             // Ngược lại chèn sau đoạn tiêu đề Hoạt động như cũ
+                             insertPos = docXml.indexOf("</w:p>", actIndex);
+                         }
+
+                         if (insertPos !== -1) {
+                             const splitPos = insertPos + "</w:p>".length;
                              docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
                          }
                      }
                 }
             });
+        }
+
+        // --- 6. HÀM MỚI BỔ SUNG: TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
+        if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
+            const tableXml = createSummaryTableXml(content.summary_table);
+            if (tableXml) {
+                const bodyEndTag = "</w:body>";
+                const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
+                if (bodyEndIndex !== -1) {
+                    docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
+                }
+            }
         }
 
         zip.file("word/document.xml", docXml);
