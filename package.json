@@ -12,6 +12,7 @@
     "@google/generative-ai": "^0.2.1",
     "docxtemplater": "^3.46.0",
     "file-saver": "^2.0.5",
+    "firebase": "^12.17.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.344.0",
     "mammoth": "^1.6.0",
