@@ -220,7 +220,7 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 6. CHÈN SONG SONG: PHẦN CHUNG (TIÊU ĐỀ) VÀ PHẦN CHI TIẾT (Ô BẢNG) ---
+        // --- 6. CHÈN KÉP: VỪA Ở TIÊU ĐỀ HOẠT ĐỘNG VỪA BỔ SUNG VÀO Ô BẢNG LÀM VIỆC CỦA HS ---
         if (Array.isArray(content.activities_enhancement)) {
             content.activities_enhancement.forEach((item, index) => {
                 const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -265,7 +265,7 @@ export const injectContentIntoDocx = async (
                      const xmlBlock = createXmlBlock(actContent, currentStyle);
 
                      if (xmlBlock) {
-                         // LƯỢT 1 (PHẦN CHUNG): Chèn dưới Tiêu đề Hoạt động
+                         // LƯỢT 1 (PHẦN CHUNG): Chèn vào ngay bên dưới Tiêu đề Hoạt động
                          const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
                          let addedOffset = 0;
 
@@ -275,20 +275,24 @@ export const injectContentIntoDocx = async (
                              addedOffset = xmlBlock.length;
                          }
 
-                         // LƯỢT 2 (PHẦN CHI TIẾT): Tìm ô Bảng chứa "- HS tiến hành" / "- HS sử dụng"
+                         // LƯỢT 2 (PHẦN CHI TIẾT): Tìm chính xác vị trí công việc HS trong Bảng CV 5512
                          const cellKeywords = [
                              "- HS tiến hành",
                              "- HS sử dụng",
+                             "- Quan sát, trả lời",
+                             "- Nhóm trưởng điều phối",
+                             "- Mỗi nhóm được sử dụng",
                              "HS tiến hành",
                              "HS sử dụng",
-                             "HS thực hiện nhiệm vụ",
-                             "HS thực hiện"
+                             "điện thoại cá nhân",
+                             "thông minh",
+                             "điện thoại"
                          ];
 
                          let targetCellPos = -1;
                          for (const cKey of cellKeywords) {
                              const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
-                             if (foundPos !== -1 && foundPos - actIndex < 15000) {
+                             if (foundPos !== -1 && foundPos - actIndex < 18000) {
                                  targetCellPos = foundPos;
                                  break;
                              }
