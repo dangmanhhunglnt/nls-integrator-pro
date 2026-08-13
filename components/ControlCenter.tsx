@@ -121,7 +121,9 @@ export default function ControlCenter({
                                   <option value="Địa Lí">Địa Lí</option>
                                   <option value="Giáo dục kinh tế và pháp luật">GDKT & PL</option>
                                   <option value="Tin Học">Tin Học</option>
-                                  <option value="Công nghệ">Công nghệ</option>
+                                  {/* TÁCH RÕ 2 ĐỊNH HƯỚNG CÔNG NGHỆ CHUẨN GDPT 2018 */}
+                                  <option value="Công nghệ (Công nghiệp)">Công nghệ (Công nghiệp)</option>
+                                  <option value="Công nghệ (Nông nghiệp)">Công nghệ (Nông nghiệp)</option>
                                   <option value="Âm Nhạc">Âm Nhạc</option>
                                   <option value="Mỹ Thuật">Mỹ Thuật</option>
                               </optgroup>
