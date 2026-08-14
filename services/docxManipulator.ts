@@ -275,34 +275,58 @@ export const injectContentIntoDocx = async (
                              addedOffset = xmlBlock.length;
                          }
 
-                         // LƯỢT 2 (PHẦN CHI TIẾT): Tìm chính xác vị trí công việc HS trong Bảng CV 5512
-                         const cellKeywords = [
-                             "- HS tiến hành",
-                             "- HS sử dụng",
-                             "- Quan sát, trả lời",
-                             "- Nhóm trưởng điều phối",
-                             "- Mỗi nhóm được sử dụng",
-                             "HS tiến hành",
-                             "HS sử dụng",
-                             "điện thoại cá nhân",
-                             "thông minh",
-                             "điện thoại"
-                         ];
+                         // LƯỢT 2 (PHẦN CHI TIẾT - NÂNG CẤP BẮT THẺ Ô BẢNG XML):
+                         // 1. Tìm vị trí thẻ Bảng <w:tbl> gần nhất phía sau Hoạt động
+                         const tblPos = docXml.indexOf("<w:tbl>", actIndex + addedOffset);
 
-                         let targetCellPos = -1;
-                         for (const cKey of cellKeywords) {
-                             const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
-                             if (foundPos !== -1 && foundPos - actIndex < 18000) {
-                                 targetCellPos = foundPos;
-                                 break;
+                         if (tblPos !== -1 && tblPos - actIndex < 15000) {
+                             // 2. Tìm thẻ tiêu đề cột "HS thực hiện" trong Bảng
+                             const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
+                             
+                             let targetCellPos = -1;
+                             if (hsHeaderPos !== -1) {
+                                 // Lấy vị trí dòng chứa nội dung công việc thực tế của HS ngay dưới dòng tiêu đề
+                                 const contentRowPos = docXml.indexOf("<w:tr>", tblPos + hsHeaderPos);
+                                 if (contentRowPos !== -1 && contentRowPos - tblPos < 10000) {
+                                     // Ô thứ 2 trong hàng chính là Cột HS thực hiện nhiệm vụ
+                                     const firstCell = docXml.indexOf("<w:tc>", contentRowPos);
+                                     if (firstCell !== -1) {
+                                         const secondCell = docXml.indexOf("<w:tc>", firstCell + 6);
+                                         if (secondCell !== -1) {
+                                             targetCellPos = secondCell;
+                                         }
+                                     }
+                                 }
                              }
-                         }
 
-                         if (targetCellPos !== -1) {
-                             const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
-                             if (cellInsertPos !== -1) {
-                                 const splitPos = cellInsertPos + "</w:p>".length;
-                                 docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                             // Thuật toán dự phòng: Nếu không bắt được bằng thẻ XML, quét các từ khóa dòng công việc thực tế
+                             if (targetCellPos === -1) {
+                                 const cellKeywords = [
+                                     "- HS tiến hành",
+                                     "- HS sử dụng",
+                                     "- Quan sát, trả lời",
+                                     "- Nhóm trưởng điều phối",
+                                     "- Mỗi nhóm được sử dụng",
+                                     "HS tiến hành",
+                                     "HS sử dụng",
+                                     "điện thoại cá nhân"
+                                 ];
+                                 for (const cKey of cellKeywords) {
+                                     const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
+                                     if (foundPos !== -1 && foundPos - actIndex < 18000) {
+                                         targetCellPos = foundPos;
+                                         break;
+                                     }
+                                 }
+                             }
+
+                             // 3. Tiến hành chèn khối màu đỏ vào cuối ô Bảng đã xác định
+                             if (targetCellPos !== -1) {
+                                 const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
+                                 if (cellInsertPos !== -1) {
+                                     const splitPos = cellInsertPos + "</w:p>".length;
+                                     docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                                 }
                              }
                          }
                      }
