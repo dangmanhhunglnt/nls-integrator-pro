@@ -230,7 +230,7 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN VÀO Ô TRONG BẢNG) ---
+        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN BỔ SUNG TRỰC TIẾP VÀO Ô BẢNG CV 5512) ---
         if (Array.isArray(content.activities_enhancement)) {
             content.activities_enhancement.forEach((item, index) => {
                 const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -285,34 +285,60 @@ export const injectContentIntoDocx = async (
                              addedOffset = xmlBlock.length;
                          }
 
-                         // LƯỢT 2: BỔ SUNG THÊM vào ô Bảng công việc HS ("- HS tiến hành", "- Quan sát, trả lời"...)
-                         const cellKeywords = [
-                             "- HS tiến hành",
-                             "- HS sử dụng",
-                             "- Quan sát, trả lời",
-                             "- Nhóm trưởng điều phối",
-                             "- Mỗi nhóm được sử dụng",
-                             "HS tiến hành",
-                             "HS sử dụng",
-                             "điện thoại cá nhân",
-                             "HS thực hiện nhiệm vụ",
-                             "HS thực hiện"
-                         ];
+                         // LƯỢT 2 (NÂNG CẤP BẮT THẺ Ô BẢNG XML):
+                         // 1. Tìm vị trí thẻ Bảng <w:tbl> gần nhất phía sau Hoạt động
+                         const tblPos = docXml.indexOf("<w:tbl>", actIndex + addedOffset);
 
-                         let targetCellPos = -1;
-                         for (const cKey of cellKeywords) {
-                             const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
-                             if (foundPos !== -1 && foundPos - actIndex < 18000) {
-                                 targetCellPos = foundPos;
-                                 break;
+                         if (tblPos !== -1 && tblPos - actIndex < 20000) {
+                             // 2. Quét thẻ tiêu đề cột "HS thực hiện nhiệm vụ" trong Bảng
+                             const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
+                             
+                             let targetCellPos = -1;
+                             if (hsHeaderPos !== -1) {
+                                 // Lấy vị trí dòng chứa nội dung công việc thực tế của HS ngay dưới dòng tiêu đề
+                                 const contentRowPos = docXml.indexOf("<w:tr>", tblPos + hsHeaderPos);
+                                 if (contentRowPos !== -1 && contentRowPos - tblPos < 10000) {
+                                     // Ô thứ 2 trong hàng chính là Cột HS thực hiện nhiệm vụ
+                                     const firstCell = docXml.indexOf("<w:tc>", contentRowPos);
+                                     if (firstCell !== -1) {
+                                         const secondCell = docXml.indexOf("<w:tc>", firstCell + 6);
+                                         if (secondCell !== -1) {
+                                             targetCellPos = secondCell;
+                                         }
+                                     }
+                                 }
                              }
-                         }
 
-                         if (targetCellPos !== -1) {
-                             const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
-                             if (cellInsertPos !== -1) {
-                                 const splitPos = cellInsertPos + "</w:p>".length;
-                                 docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                             // Thuật toán dự phòng: Quét các từ khóa dòng công việc thực tế của Học sinh
+                             if (targetCellPos === -1) {
+                                 const cellKeywords = [
+                                     "- HS tiến hành",
+                                     "- HS sử dụng",
+                                     "- Quan sát, trả lời",
+                                     "- Nhóm trưởng điều phối",
+                                     "- Mỗi nhóm được sử dụng",
+                                     "HS tiến hành",
+                                     "HS sử dụng",
+                                     "điện thoại cá nhân",
+                                     "HS thực hiện nhiệm vụ",
+                                     "HS thực hiện"
+                                 ];
+                                 for (const cKey of cellKeywords) {
+                                     const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
+                                     if (foundPos !== -1 && foundPos - actIndex < 18000) {
+                                         targetCellPos = foundPos;
+                                         break;
+                                     }
+                                 }
+                             }
+
+                             // 3. Tiến hành chèn trực tiếp khối màu đỏ vào cuối ô Bảng đã xác định
+                             if (targetCellPos !== -1) {
+                                 const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
+                                 if (cellInsertPos !== -1) {
+                                     const splitPos = cellInsertPos + "</w:p>".length;
+                                     docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                                 }
                              }
                          }
                      }
