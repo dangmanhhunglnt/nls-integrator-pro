@@ -5,9 +5,8 @@ import { injectContentIntoDocx, extractTextFromDocx } from './services/docxManip
 import { PEDAGOGY_MODELS } from './utils';
 import packageJson from './package.json';
 
-// Import Firebase Auth
-import { auth, loginWithGoogle, logoutUser } from './config/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+// Import Supabase Client để quản lý Auth & Đếm lượt dùng
+import { supabase } from './config/supabaseClient';
 
 // Import các components giao diện
 import Header from './components/Header';
@@ -26,41 +25,85 @@ const App: React.FC = () => {
   const [userApiKey, setUserApiKey] = useState('');
   const [isKeySaved, setIsKeySaved] = useState(false);
 
-  // Lắng nghe trạng thái đăng nhập Firebase
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        // Đã đăng nhập
+  // 1. Hàm lấy Profile và số lượt dùng thực tế từ Supabase
+  const fetchUserProfile = async (userId: string, email: string, displayName: string, photoURL: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (data && !error) {
         setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName || 'Giáo viên',
-          photoURL: firebaseUser.photoURL || '',
+          uid: userId,
+          email: email,
+          displayName: data.full_name || displayName || 'Giáo viên',
+          photoURL: photoURL || '',
+          plan: data.role === 'pro' ? 'PRO' : 'FREE',
+          usageCount: data.usage_count || 0,
+          maxUsage: data.max_usage || 3
+        });
+      } else {
+        // Dự phòng nếu chưa có profile trong bảng
+        setUser({
+          uid: userId,
+          email: email,
+          displayName: displayName || 'Giáo viên',
+          photoURL: photoURL || '',
           plan: 'FREE',
           usageCount: 0,
           maxUsage: 3
         });
+      }
+    } catch (err) {
+      console.error("Lỗi lấy thông tin profile:", err);
+    }
+  };
+
+  // 2. Lắng nghe trạng thái đăng nhập Supabase Auth
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }: { data: { session: any } }) => {
+      if (data?.session?.user) {
+        const u = data.session.user;
+        fetchUserProfile(u.id, u.email || '', u.user_metadata?.full_name || '', u.user_metadata?.avatar_url || '');
       } else {
-        // Chưa đăng nhập / đã đăng xuất
         setUser(null);
       }
     });
 
-    return () => unsubscribe();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      if (session?.user) {
+        const u = session.user;
+        fetchUserProfile(u.id, u.email || '', u.user_metadata?.full_name || '', u.user_metadata?.avatar_url || '');
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Xử lý Đăng nhập Google
+  // Xử lý Đăng nhập Google qua Supabase
   const handleLogin = async () => {
     try {
-      await loginWithGoogle();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
     } catch (error) {
       console.error("Đăng nhập thất bại:", error);
+      alert("Đăng nhập thất bại, vui lòng thử lại!");
     }
   };
 
   // Xử lý Đăng xuất
   const handleLogout = async () => {
-    await logoutUser();
+    await supabase.auth.signOut();
+    setUser(null);
   };
 
   const [state, setState] = useState<AppState>({
@@ -87,7 +130,7 @@ const App: React.FC = () => {
     if (userApiKey.trim()) { 
       localStorage.setItem('gemini_api_key', userApiKey); 
       setIsKeySaved(true); 
-      addLog("🔐 Đã kích hoạt bản quyền API."); 
+      addLog("🔐 Đã kích hoạt bản quyền API cá nhân."); 
     } else { 
       alert("Vui lòng nhập Key!"); 
     }
@@ -115,14 +158,26 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, logs: [...prev.logs, msg] })); 
   };
 
+  // 3. Hàm phân tích giáo án & Trừ lượt dùng
   const handleAnalyze = async () => {
-    if (!userApiKey.trim()) { 
-      alert("Vui lòng nhập API Key!"); 
-      return; 
-    }
     if (!state.file || !state.subject || !state.grade) { 
       alert("Vui lòng chọn đầy đủ Môn và Khối lớp!"); 
       return; 
+    }
+
+    // A. Kiểm tra quyền & Lượt dùng nếu không tự nhập Key cá nhân
+    const hasCustomKey = Boolean(userApiKey.trim());
+    if (!hasCustomKey) {
+      if (!user) {
+        alert("Vui lòng Đăng nhập tài khoản Google để sử dụng lượt dùng thử miễn phí hoặc nhập Key cá nhân!");
+        handleLogin();
+        return;
+      }
+
+      if (user.plan !== 'PRO' && user.usageCount >= user.maxUsage) {
+        alert(`Bạn đã dùng hết ${user.maxUsage}/${user.maxUsage} lượt miễn phí. Vui lòng bấm "Đổi Key" để dùng Key cá nhân hoặc nâng cấp gói Pro!`);
+        return;
+      }
     }
 
     setState(prev => ({ 
@@ -148,6 +203,19 @@ const App: React.FC = () => {
         userApiKey
       );
       addLog(`✓ Hoàn tất thiết kế.`);
+
+      // B. Trừ lượt sử dụng trên Supabase nếu dùng lượt hệ thống
+      if (!hasCustomKey && user && user.plan !== 'PRO') {
+        const nextUsage = user.usageCount + 1;
+        await supabase
+          .from('profiles')
+          .update({ usage_count: nextUsage })
+          .eq('id', user.uid);
+        
+        // Cập nhật State giao diện
+        setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
+        addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
+      }
       
       setState(prev => ({ 
         ...prev, 
