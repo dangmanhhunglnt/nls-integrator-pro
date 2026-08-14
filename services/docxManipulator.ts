@@ -148,7 +148,7 @@ export const injectContentIntoDocx = async (
               <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
@@ -232,16 +232,16 @@ export const injectContentIntoDocx = async (
 
         // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN VÀO Ô TRONG BẢNG) ---
         if (Array.isArray(content.activities_enhancement)) {
-            content.activities_enhancement.forEach(item => {
+            content.activities_enhancement.forEach((item, index) => {
                 const actName = (item as any).activity_name || (item as any).activity_title || "";
                 const actContent = (item as any).enhanced_content || (item as any).content || "";
 
-                if (!actName) return;
+                if (!actName && !actContent) return;
 
                 let safeName = escapeXml(actName);
                 let actIndex = findFuzzyIndex(docXml, safeName);
 
-                if (actIndex === -1) {
+                if (actIndex === -1 && safeName) {
                     const coreKeywords = ["Khởi động", "Hình thành kiến thức", "Luyện tập", "Vận dụng", "Mở đầu", "Kết nối"];
                     for (const key of coreKeywords) {
                         if (safeName.includes(key)) {
@@ -261,14 +261,12 @@ export const injectContentIntoDocx = async (
                 }
 
                 if (actIndex === -1) {
-                     const matchNum = safeName.match(/\d+/);
-                     if (matchNum) {
-                         const num = matchNum[0];
-                         const variants = [`Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`, `Nhiệm vụ ${num}`];
-                         for (const v of variants) {
-                             actIndex = findFuzzyIndex(docXml, v);
-                             if (actIndex !== -1) break;
-                         }
+                     const matchNum = safeName ? safeName.match(/\d+/) : null;
+                     const num = matchNum ? matchNum[0] : String(index + 1);
+                     const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`, `Nhiệm vụ ${num}`];
+                     for (const v of variants) {
+                         actIndex = findFuzzyIndex(docXml, v);
+                         if (actIndex !== -1) break;
                      }
                 }
 
@@ -277,31 +275,57 @@ export const injectContentIntoDocx = async (
                      const xmlBlock = createXmlBlock(actContent, currentStyle);
 
                      if (xmlBlock) {
+<<<<<<< HEAD
                          // Tìm ô trong Bảng (Table Cell <w:tc>) chứa từ khóa hành động của Học sinh trong bảng CV 5512
                          const cellKeywords = ["HS thực hiện", "thực hiện nhiệm vụ", "Học sinh thực hiện", "Báo cáo kết quả", "Sản phẩm", "Phương án đánh giá"];
                          let targetCellPos = -1;
+=======
+                         // LƯỢT 1: Chèn khối màu đỏ ngay dưới Tiêu đề Hoạt động
+                         const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
+                         let addedOffset = 0;
+>>>>>>> version-2
 
+                         if (headerInsertPos !== -1) {
+                             const splitPos = headerInsertPos + "</w:p>".length;
+                             docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                             addedOffset = xmlBlock.length;
+                         }
+
+                         // LƯỢT 2: BỔ SUNG THÊM vào ô Bảng công việc HS ("- HS tiến hành", "- Quan sát, trả lời"...)
+                         const cellKeywords = [
+                             "- HS tiến hành",
+                             "- HS sử dụng",
+                             "- Quan sát, trả lời",
+                             "- Nhóm trưởng điều phối",
+                             "- Mỗi nhóm được sử dụng",
+                             "HS tiến hành",
+                             "HS sử dụng",
+                             "điện thoại cá nhân",
+                             "HS thực hiện nhiệm vụ",
+                             "HS thực hiện"
+                         ];
+
+                         let targetCellPos = -1;
                          for (const cKey of cellKeywords) {
+<<<<<<< HEAD
                              const foundPos = docXml.indexOf(cKey, actIndex);
                              // Chỉ chấp nhận ô nằm trong phạm vi 8000 ký tự sau tên Hoạt động
                              if (foundPos !== -1 && foundPos - actIndex < 8000) {
+=======
+                             const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
+                             if (foundPos !== -1 && foundPos - actIndex < 18000) {
+>>>>>>> version-2
                                  targetCellPos = foundPos;
                                  break;
                              }
                          }
 
-                         let insertPos = -1;
                          if (targetCellPos !== -1) {
-                             // Nếu tìm thấy ô trong bảng, chèn vào ngay sau đoạn <w:p> của ô đó
-                             insertPos = docXml.indexOf("</w:p>", targetCellPos);
-                         } else {
-                             // Ngược lại chèn sau đoạn tiêu đề Hoạt động như cũ
-                             insertPos = docXml.indexOf("</w:p>", actIndex);
-                         }
-
-                         if (insertPos !== -1) {
-                             const splitPos = insertPos + "</w:p>".length;
-                             docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                             const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
+                             if (cellInsertPos !== -1) {
+                                 const splitPos = cellInsertPos + "</w:p>".length;
+                                 docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                             }
                          }
                      }
                 }
