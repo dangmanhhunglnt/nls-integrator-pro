@@ -26,8 +26,8 @@ export default function HeroSection({ appVersion }: HeroSectionProps) {
             </span>
           </h2>
 
-          <p className="text-slate-300 text-xs md:text-sm leading-relaxed max-w-xl">
-            Tự động tích hợp Năng lực số (TT 02/2025) và Khung AI 2026 vào bài dạy. Bảo lưu 100% định dạng, bảng biểu và công thức MathType.
+          <p className="text-gray-300 text-sm md:text-base max-w-3xl mt-2 leading-relaxed">
+            Tự động tích hợp Năng lực số (TT 02/2025) & Giáo dục AI (QĐ 3439, Khung AI 2026 & HD 2026-2027) vào bài dạy. Bảo lưu 100% định dạng, bảng biểu và công thức MathType.
           </p>
         </div>
 
