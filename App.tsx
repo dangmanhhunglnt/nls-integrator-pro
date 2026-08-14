@@ -165,19 +165,17 @@ const App: React.FC = () => {
       return; 
     }
 
-    // A. Kiểm tra quyền & Lượt dùng nếu không tự nhập Key cá nhân
-    const hasCustomKey = Boolean(userApiKey.trim());
-    if (!hasCustomKey) {
-      if (!user) {
-        alert("Vui lòng Đăng nhập tài khoản Google để sử dụng lượt dùng thử miễn phí hoặc nhập Key cá nhân!");
-        handleLogin();
-        return;
-      }
+    // 1. Kiểm tra tài khoản
+    if (!user) {
+      alert("Vui lòng Đăng nhập tài khoản Google để tiếp tục!");
+      handleLogin();
+      return;
+    }
 
-      if (user.plan !== 'PRO' && user.usageCount >= user.maxUsage) {
-        alert(`Bạn đã dùng hết ${user.maxUsage}/${user.maxUsage} lượt miễn phí. Vui lòng bấm "Đổi Key" để dùng Key cá nhân hoặc nâng cấp gói Pro!`);
-        return;
-      }
+    // 2. Kiểm tra hạn mức nếu là tài khoản Free
+    if (user.plan !== 'PRO' && user.usageCount >= user.maxUsage) {
+      alert(`Bạn đã dùng hết ${user.maxUsage}/${user.maxUsage} lượt thử nghiệm miễn phí. Vui lòng Nâng cấp tài khoản Pro!`);
+      return;
     }
 
     setState(prev => ({ 
@@ -204,15 +202,23 @@ const App: React.FC = () => {
       );
       addLog(`✓ Hoàn tất thiết kế.`);
 
-      // B. Trừ lượt sử dụng trên Supabase nếu dùng lượt hệ thống
-      if (!hasCustomKey && user && user.plan !== 'PRO') {
-        const nextUsage = user.usageCount + 1;
+      // 3. Tự động tăng và lưu số lượt vào Supabase
+      if (user.plan !== 'PRO') {
+        const nextUsage = (user.usageCount || 0) + 1;
+        
+        // Upsert vào database Supabase
         await supabase
           .from('profiles')
-          .update({ usage_count: nextUsage })
-          .eq('id', user.uid);
+          .upsert({ 
+            id: user.uid, 
+            email: user.email,
+            full_name: user.displayName,
+            usage_count: nextUsage,
+            max_usage: user.maxUsage,
+            role: 'free'
+          });
         
-        // Cập nhật State giao diện
+        // Cập nhật ngay lên giao diện
         setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
         addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
       }
