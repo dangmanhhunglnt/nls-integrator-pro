@@ -2,7 +2,20 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Chỉ chấp nhận phương thức POST
+  // 1. Cấu hình Headers CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // 2. Chỉ chấp nhận phương thức POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -17,11 +30,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let apiKeyToUse: string | undefined;
 
     // 1. Ưu tiên xài customApiKey từ nút "Đổi Key" nếu người dùng nhập
-    if (customApiKey && customApiKey.trim() !== '') {
+    if (customApiKey && typeof customApiKey === 'string' && customApiKey.trim() !== '') {
       apiKeyToUse = customApiKey.trim();
     } 
-    // 2. Nếu không có customApiKey nhưng người dùng đã đăng nhập (có userToken) -> Dùng Key của hệ thống
-    else if (userToken) {
+    // 2. Nếu không có customApiKey nhưng người dùng đã đăng nhập hoặc gọi hệ thống -> Dùng Key của hệ thống
+    else if (userToken || process.env.GEMINI_API_KEY) {
       apiKeyToUse = process.env.GEMINI_API_KEY;
     }
 
@@ -35,13 +48,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Khởi tạo Gemini với API Key phù hợp
     const genAI = new GoogleGenerativeAI(apiKeyToUse);
     
-    // Nâng cấp model gemini-1.5-flash / gemini-2.0-flash / gemini-2.5-flash
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        responseMimeType: "application/json",
-      } as any // Ép kiểu as any để qua mặt lỗi TypeScript phiên bản SDK cũ
-    });
+    // Nâng cấp lên model Gemini Flash thế hệ mới
+    const model = genAI.getGenerativeModel(
+      { 
+        model: 'gemini-2.5-flash',
+        generationConfig: {
+          responseMimeType: 'application/json',
+        } as any,
+      },
+      { apiVersion: 'v1beta' } as any
+    );
 
     // Gọi Gemini API tạo nội dung
     const result = await model.generateContent(prompt);
@@ -53,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Lỗi API:', error);
     return res.status(500).json({ 
       error: 'Lỗi trong quá trình xử lý AI.', 
-      details: error.message 
+      details: error.message || String(error)
     });
   }
 }
