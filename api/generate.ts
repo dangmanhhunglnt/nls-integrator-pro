@@ -34,7 +34,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Khởi tạo Gemini với API Key phù hợp
     const genAI = new GoogleGenerativeAI(apiKeyToUse);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    // Nâng cấp model gemini-1.5-flash / gemini-2.0-flash / gemini-2.5-flash
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        responseMimeType: "application/json",
+      } as any // Ép kiểu as any để qua mặt lỗi TypeScript phiên bản SDK cũ
+    });
 
     // Gọi Gemini API tạo nội dung
     const result = await model.generateContent(prompt);
