@@ -1,9 +1,10 @@
 import { GeneratedNLSContent, SubjectType, GradeType, IntegrationMode } from '../types';
 
 /**
- * Xây dựng System Prompt chuẩn hóa bám sát Dự thảo Hướng dẫn triển khai GD AI 2026-2027 
- * và Khung nội dung GD AI (Cốt lõi 12 tiết/năm, ban hành 2026) của Bộ GD&ĐT.
- * Nâng cấp: Định hướng chèn trực tiếp vào ô "HS thực hiện nhiệm vụ" trong bảng Tổ chức thực hiện.
+ * Xây dựng System Prompt chuẩn hóa bám sát:
+ * 1. Thông tư 02/2025/TT-BGDĐT (Khung năng lực số cho người học).
+ * 2. Quyết định 3439/QĐ-BGDĐT & Khung Giáo dục AI hoàn thiện năm 2026 (Cốt lõi 12 tiết/năm).
+ * 3. Hướng dẫn triển khai thực hiện GD AI từ năm học 2026-2027 của Bộ GD&ĐT.
  */
 export const buildSystemPrompt = (subject: string, grade: string, mode: IntegrationMode): string => {
   let modeInstruction = "";
@@ -15,8 +16,8 @@ CHẾ ĐỘ TÍCH HỢP: CHỈ NĂNG LỰC SỐ (Theo Thông tư 02/2025/TT-BGD�
 - KHÔNG đưa bất kỳ mã năng lực AI (NLa, NLb, NLc, NLd) nào vào đầu ra.`;
   } else if (mode === 'NAI') {
     modeInstruction = `
-CHẾ ĐỘ TÍCH HỢP: CHỈ GIÁO DỤC TRÍ TUỆ NHÂN TẠO (Theo Khung Giáo dục AI 2026 của Bộ GD&ĐT).
-- CHỈ TRÍCH XUẤT các mã Năng lực AI theo 4 mạch đặc thù:
+CHẾ ĐỘ TÍCH HỢP: CHỈ GIÁO DỤC TRÍ TUỆ NHÂN TẠO (Theo Khung Giáo dục AI 2026 của Bộ GD&ĐT & QĐ 3439/QĐ-BGDĐT).
+- CHỈ TRÍCH XUẤT các mã Năng lực AI theo 4 mạch đặc thù chuẩn:
   + NLa (A): Tư duy lấy con người làm trung tâm (NLa.A1, NLa.A3...)
   + NLb (B): Đạo đức AI, bảo vệ dữ liệu cá nhân & khai báo minh bạch (NLb.B1, NLb.B2...)
   + NLc (C): Kỹ thuật, thuật toán & ứng dụng AI (NLc.C1, NLc.C2...)
@@ -24,34 +25,34 @@ CHẾ ĐỘ TÍCH HỢP: CHỈ GIÁO DỤC TRÍ TUỆ NHÂN TẠO (Theo Khung Gi
 - KHÔNG chèn các mã NLS thuần túy từ Thông tư 02/2025.`;
   } else {
     modeInstruction = `
-CHẾ ĐỘ TÍCH HỢP: KẾT HỢP TOÀN DIỆN NĂNG LỰC SỐ (TT 02/2025) & GIÁO DỤC AI (KHUNG BỘ GD&ĐT 2026).
-- Kết hợp song song các mã NLS (1.1.NC1a, 2.2.NC1a, 3.1.TC2a, 5.2.TC2a...) và các mã Năng lực AI (NLa.A3, NLb.B2, NLc.C2, NLd.D1...) bám sát kiến thức môn ${subject} - ${grade}.`;
+CHẾ ĐỘ TÍCH HỢP: KẾT HỢP TOÀN DIỆN NĂNG LỰC SỐ (TT 02/2025/TT-BGDĐT) & GIÁO DỤC AI (QĐ 3439 & KHUNG BỘ GD&ĐT 2026).
+- Kết hợp song song các mã NLS (1.1.NC1a, 2.2.NC1a, 3.1.TC2a, 5.2.TC2a...) và các mã Năng lực AI bám sát 4 mạch (NLa.A3, NLb.B2, NLc.C2, NLd.D1...) tương ứng kiến thức môn ${subject} - ${grade}.`;
   }
 
   return `
-Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo mới nhất năm 2026 của Bộ GD&ĐT Việt Nam.
+Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 3439/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Khung GD AI 2026).
 Nhiệm vụ: Đọc kĩ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} và trích xuất nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, CÁC KHÁI NIỆM TRỌNG TÂM VÀ TIẾN TRÌNH THỰC TẾ.
 
 ${modeInstruction}
 
 QUY TẮC PHÂN TÍCH VÀ ĐẦU RA BẮT BUỘC ĐỂ ĐẠT CHUẨN SỞ/PHÒNG GIÁO DỤC:
-1. MỤC TIÊU VÀ HỌC LIỆU:
+1. MỤC TIÊU VÀ HỌC LIỆU (MỤC I & II):
    - Nêu rõ các mã NLS/AI kèm diễn giải biểu hiện cụ thể của HS trong bài học môn ${subject}.
-   - Liệt kê học liệu số, phần mềm (Padlet, Mentimeter, Canva, mô phỏng 3D, Chatbot AI) và nhấn mạnh: "Sử dụng công cụ miễn phí/dùng chung, KHÔNG yêu cầu HS tạo tài khoản cá nhân".
+   - Liệt kê học liệu số, phần mềm (Padlet, Mentimeter, Canva, Teachable Machine, Chatbot AI) và BẮT BUỘC nhấn mạnh: "Sử dụng công cụ miễn phí/dùng chung, KHÔNG yêu cầu HS tạo tài khoản cá nhân hoặc thu thập dữ liệu cá nhân nhạy cảm".
 
-2. ĐAN CÀI CỤ THỂ VÀO CỘT "HS THỰC HIỆN NHIỆM VỤ" HOẶC "BÁO CÁO KẾT QUẢ":
-   - Đọc kỹ từng bảng "Tổ chức thực hiện" trong file Word gốc. Nội dung chèn phải được thiết kế để đặt thẳng vào ô "HS thực hiện nhiệm vụ" hoặc "Báo cáo kết quả" (không đặt rời rạc ngoài bảng).
-   - MÔ TẢ THAO TÁC CỤ THỂ: Quét QR trên Mentimeter/Padlet, tra cứu Google, thiết kế sơ đồ tư duy Canva...
+2. ĐAN CÀI CỤ THỂ VÀO BẢNG TỔ CHỨC THỰC HỆN (MỤC III - TIẾN TRÌNH DẠY HỌC):
+   - Đọc kỹ từng Hoạt động trong file Word gốc. Nội dung đan cài được thiết kế để vừa xuất hiện ở tiêu đề Hoạt động vừa chèn nối tiếp vào ô "HS thực hiện nhiệm vụ" / "- HS tiến hành..." / "- HS sử dụng...".
+   - MÔ TẢ THAO TÁC CỤ THỂ: Quét QR trên Mentimeter/Padlet, tra cứu Google chính thống, thiết kế sơ đồ tư duy Canva...
    - CUNG CẤP PROMPT MẪU CHO AI: Khi hướng dẫn dùng AI (ChatGPT, Gemini, Copilot), BẮT BUỘC viết câu lệnh mẫu cụ thể trong ngoặc kép liên quan trực tiếp bài học môn ${subject} (Ví dụ: NLc.C2: HS gõ prompt: "Hãy giải thích khái niệm...").
-   - ĐẠO ĐỨC & KHAI BÁO: Tích hợp mã NLb.B2 (HS khai báo phạm vi sử dụng AI khi báo cáo) và NLa.A3 (đối chiếu SGK để xác thực thông tin từ AI).
+   - ĐẠO ĐỨC, KHAI BÁO & KIỂM CHỨNG: Bắt buộc tích hợp mã NLb.B2 (HS khai báo phạm vi sử dụng AI khi báo cáo) và NLa.A3 (đối chiếu SGK để xác thực, kiểm chứng ảo giác AI).
 
-3. BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI Ở CUỐI BÀI (Mảng summary_table):
-   - Sinh đầy đủ mảng "summary_table" bao gồm 5 trường (stt, code, component, expression, activity) để ứng dụng tự động vẽ BẢNG TỔNG HỢP NLS/AI ở cuối file Word.
+3. BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC (Mảng summary_table):
+   - Sinh đầy đủ mảng "summary_table" bao gồm đúng 5 trường (stt, code, component, expression, activity) để ứng dụng tự động vẽ BẢNG TỔNG HỢP NLS/AI ở cuối file Word.
 
 ĐỊNH DẠNG ĐẦU RA (Yêu cầu trả về JSON thuần túy, tuyệt đối không bọc thẻ \`\`\`json):
 {
-  "objectives_addition": "* [Tiêu đề tích hợp chế độ ${mode} Môn ${subject} - ${grade}]:\\n[Chi tiết từng mã YCĐ kèm biểu hiện cụ thể của HS bám sát bài học môn ${subject}]",
-  "materials_addition": "* Thiết bị dạy học và Học liệu số tích hợp môn ${subject}:\\n- Máy tính, máy chiếu, thiết bị thông minh kết nối Internet (dùng chung dưới sự hướng dẫn của GV).\\n- Nền tảng tương tác trực tuyến (Padlet/Mentimeter), phần mềm đồ họa (Canva), Chatbot AI (Gemini/ChatGPT).\\n- Lưu ý: Không yêu cầu HS tạo tài khoản cá nhân hoặc dùng dịch vụ trả phí.",
+  "objectives_addition": "* [Tích hợp chế độ ${mode} Môn ${subject} - ${grade} (Theo TT 02/2025 & QĐ 3439/QĐ-BGDĐT)]:\\n[Chi tiết từng mã YCĐ kèm biểu hiện cụ thể của HS bám sát bài học môn ${subject}]",
+  "materials_addition": "* Thiết bị dạy học và Học liệu số tích hợp AI môn ${subject}:\\n- Máy tính, máy chiếu, thiết bị thông minh kết nối Internet (dùng chung dưới sự hướng dẫn của GV).\\n- Nền tảng tương tác trực tuyến (Padlet/Mentimeter), phần mềm đồ họa (Canva), Chatbot AI (Gemini/ChatGPT).\\n- Lưu ý an toàn: Không yêu cầu HS tạo tài khoản cá nhân, không thu thập dữ liệu cá nhân nhạy cảm.",
   "activities_enhancement": [
     {
       "activity_name": "MỤC 2: HOẠT ĐỘNG 1 TỔ CHỨC",
@@ -120,7 +121,7 @@ export async function generateCompetencyIntegration(
     console.warn('Không thể kết nối Serverless Function API, sử dụng dữ liệu dự phòng... Lỗi:', error?.message || error);
   }
 
-  // DỮ LIỆU DỰ PHÒNG CHUẨN (Fallback Offline) ĐẦY ĐỦ BẢNG TỔNG HỢP VÀ NỔI BẬT HƠN ĐỐI THỦ
+  // DỮ LIỆU DỰ PHÒNG CHUẨN (Fallback Offline) CÓ CĂN CỨ PHÁP LÝ RÕ RÀNG
   if (mode === 'NLS') {
     return {
       objectives_addition: `* Phát triển Năng lực số (Theo TT 02/2025/TT-BGDĐT - Môn ${subject} - ${grade}):
@@ -156,10 +157,11 @@ export async function generateCompetencyIntegration(
     };
   } else if (mode === 'NAI') {
     return {
-      objectives_addition: `* Tích hợp Năng lực Trí tuệ Nhân tạo (Theo Khung GD AI 2026 - Môn ${subject} - ${grade}):
+      objectives_addition: `* Tích hợp Năng lực Trí tuệ Nhân tạo (Theo QĐ 3439/QĐ-BGDĐT - Môn ${subject} - ${grade}):
 NLc.C2: HS sử dụng Chatbot AI với câu lệnh (prompt) phù hợp để hỗ trợ giải đáp câu hỏi môn ${subject}.
 NLa.A3: HS đối chiếu, kiểm chứng thông tin do AI cung cấp với kiến thức trong SGK môn ${subject}.
-NLb.B2: HS thực hiện khai báo minh bạch việc sử dụng công cụ AI trong sản phẩm học tập.`,
+NLb.B2: HS thực hiện khai báo minh bạch việc sử dụng công cụ AI trong sản phẩm học tập.
+NLd.D1: HS đưa câu hỏi cho AI về các giải pháp ứng dụng thực tiễn của bài học.`,
       materials_addition: `* Thiết bị dạy học và Công cụ AI (Môn ${subject}):
 - Máy tính/Smartphone kết nối Internet, ứng dụng Trợ lý AI (Gemini/ChatGPT).`,
       activities_enhancement: [
@@ -190,7 +192,7 @@ NLb.B2: HS thực hiện khai báo minh bạch việc sử dụng công cụ AI 
 
   // Chế độ mặc định: NLS_AI
   return {
-    objectives_addition: `* Phát triển năng lực số và năng lực AI (Môn ${subject} - ${grade}):
+    objectives_addition: `* Phát triển năng lực số và năng lực AI (Theo TT 02/2025 & QĐ 3439/QĐ-BGDĐT - Môn ${subject} - ${grade}):
 1.1.NC1a: HS sử dụng công cụ tìm kiếm nâng cao tra cứu, chọn lọc và đánh giá độ tin cậy của tài liệu môn ${subject}.
 2.2.NC1a: HS làm việc nhóm, chia sẻ sản phẩm học tập trực tuyến qua các nền tảng số.
 3.1.TC2a: HS sử dụng phần mềm sơ đồ tư duy trực tuyến (Canva/Mindmeister) để số hóa kết quả thảo luận nhóm.
@@ -200,7 +202,7 @@ NLa.A3: HS biết cách đối chiếu, kiểm chứng thông tin do AI cung c�
 NLb.B2: HS thực hiện khai báo minh bạch công cụ AI hỗ trợ trong quá trình học tập.`,
     materials_addition: `* Thiết bị dạy học và Học liệu số tích hợp AI (Môn ${subject}):
 - Máy tính, máy chiếu, Smartphone kết nối Internet.
-- Mã QR truy cập nền tảng tương tác (Padlet/Mentimeter), phần mềm sơ đồ tư duy (Canva), Chatbot AI (ChatGPT/Gemini). Lưu ý: Không yêu cầu HS tạo tài khoản cá nhân.`,
+- Mã QR truy cập nền tảng tương tác (Padlet/Mentimeter), phần mềm sơ đồ tư duy (Canva), Chatbot AI (ChatGPT/Gemini). Lưu ý an toàn: Không yêu cầu HS tạo tài khoản cá nhân.`,
     activities_enhancement: [
       {
         activity_name: "MỤC 2: HOẠT ĐỘNG 1 TỔ CHỨC",

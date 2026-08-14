@@ -38,7 +38,7 @@ export const injectContentIntoDocx = async (
         
         let docXml = docFile.asText();
         
-        // Nhãn tiêu đề động
+        // Nhãn tiêu đề động theo 3 chế độ
         let label = "Tích hợp NLS & AI";
         if (mode === 'NLS') {
           label = "Tích hợp NLS";
@@ -74,6 +74,7 @@ export const injectContentIntoDocx = async (
           const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           if (lines.length === 0) return "";
 
+          // Mặc định màu chữ đỏ tươi cho phần chèn nội dung NLS/AI
           let rPrHeader = `<w:b/><w:color w:val="FF0000"/>`; 
           let rPrBody = `<w:color w:val="FF0000"/>`;
 
@@ -88,7 +89,7 @@ export const injectContentIntoDocx = async (
               rPrBody += style.fontTag;
           }
 
-          // 1. Dòng Tiêu đề
+          // 1. Tạo dòng Tiêu đề
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
@@ -97,7 +98,7 @@ export const injectContentIntoDocx = async (
                             </w:r>
                           </w:p>`;
 
-          // 2. Các dòng Liệt kê
+          // 2. Tạo các dòng Liệt kê nội dung
           lines.forEach(line => {
               let cleanLine = line
                   .replace(/\*\*/g, "") 
@@ -120,7 +121,7 @@ export const injectContentIntoDocx = async (
           return xmlBlock;
         };
 
-        // --- HÀM 3: TÌM KIẾM FUZZY XML ---
+        // --- HÀM 3: TÌM KIẾM XUYÊN THẤU (FUZZY XML SEARCH) ---
         const findFuzzyIndex = (xml: string, keyword: string) => {
             let idx = xml.indexOf(keyword);
             if (idx !== -1) return idx;
@@ -135,11 +136,12 @@ export const injectContentIntoDocx = async (
             return match ? match.index : -1;
         };
 
-        // --- HÀM 4: VẼ BẢNG TỔNG HỢP NLS/AI NẰM Ở CUỐI FILE ---
+        // --- HÀM MỚI BỔ SUNG: VẼ BẢNG TỔNG HỢP NLS/AI BẰNG XML CHO WORD ---
         const createSummaryTableXml = (tableData: Array<any>) => {
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
           let rowsXml = "";
+          // Row Header (Tiêu đề bảng)
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
@@ -150,6 +152,7 @@ export const injectContentIntoDocx = async (
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
+          // Data Rows (Các dòng nội dung)
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
@@ -183,7 +186,7 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU (MỤC I) ---
+        // --- 4. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU ---
         const keywords = ["Phẩm chất năng lực", "2. Phát triển năng lực", "2. Năng lực", "2. năng lực", "II. MỤC TIÊU", "II. Mục tiêu", "Năng lực cần đạt", "3. Năng lực"];
         
         let targetIndices: number[] = [];
@@ -217,10 +220,17 @@ export const injectContentIntoDocx = async (
                      }
                  }
              });
+        } else {
+            const xmlBlock = createXmlBlock(content.objectives_addition, { fontSize: null, fontTag: "" });
+            if (xmlBlock) {
+                const bodyTag = "<w:body>";
+                const bodyIndex = newXml.indexOf(bodyTag);
+                if (bodyIndex !== -1) newXml = newXml.substring(0, bodyIndex + bodyTag.length) + xmlBlock + newXml.substring(bodyIndex + bodyTag.length);
+            }
         }
         docXml = newXml;
 
-        // --- 6. CHÈN KÉP: VỪA Ở TIÊU ĐỀ HOẠT ĐỘNG VỪA BỔ SUNG VÀO Ô BẢNG LÀM VIỆC CỦA HS ---
+        // --- 5. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN VÀO Ô TRONG BẢNG) ---
         if (Array.isArray(content.activities_enhancement)) {
             content.activities_enhancement.forEach((item, index) => {
                 const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -265,7 +275,7 @@ export const injectContentIntoDocx = async (
                      const xmlBlock = createXmlBlock(actContent, currentStyle);
 
                      if (xmlBlock) {
-                         // LƯỢT 1 (PHẦN CHUNG): Chèn vào ngay bên dưới Tiêu đề Hoạt động
+                         // LƯỢT 1: Chèn khối màu đỏ ngay dưới Tiêu đề Hoạt động
                          const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
                          let addedOffset = 0;
 
@@ -275,58 +285,34 @@ export const injectContentIntoDocx = async (
                              addedOffset = xmlBlock.length;
                          }
 
-                         // LƯỢT 2 (PHẦN CHI TIẾT - NÂNG CẤP BẮT THẺ Ô BẢNG XML):
-                         // 1. Tìm vị trí thẻ Bảng <w:tbl> gần nhất phía sau Hoạt động
-                         const tblPos = docXml.indexOf("<w:tbl>", actIndex + addedOffset);
+                         // LƯỢT 2: BỔ SUNG THÊM vào ô Bảng công việc HS ("- HS tiến hành", "- Quan sát, trả lời"...)
+                         const cellKeywords = [
+                             "- HS tiến hành",
+                             "- HS sử dụng",
+                             "- Quan sát, trả lời",
+                             "- Nhóm trưởng điều phối",
+                             "- Mỗi nhóm được sử dụng",
+                             "HS tiến hành",
+                             "HS sử dụng",
+                             "điện thoại cá nhân",
+                             "HS thực hiện nhiệm vụ",
+                             "HS thực hiện"
+                         ];
 
-                         if (tblPos !== -1 && tblPos - actIndex < 15000) {
-                             // 2. Tìm thẻ tiêu đề cột "HS thực hiện" trong Bảng
-                             const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
-                             
-                             let targetCellPos = -1;
-                             if (hsHeaderPos !== -1) {
-                                 // Lấy vị trí dòng chứa nội dung công việc thực tế của HS ngay dưới dòng tiêu đề
-                                 const contentRowPos = docXml.indexOf("<w:tr>", tblPos + hsHeaderPos);
-                                 if (contentRowPos !== -1 && contentRowPos - tblPos < 10000) {
-                                     // Ô thứ 2 trong hàng chính là Cột HS thực hiện nhiệm vụ
-                                     const firstCell = docXml.indexOf("<w:tc>", contentRowPos);
-                                     if (firstCell !== -1) {
-                                         const secondCell = docXml.indexOf("<w:tc>", firstCell + 6);
-                                         if (secondCell !== -1) {
-                                             targetCellPos = secondCell;
-                                         }
-                                     }
-                                 }
+                         let targetCellPos = -1;
+                         for (const cKey of cellKeywords) {
+                             const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
+                             if (foundPos !== -1 && foundPos - actIndex < 18000) {
+                                 targetCellPos = foundPos;
+                                 break;
                              }
+                         }
 
-                             // Thuật toán dự phòng: Nếu không bắt được bằng thẻ XML, quét các từ khóa dòng công việc thực tế
-                             if (targetCellPos === -1) {
-                                 const cellKeywords = [
-                                     "- HS tiến hành",
-                                     "- HS sử dụng",
-                                     "- Quan sát, trả lời",
-                                     "- Nhóm trưởng điều phối",
-                                     "- Mỗi nhóm được sử dụng",
-                                     "HS tiến hành",
-                                     "HS sử dụng",
-                                     "điện thoại cá nhân"
-                                 ];
-                                 for (const cKey of cellKeywords) {
-                                     const foundPos = docXml.indexOf(cKey, actIndex + addedOffset);
-                                     if (foundPos !== -1 && foundPos - actIndex < 18000) {
-                                         targetCellPos = foundPos;
-                                         break;
-                                     }
-                                 }
-                             }
-
-                             // 3. Tiến hành chèn khối màu đỏ vào cuối ô Bảng đã xác định
-                             if (targetCellPos !== -1) {
-                                 const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
-                                 if (cellInsertPos !== -1) {
-                                     const splitPos = cellInsertPos + "</w:p>".length;
-                                     docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
-                                 }
+                         if (targetCellPos !== -1) {
+                             const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
+                             if (cellInsertPos !== -1) {
+                                 const splitPos = cellInsertPos + "</w:p>".length;
+                                 docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
                              }
                          }
                      }
@@ -334,7 +320,7 @@ export const injectContentIntoDocx = async (
             });
         }
 
-        // --- 7. CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
+        // --- 6. HÀM MỚI BỔ SUNG: TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
             const tableXml = createSummaryTableXml(content.summary_table);
             if (tableXml) {
