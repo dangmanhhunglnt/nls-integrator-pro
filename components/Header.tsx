@@ -1,4 +1,4 @@
-import { Sparkles, LogIn, LogOut, User, ShieldCheck, Zap } from 'lucide-react';
+import { Sparkles, LogIn, LogOut, User, ShieldCheck, Zap, Crown } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface HeaderProps {
@@ -14,7 +14,6 @@ interface HeaderProps {
 }
 
 export default function Header({ 
-  userApiKey, setUserApiKey, isKeySaved, saveKeyToLocal, handleEditKey,
   user, onLogin, onLogout, onOpenPricing 
 }: HeaderProps) {
   return (
@@ -31,28 +30,17 @@ export default function Header({
           </h1>
         </div>
 
-        {/* KHU VỰC PHẢI: API KEY + TÀI KHOẢN */}
+        {/* KHU VỰC PHẢI: NÂNG CẤP PRO + TÀI KHOẢN */}
         <div className="flex items-center gap-3">
           
-          {/* TRẠNG THÁI / Ô NHẬP API KEY */}
-          {isKeySaved ? (
-            <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-emerald-700 font-bold text-[10px] uppercase">AI Ready</span>
-              <button onClick={handleEditKey} className="ml-1 text-[10px] text-slate-400 hover:text-indigo-600 underline">Đổi Key</button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <input 
-                type="password" 
-                value={userApiKey} 
-                onChange={(e) => setUserApiKey(e.target.value)} 
-                placeholder="Nhập API Key..." 
-                className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 outline-none w-36 sm:w-40 focus:border-indigo-500 transition-colors" 
-              />
-              <button onClick={saveKeyToLocal} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">Lưu</button>
-            </div>
-          )}
+          {/* NÚT NÂNG CẤP BẢN QUYỀN / MUA QUOTA */}
+          <button
+            onClick={onOpenPricing}
+            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
+          >
+            <Crown className="w-3.5 h-3.5 fill-current" />
+            <span className="hidden sm:inline">Nâng cấp PRO</span>
+          </button>
 
           <div className="w-[1px] h-6 bg-slate-200 mx-1 hidden sm:block" />
 
@@ -69,13 +57,13 @@ export default function Header({
                 }`}
               >
                 {user.plan === 'PRO' ? <Zap className="w-2.5 h-2.5 fill-current" /> : <ShieldCheck className="w-2.5 h-2.5" />}
-                {user.plan === 'PRO' ? 'Gói Pro' : `Dùng thử (${user.usageCount}/${user.maxUsage})`}
+                {user.plan === 'PRO' ? 'Gói Pro' : `Dùng thử (${user.usageCount || 0}/${user.maxUsage || 3})`}
               </button>
 
               {/* User Avatar */}
               <div className="flex items-center gap-1.5 ml-1">
                 {user.photoURL ? (
-                  <img src={user.photoURL} alt={user.displayName} className="w-6 h-6 rounded-full ring-2 ring-indigo-500/20 object-cover" />
+                  <img src={user.photoURL} alt={user.displayName || 'Avatar'} className="w-6 h-6 rounded-full ring-2 ring-indigo-500/20 object-cover" />
                 ) : (
                   <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-[10px]">
                     {user.displayName?.charAt(0) || <User className="w-3 h-3" />}

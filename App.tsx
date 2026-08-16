@@ -13,12 +13,16 @@ import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import ControlCenter from './components/ControlCenter';
 import TerminalSidebar from './components/TerminalSidebar';
+import { PricingModal } from './components/PricingModal';
 
 const App: React.FC = () => {
   const APP_VERSION = `v${packageJson.version} PRO`; 
   
   // State tài khoản người dùng
   const [user, setUser] = useState<UserProfile | null>(null);
+
+  // State quản lý hiển thị Modal Nâng cấp / Thanh toán
+  const [isPricingOpen, setIsPricingOpen] = useState<boolean>(false);
 
   const [pedagogy, setPedagogy] = useState<string>('DEFAULT');
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
@@ -132,7 +136,10 @@ const App: React.FC = () => {
       setIsKeySaved(true); 
       addLog("🔐 Đã kích hoạt bản quyền API cá nhân."); 
     } else { 
-      alert("Vui lòng nhập Key!"); 
+      localStorage.removeItem('gemini_api_key');
+      setUserApiKey('');
+      setIsKeySaved(false);
+      addLog("⚡ Chuyển sang chế độ Dùng thử hệ thống.");
     }
   };
     
@@ -172,9 +179,9 @@ const App: React.FC = () => {
       return;
     }
 
-    // 2. Kiểm tra hạn mức nếu là tài khoản Free
+    // 2. Kiểm tra hạn mức nếu là tài khoản Free -> Tự mở modal bảng giá nạp tiền
     if (user.plan !== 'PRO' && user.usageCount >= user.maxUsage) {
-      alert(`Bạn đã dùng hết ${user.maxUsage}/${user.maxUsage} lượt thử nghiệm miễn phí. Vui lòng Nâng cấp tài khoản Pro!`);
+      setIsPricingOpen(true);
       return;
     }
 
@@ -270,7 +277,7 @@ const App: React.FC = () => {
         user={user}
         onLogin={handleLogin}
         onLogout={handleLogout}
-        onOpenPricing={() => alert("Màn hình Nâng cấp gói cước Pro sẽ mở trong bước tiếp theo!")}
+        onOpenPricing={() => setIsPricingOpen(true)}
       />
 
       <main className="relative z-10 max-w-7xl mx-auto px-6 py-8">
@@ -301,6 +308,13 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* POPUP BẢNG GIÁ & NẠP TIỀN VIETQR */}
+      <PricingModal 
+        isOpen={isPricingOpen}
+        onClose={() => setIsPricingOpen(false)}
+        userEmail={user?.email}
+      />
       
       <style>{`
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
