@@ -139,7 +139,7 @@ const App: React.FC = () => {
       localStorage.removeItem('gemini_api_key');
       setUserApiKey('');
       setIsKeySaved(false);
-      addLog("⚡ Chuyển sang chế độ Dùng thử hệ thống.");
+      addLog("⚡ Chuyển sang chế độ Dùng thử hệ thống."); 
     }
   };
     
@@ -209,7 +209,7 @@ const App: React.FC = () => {
       );
       addLog(`✓ Hoàn tất thiết kế.`);
 
-      // 3. Tự động tăng và lưu số lượt vào Supabase
+      // 3. Tự động tăng và lưu số lượt vào Supabase nếu là FREE
       if (user.plan !== 'PRO') {
         const nextUsage = (user.usageCount || 0) + 1;
         
@@ -218,11 +218,11 @@ const App: React.FC = () => {
           .from('profiles')
           .upsert({ 
             id: user.uid, 
-            email: user.email,
+            email: user.email, 
             full_name: user.displayName,
             usage_count: nextUsage,
             max_usage: user.maxUsage,
-            role: 'free'
+            role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
           });
         
         // Cập nhật ngay lên giao diện
@@ -314,6 +314,11 @@ const App: React.FC = () => {
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
         userEmail={user?.email}
+        onSuccessUpgrade={() => {
+          if (user?.uid) {
+            fetchUserProfile(user.uid, user.email || '', user.displayName, user.photoURL);
+          }
+        }}
       />
       
       <style>{`

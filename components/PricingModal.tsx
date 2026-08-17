@@ -76,7 +76,9 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
         const currentMax = userProfile?.max_usage || 3;
         await supabase
           .from('profiles')
-          .update({ max_usage: currentMax + (codeData.add_turns || 50) })
+          .update({ 
+            max_usage: currentMax + (codeData.add_turns || 50) 
+          })
           .eq('email', userEmail);
       }
 
@@ -92,9 +94,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
 
       setMsg({ type: 'success', text: `Kích hoạt thành công gói ${codeData.plan_type === 'PRO' ? 'PRO 1 Năm' : 'Thêm 50 Lượt'}!` });
       setTimeout(() => {
-        if (onSuccessUpgrade) onSuccessUpgrade();
+        if (onSuccessUpgrade) {
+          onSuccessUpgrade();
+        }
         onClose();
-      }, 1500);
+      }, 1200);
 
     } catch (err: any) {
       setMsg({ type: 'error', text: 'Có lỗi xảy ra: ' + err.message });

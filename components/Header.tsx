@@ -24,6 +24,8 @@ export default function Header({
   onLogout, 
   onOpenPricing 
 }: HeaderProps) {
+  const isPro = user?.plan === 'PRO' || (user as any)?.role === 'pro' || (user?.maxUsage || 0) >= 9000;
+
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/60 shadow-sm">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -42,16 +44,18 @@ export default function Header({
         <div className="flex items-center gap-3">
           
           {/* NÚT NÂNG CẤP BẢN QUYỀN / MUA QUOTA */}
-          <button
-            type="button"
-            onClick={onOpenPricing}
-            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
-          >
-            <Crown className="w-3.5 h-3.5 fill-current" />
-            <span className="hidden sm:inline">Nâng cấp PRO</span>
-          </button>
+          {!isPro && (
+            <button
+              type="button"
+              onClick={onOpenPricing}
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
+            >
+              <Crown className="w-3.5 h-3.5 fill-current" />
+              <span className="hidden sm:inline">Nâng cấp PRO</span>
+            </button>
+          )}
 
-          <div className="w-[1px] h-6 bg-slate-200 mx-1 hidden sm:block" />
+          {!isPro && <div className="w-[1px] h-6 bg-slate-200 mx-1 hidden sm:block" />}
 
           {/* TÀI KHOẢN NGƯỜI DÙNG / ĐĂNG NHẬP GOOGLE */}
           {user ? (
@@ -61,13 +65,24 @@ export default function Header({
                 type="button"
                 onClick={onOpenPricing}
                 className={`px-2 py-0.5 rounded-lg font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
-                  user.plan === 'PRO' || user.plan === 'SCHOOL'
+                  isPro
                   ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs hover:opacity-90'
-                  : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  : (user.maxUsage > 3 
+                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200')
                 }`}
               >
-                {user.plan === 'PRO' ? <Zap className="w-2.5 h-2.5 fill-current" /> : <ShieldCheck className="w-2.5 h-2.5" />}
-                {user.plan === 'PRO' ? 'Gói Pro' : `Dùng thử (${user.usageCount || 0}/${user.maxUsage || 3})`}
+                {isPro ? (
+                  <>
+                    <Zap className="w-2.5 h-2.5 fill-current" />
+                    <span>Gói PRO</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-2.5 h-2.5" />
+                    <span>{user.maxUsage > 3 ? `Gói Lượt (${user.usageCount || 0}/${user.maxUsage})` : `Dùng thử (${user.usageCount || 0}/${user.maxUsage || 3})`}</span>
+                  </>
+                )}
               </button>
 
               {/* User Avatar */}
