@@ -186,7 +186,28 @@ export const injectContentIntoDocx = async (
         };
 
         // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU ---
-        const keywords = ["Phẩm chất năng lực", "2. Phát triển năng lực", "2. Năng lực", "2. năng lực", "II. MỤC TIÊU", "II. Mục tiêu", "Năng lực cần đạt", "3. Năng lực"];
+        // Bổ sung đầy đủ các biến thể từ khóa theo chuẩn CV 5512
+        const keywords = [
+          "I.2. Về năng lực",
+          "I.2. Năng lực",
+          "1.2. Về năng lực",
+          "1.2. Năng lực",
+          "Về năng lực",
+          "về năng lực",
+          "Năng lực chung",
+          "Năng lực đặc thù",
+          "Phẩm chất năng lực",
+          "2. Phát triển năng lực",
+          "2. Năng lực",
+          "2. năng lực",
+          "Năng lực cần đạt",
+          "3. Năng lực",
+          "I. MỤC TIÊU DẠY HỌC",
+          "I. MỤC TIÊU",
+          "I. Mục tiêu",
+          "MỤC TIÊU DẠY HỌC",
+          "MỤC TIÊU BÀI HỌC"
+        ];
         
         let targetIndices: number[] = [];
         for (const key of keywords) {
@@ -220,11 +241,26 @@ export const injectContentIntoDocx = async (
             }
           });
         } else {
-          const xmlBlock = createXmlBlock(content.objectives_addition, { fontSize: null, fontTag: "" });
-          if (xmlBlock) {
-            const bodyTag = "<w:body>";
-            const bodyIndex = newXml.indexOf(bodyTag);
-            if (bodyIndex !== -1) newXml = newXml.substring(0, bodyIndex + bodyTag.length) + xmlBlock + newXml.substring(bodyIndex + bodyTag.length);
+          // Dự phòng: Tìm trước mục "II. THIẾT BỊ DẠY HỌC" để không bị chèn lên đầu trang
+          let fallbackPos = -1;
+          const fallbackKeywords = ["II. THIẾT BỊ DẠY HỌC", "II. THIẾT BỊ", "THIẾT BỊ DẠY HỌC", "III. TIẾN TRÌNH DẠY HỌC"];
+          for (const fbKey of fallbackKeywords) {
+            const fbIdx = findFuzzyIndex(newXml, fbKey);
+            if (fbIdx !== -1) {
+              fallbackPos = fbIdx;
+              break;
+            }
+          }
+
+          if (fallbackPos !== -1) {
+            const prevPPos = newXml.lastIndexOf("<w:p", fallbackPos);
+            if (prevPPos !== -1) {
+              const currentStyle = detectStyle(newXml, fallbackPos);
+              const xmlBlock = createXmlBlock(content.objectives_addition, currentStyle);
+              if (xmlBlock) {
+                newXml = newXml.substring(0, prevPPos) + xmlBlock + newXml.substring(prevPPos);
+              }
+            }
           }
         }
         docXml = newXml;
