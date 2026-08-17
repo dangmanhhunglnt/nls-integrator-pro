@@ -57,22 +57,25 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
         return;
       }
 
-      // 2. Cập nhật trạng thái người dùng (Cộng lượt hoặc Mở PRO)
+      // 2. Cập nhật trạng thái người dùng (Cộng lượt hoặc Mở PRO) vào bảng profiles
       const { data: userProfile } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('email', userEmail)
         .single();
 
       if (codeData.plan_type === 'PRO') {
         await supabase
-          .from('users')
-          .update({ plan: 'PRO' })
+          .from('profiles')
+          .update({ 
+            role: 'pro',
+            max_usage: 9999
+          })
           .eq('email', userEmail);
       } else {
         const currentMax = userProfile?.max_usage || 3;
         await supabase
-          .from('users')
+          .from('profiles')
           .update({ max_usage: currentMax + (codeData.add_turns || 50) })
           .eq('email', userEmail);
       }
@@ -134,7 +137,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Nhập mã ví dụ: NLS50-K1A9..."
+                placeholder="Nhập mã kích hoạt của bạn (VD: NLS-XXXXXX)..."
                 value={giftcode}
                 onChange={(e) => setGiftcode(e.target.value)}
                 className="flex-1 px-3 py-2 text-xs font-mono uppercase bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
