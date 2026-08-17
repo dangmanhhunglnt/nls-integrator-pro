@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, UserProfile } from './types';
+import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
-import { injectContentIntoDocx, extractTextFromDocx } from './services/docxManipulator';
+import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx } from './services/docxManipulator';
 import { PEDAGOGY_MODELS } from './utils';
 import packageJson from './package.json';
 
@@ -26,6 +26,8 @@ const App: React.FC = () => {
 
   const [pedagogy, setPedagogy] = useState<string>('DEFAULT');
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
+  const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
   const [userApiKey, setUserApiKey] = useState('');
   const [isKeySaved, setIsKeySaved] = useState(false);
 
@@ -195,6 +197,7 @@ const App: React.FC = () => {
       const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
       addLog(`⚙️ Chiến lược: ${modelName}`);
       addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
+      addLog(`🎯 Mức độ: ${level === 'INTENSIVE' ? 'Chuyên sâu (Thao giảng)' : 'Tiêu chuẩn (Lên lớp)'}`);
       addLog("🔍 Đang phân tích cấu trúc giáo án...");
       
       const textContext = await extractTextFromDocx(state.file);
@@ -205,7 +208,8 @@ const App: React.FC = () => {
         state.subject,
         state.grade,
         mode,
-        userApiKey
+        userApiKey,
+        level
       );
       addLog(`✓ Hoàn tất thiết kế.`);
 
@@ -213,7 +217,6 @@ const App: React.FC = () => {
       if (user.plan !== 'PRO') {
         const nextUsage = (user.usageCount || 0) + 1;
         
-        // Upsert vào database Supabase
         await supabase
           .from('profiles')
           .upsert({ 
@@ -225,7 +228,6 @@ const App: React.FC = () => {
             role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
           });
         
-        // Cập nhật ngay lên giao diện
         setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
         addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
       }
@@ -242,6 +244,7 @@ const App: React.FC = () => {
     }
   };
 
+  // 4. Hàm đóng gói và xuất bản file Word (Chèn trực tiếp hoặc Xuất phụ lục riêng)
   const handleFinalizeAndDownload = async (finalContent: GeneratedNLSContent) => {
     if (!state.file) return;
     setState(prev => ({ 
@@ -250,12 +253,22 @@ const App: React.FC = () => {
       logs: [...prev.logs, "📦 Đang đóng gói file..."] 
     }));
     try {
-      const newBlob = await injectContentIntoDocx(state.file, finalContent, mode, addLog);
+      let newBlob: Blob;
+      let outputFileName: string;
+
+      if (outputFormat === 'APPENDIX_ONLY') {
+        newBlob = await createAppendixDocx(finalContent, state.subject, state.grade, mode);
+        outputFileName = `[Phụ lục NLS-AI] ${state.file.name}`;
+      } else {
+        newBlob = await injectContentIntoDocx(state.file, finalContent, mode, addLog);
+        outputFileName = `[NLS-PRO] ${state.file.name}`;
+      }
+
       setState(prev => ({ 
         ...prev, 
         isProcessing: false, 
         step: 'done', 
-        result: { fileName: `[NLS-PRO] ${state.file?.name}`, blob: newBlob }, 
+        result: { fileName: outputFileName, blob: newBlob }, 
         logs: [...prev.logs, "✨ Xuất bản thành công!"] 
       }));
     } catch (error) {
@@ -294,6 +307,10 @@ const App: React.FC = () => {
               setState={setState}
               mode={mode}
               setMode={setMode}
+              level={level}
+              setLevel={setLevel}
+              outputFormat={outputFormat}
+              setOutputFormat={setOutputFormat}
               pedagogy={pedagogy}
               setPedagogy={setPedagogy}
               handleFileChange={handleFileChange}

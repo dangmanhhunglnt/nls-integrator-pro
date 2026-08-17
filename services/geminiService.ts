@@ -1,4 +1,4 @@
-import { GeneratedNLSContent, SubjectType, GradeType, IntegrationMode } from '../types';
+import { GeneratedNLSContent, SubjectType, GradeType, IntegrationMode, IntegrationLevel } from '../types';
 
 /**
  * Xây dựng System Prompt chuẩn hóa bám sát:
@@ -6,7 +6,12 @@ import { GeneratedNLSContent, SubjectType, GradeType, IntegrationMode } from '..
  * 2. Quyết định 3439/QĐ-BGDĐT & Khung Giáo dục AI hoàn thiện năm 2026 (Cốt lõi 12 tiết/năm).
  * 3. Hướng dẫn triển khai thực hiện GD AI từ năm học 2026-2027 của Bộ GD&ĐT.
  */
-export const buildSystemPrompt = (subject: string, grade: string, mode: IntegrationMode): string => {
+export const buildSystemPrompt = (
+  subject: string, 
+  grade: string, 
+  mode: IntegrationMode,
+  level: IntegrationLevel = 'STANDARD'
+): string => {
   let modeInstruction = "";
 
   if (mode === 'NLS') {
@@ -29,11 +34,24 @@ CHẾ ĐỘ TÍCH HỢP: KẾT HỢP TOÀN DIỆN NĂNG LỰC SỐ (TT 02/2025/T
 - Kết hợp song song các mã NLS (1.1.NC1a, 2.2.NC1a, 3.1.TC2a, 5.2.TC2a...) và các mã Năng lực AI bám sát 4 mạch (NLa.A3, NLb.B2, NLc.C2, NLd.D1...) tương ứng kiến thức môn ${subject} - ${grade}.`;
   }
 
+  let levelInstruction = "";
+  if (level === 'INTENSIVE') {
+    levelInstruction = `
+MỨC ĐỘ TÍCH HỢP: CHUYÊN SÂU (DÀNH CHO THAO GIẢNG / HỘI GIẢNG / KIỂM TRA CHUYÊN ĐỀ).
+- Tích hợp toàn diện vào 100% tất cả các hoạt động có trong giáo án (Khởi động, toàn bộ các hoạt động con trong Hình thành kiến thức, Luyện tập, Vận dụng).
+- Thiết kế hoạt động học sinh chi tiết, cung cấp câu lệnh Prompt mẫu cho AI cụ thể từng phần, kết hợp nhiều công cụ số hiện đại.`;
+  } else {
+    levelInstruction = `
+MỨC ĐỘ TÍCH HỢP: TIÊU CHUẨN (DÀNH CHO LÊN LỚP HẰNG NGÀY).
+- Tích hợp vừa phải, tinh gọn vào Hoạt động Khởi động và 1-2 Hoạt động trọng tâm để giáo viên dễ dàng triển khai trong tiết học 45 phút.`;
+  }
+
   return `
 Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 3439/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Khung GD AI 2026).
 Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, CÁC KHÁI NIỆM TRỌNG TÂM VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
 
 ${modeInstruction}
+${levelInstruction}
 
 QUY TẮC PHÂN TÍCH VÀ ĐẦU RA BẮT BUỘC ĐỂ ĐẠT CHUẨN SỞ/PHÒNG GIÁO DỤC:
 1. MỤC TIÊU VÀ HỌC LIỆU (MỤC I & II):
@@ -87,13 +105,14 @@ export async function generateCompetencyIntegration(
   subject: SubjectType | string = 'Tổng hợp',
   grade: GradeType | string = 'Toàn cấp',
   mode: IntegrationMode = 'NLS_AI',
-  apiKey: string = ''
+  apiKey: string = '',
+  level: IntegrationLevel = 'STANDARD'
 ): Promise<GeneratedNLSContent> {
   const customApiKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('CUSTOM_GEMINI_KEY') || '' : '');
   const userToken = typeof window !== 'undefined' ? localStorage.getItem('USER_TOKEN') || 'user_logged_in' : '';
 
   try {
-    const systemPrompt = buildSystemPrompt(subject, grade, mode);
+    const systemPrompt = buildSystemPrompt(subject, grade, mode, level);
     const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}`;
 
     const response = await fetch('/api/generate', {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
@@ -9,6 +9,10 @@ interface ControlCenterProps {
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   mode: IntegrationMode;
   setMode: React.Dispatch<React.SetStateAction<IntegrationMode>>;
+  level: IntegrationLevel;
+  setLevel: React.Dispatch<React.SetStateAction<IntegrationLevel>>;
+  outputFormat: OutputFormat;
+  setOutputFormat: React.Dispatch<React.SetStateAction<OutputFormat>>;
   pedagogy: string;
   setPedagogy: (p: string) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -17,12 +21,8 @@ interface ControlCenterProps {
 }
 
 export default function ControlCenter({
-  state, setState, mode, setMode, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
+  state, setState, mode, setMode, level, setLevel, outputFormat, setOutputFormat, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
-
-  // State quản lý 2 tùy chọn mới
-  const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
 
   const handleSelectMode = (selectedMode: IntegrationMode) => {
     setMode(selectedMode);
@@ -88,7 +88,7 @@ export default function ControlCenter({
                     </button>
                 </div>
 
-                {/* BỔ SUNG: 2 CỤM TÙY CHỌN NHANH (MỨC ĐỘ & KIỂU XUẤT FILE) */}
+                {/* BỔ SUNG: 2 CỤM TÙY CHỌN NHANH */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                     {/* Tùy chọn 1: Mức độ tích hợp */}
                     <div className="space-y-1.5">
@@ -239,7 +239,7 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* Card 3: Tài liệu đầu vào (Giáo án + PPCT) */}
+            {/* Card 3: Tài liệu đầu vào */}
             <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
