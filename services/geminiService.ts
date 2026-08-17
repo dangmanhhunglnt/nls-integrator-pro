@@ -12,15 +12,15 @@ export const buildSystemPrompt = (subject: string, grade: string, mode: Integrat
   if (mode === 'NLS') {
     modeInstruction = `
 CHẾ ĐỘ TÍCH HỢP: CHỈ NĂNG LỰC SỐ (Theo Thông tư 02/2025/TT-BGDĐT).
-- CHỈ TRÍCH XUẤT các mã Yêu cầu cần đạt Năng lực số (Ví dụ: 1.1.TC1a, 1.2.NC1a, 2.2.NC1a, 3.1.TC2a, 5.2.TC2a).
+- CHỈ TRÍCH XUẤT các mã Yêu cầu cần đạt Năng lực số (Ví dụ: 1.1.TC1a, 1.1.NC1a, 2.2.NC1a, 3.1.TC2a, 5.2.TC2a...).
 - KHÔNG đưa bất kỳ mã năng lực AI (NLa, NLb, NLc, NLd) nào vào đầu ra.`;
   } else if (mode === 'NAI') {
     modeInstruction = `
 CHẾ ĐỘ TÍCH HỢP: CHỈ GIÁO DỤC TRÍ TUỆ NHÂN TẠO (Theo Khung Giáo dục AI 2026 của Bộ GD&ĐT & QĐ 3439/QĐ-BGDĐT).
 - CHỈ TRÍCH XUẤT các mã Năng lực AI theo 4 mạch đặc thù chuẩn:
-  + NLa (A): Tư duy lấy con người làm trung tâm (NLa.A1, NLa.A3...)
+  + NLa (A): Tư duy lấy con người làm trung tâm (NLa.A1, NLa.A2, NLa.A3...)
   + NLb (B): Đạo đức AI, bảo vệ dữ liệu cá nhân & khai báo minh bạch (NLb.B1, NLb.B2...)
-  + NLc (C): Kỹ thuật, thuật toán & ứng dụng AI (NLc.C1, NLc.C2...)
+  + NLc (C): Kỹ thuật, thuật toán & ứng dụng AI (NLc.C1, NLc.C2, NLc.C3...)
   + NLd (D): Thiết kế & cải tiến hệ thống AI (NLd.D1, NLd.D2...)
 - KHÔNG chèn các mã NLS thuần túy từ Thông tư 02/2025.`;
   } else {
@@ -31,42 +31,42 @@ CHẾ ĐỘ TÍCH HỢP: KẾT HỢP TOÀN DIỆN NĂNG LỰC SỐ (TT 02/2025/T
 
   return `
 Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 3439/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Khung GD AI 2026).
-Nhiệm vụ: Đọc kĩ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} và trích xuất nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, CÁC KHÁI NIỆM TRỌNG TÂM VÀ TIẾN TRÌNH THỰC TẾ.
+Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, CÁC KHÁI NIỆM TRỌNG TÂM VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
 
 ${modeInstruction}
 
 QUY TẮC PHÂN TÍCH VÀ ĐẦU RA BẮT BUỘC ĐỂ ĐẠT CHUẨN SỞ/PHÒNG GIÁO DỤC:
 1. MỤC TIÊU VÀ HỌC LIỆU (MỤC I & II):
-   - Nêu rõ các mã NLS/AI kèm diễn giải biểu hiện cụ thể của HS trong bài học môn ${subject}.
-   - Liệt kê học liệu số, phần mềm (Padlet, Mentimeter, Canva, Teachable Machine, Chatbot AI) và BẮT BUỘC nhấn mạnh: "Sử dụng công cụ miễn phí/dùng chung, KHÔNG yêu cầu HS tạo tài khoản cá nhân hoặc thu thập dữ liệu cá nhân nhạy cảm".
+   - Nêu rõ các mã NLS/AI kèm diễn giải biểu hiện cụ thể của HS trong bài học môn ${subject} - ${grade}.
+   - Liệt kê học liệu số, phần mềm (Padlet, Mentimeter, Canva, GeoGebra, PhET, Chatbot AI) và BẮT BUỘC nhấn mạnh: "Sử dụng công cụ miễn phí/dùng chung, KHÔNG yêu cầu HS tạo tài khoản cá nhân hoặc thu thập dữ liệu cá nhân nhạy cảm".
 
 2. ĐAN CÀI CỤ THỂ VÀO BẢNG TỔ CHỨC THỰC HỆN (MỤC III - TIẾN TRÌNH DẠY HỌC):
-   - Đọc kỹ từng Hoạt động trong file Word gốc. Nội dung đan cài được thiết kế để vừa xuất hiện ở tiêu đề Hoạt động vừa chèn nối tiếp vào ô "HS thực hiện nhiệm vụ" / "- HS tiến hành..." / "- HS sử dụng...".
-   - MÔ TẢ THAO TÁC CỤ THỂ: Quét QR trên Mentimeter/Padlet, tra cứu Google chính thống, thiết kế sơ đồ tư duy Canva...
-   - CUNG CẤP PROMPT MẪU CHO AI: Khi hướng dẫn dùng AI (ChatGPT, Gemini, Copilot), BẮT BUỘC viết câu lệnh mẫu cụ thể trong ngoặc kép liên quan trực tiếp bài học môn ${subject} (Ví dụ: NLc.C2: HS gõ prompt: "Hãy giải thích khái niệm...").
-   - ĐẠO ĐỨC, KHAI BÁO & KIỂM CHỨNG: Bắt buộc tích hợp mã NLb.B2 (HS khai báo phạm vi sử dụng AI khi báo cáo) và NLa.A3 (đối chiếu SGK để xác thực, kiểm chứng ảo giác AI).
+   - Đọc kỹ và TRÍCH XUẤT NGUYÊN VĂN TÊN TIÊU ĐỀ HOẠT ĐỘNG từ file gốc vào trường "activity_name" (Ví dụ: "Hoạt động 1: KHỞI ĐỘNG", "Hoạt động 2.1. Hình thành khái niệm...", "Hoạt động 3: LUYỆN TẬP"). Tuyệt đối KHÔNG tự bịa tên hoạt động trừu tượng để bộ xử lý Word tìm đúng vị trí ô bảng.
+   - MÔ TẢ THAO TÁC CỤ THỂ: Quét QR trên Mentimeter/Padlet, tra cứu tư liệu số chính thống, thao tác mô phỏng trên phần mềm chuyên môn, thiết kế sơ đồ tư duy Canva...
+   - CUNG CẤP PROMPT MẪU CHO AI: Khi hướng dẫn dùng AI (ChatGPT, Gemini, Copilot), BẮT BUỘC viết câu lệnh mẫu cụ thể trong ngoặc kép liên quan trực tiếp đến kiến thức môn ${subject} (Ví dụ: NLc.C2: HS gõ prompt: "Hãy giải thích ngắn gọn ý nghĩa thực tiễn của...").
+   - ĐẠO ĐỨC, KHAI BÁO & KIỂM CHỨNG: Tích hợp mã NLb.B2 (HS khai báo minh bạch công cụ AI hỗ trợ khi báo cáo) và NLa.A3 (đối chiếu SGK để xác thực, kiểm chứng tránh ảo giác AI).
 
 3. BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC (Mảng summary_table):
-   - Sinh đầy đủ mảng "summary_table" bao gồm đúng 5 trường (stt, code, component, expression, activity) để ứng dụng tự động vẽ BẢNG TỔNG HỢP NLS/AI ở cuối file Word.
+   - Sinh đầy đủ mảng "summary_table" bao gồm đúng 5 trường (stt, code, component, expression, activity) tương ứng các hoạt động đã được tích hợp để tự động tạo bảng ở cuối file Word.
 
-ĐỊNH DẠNG ĐẦU RA (Yêu cầu trả về JSON thuần túy, tuyệt đối không bọc thẻ \`\`\`json):
+ĐỊNH DẠNG ĐẦU RA (Yêu cầu trả về JSON thuần túy, tuyệt đối không bọc thẻ markdown \`\`\`json):
 {
   "objectives_addition": "* [Tích hợp chế độ ${mode} Môn ${subject} - ${grade} (Theo TT 02/2025 & QĐ 3439/QĐ-BGDĐT)]:\\n[Chi tiết từng mã YCĐ kèm biểu hiện cụ thể của HS bám sát bài học môn ${subject}]",
   "materials_addition": "* Thiết bị dạy học và Học liệu số tích hợp AI môn ${subject}:\\n- Máy tính, máy chiếu, thiết bị thông minh kết nối Internet (dùng chung dưới sự hướng dẫn của GV).\\n- Nền tảng tương tác trực tuyến (Padlet/Mentimeter), phần mềm đồ họa (Canva), Chatbot AI (Gemini/ChatGPT).\\n- Lưu ý an toàn: Không yêu cầu HS tạo tài khoản cá nhân, không thu thập dữ liệu cá nhân nhạy cảm.",
   "activities_enhancement": [
     {
-      "activity_name": "MỤC 2: HOẠT ĐỘNG 1 TỔ CHỨC",
-      "location": "HOẠT ĐỘNG 1: MỞ ĐẦU > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
-      "enhanced_content": "5.2.TC2a: HS sử dụng điện thoại thông minh quét mã QR do GV cung cấp để truy cập nền tảng tương tác (Mentimeter/Padlet), quan sát hình ảnh/video chất lượng cao môn ${subject} và gửi câu trả lời nhanh chóng.\\nNLa.A3: HS bước đầu nhận thức về ứng dụng hệ thống thông minh (AI) trong thực tiễn."
+      "activity_name": "[Trích xuất chính xác tên Hoạt động 1 trong file gốc]",
+      "location": "Hoạt động 1 > Tổ chức thực hiện > HS thực hiện nhiệm vụ",
+      "enhanced_content": "5.2.TC2a: HS sử dụng thiết bị số quét mã QR do GV cung cấp để truy cập nền tảng tương tác (Mentimeter/Padlet), quan sát hình ảnh/video chất lượng cao môn ${subject} và gửi câu trả lời nhanh chóng.\\nNLa.A3: HS bước đầu nhận thức về ứng dụng hệ thống thông minh (AI) trong thực tiễn."
     },
     {
-      "activity_name": "MỤC 3: HOẠT ĐỘNG 2 TỔ CHỨC",
-      "location": "HOẠT ĐỘNG 2: HÌNH THÀNH KIẾN THỨC MỚI > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
-      "enhanced_content": "1.1.NC1a: HS sử dụng công cụ tìm kiếm Google tra cứu thông tin chuyên môn môn ${subject}, chủ động chọn lọc tài liệu từ các nguồn uy tín.\\nNLc.C2: GV hướng dẫn HS sử dụng chatbot AI (ChatGPT/Copilot) hỗ trợ giải đáp nhanh các câu hỏi → HS gõ prompt cụ thể: \"[Ghi câu lệnh mẫu liên quan đến bài học môn ${subject}]\", sau đó phân tích, đối chiếu câu trả lời của AI với SGK.\\nNLb.B2: HS khai báo phạm vi sử dụng AI khi báo cáo kết quả."
+      "activity_name": "[Trích xuất chính xác tên Hoạt động 2 trong file gốc]",
+      "location": "Hoạt động 2 > Tổ chức thực hiện > HS thực hiện nhiệm vụ",
+      "enhanced_content": "1.1.NC1a: HS sử dụng công cụ tìm kiếm Google tra cứu thông tin chuyên môn môn ${subject}, chủ động chọn lọc tài liệu từ các nguồn uy tín.\\nNLc.C2: GV hướng dẫn HS sử dụng chatbot AI (ChatGPT/Copilot) hỗ trợ giải đáp nhanh các câu hỏi → HS gõ prompt cụ thể: \\\"[Ghi câu lệnh mẫu liên quan trực tiếp đến bài học môn ${subject}]\\\", sau đó phân tích, đối chiếu câu trả lời của AI với SGK.\\nNLb.B2: HS khai báo minh bạch công cụ AI hỗ trợ khi báo cáo sản phẩm."
     },
     {
-      "activity_name": "MỤC 4: HOẠT ĐỘNG 3 TỔ CHỨC",
-      "location": "HOẠT ĐỘNG 3: LUYỆN TẬP, VẬN DỤNG > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ / Báo cáo kết quả",
+      "activity_name": "[Trích xuất chính xác tên Hoạt động 3/4 trong file gốc]",
+      "location": "Hoạt động Luyện tập / Vận dụng > Tổ chức thực hiện > HS thực hiện nhiệm vụ",
       "enhanced_content": "3.1.TC2a: HS sử dụng phần mềm sơ đồ tư duy trực tuyến (Canva/Mindmeister) để thiết kế sơ đồ tổng hợp kiến thức môn ${subject} thành sản phẩm số hóa.\\n2.2.NC1a: HS chia sẻ sản phẩm lên nền tảng số (Padlet/Google Drive) để các nhóm truy cập và đánh giá chéo trực tuyến."
     }
   ],
@@ -133,17 +133,17 @@ export async function generateCompetencyIntegration(
 - Máy tính/Smartphone kết nối Internet, mã QR bài tập, phần mềm sơ đồ tư duy trực tuyến (Không dùng tài khoản cá nhân).`,
       activities_enhancement: [
         {
-          activity_name: "MỤC 2: HOẠT ĐỘNG 1 TỔ CHỨC",
+          activity_name: "Hoạt động 1: KHỞI ĐỘNG",
           location: "HOẠT ĐỘNG 1: MỞ ĐẦU > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
           enhanced_content: `5.2.TC2a: HS sử dụng thiết bị số quét mã QR do GV cung cấp để truy cập vào nền tảng tương tác trực tuyến (Mentimeter/Padlet), quan sát hình ảnh/video tư liệu môn ${subject} và gửi câu trả lời.`
         } as any,
         {
-          activity_name: "MỤC 3: HOẠT ĐỘNG 2 TỔ CHỨC",
+          activity_name: "Hoạt động 2: HÌNH THÀNH KIẾN THỨC MỚI",
           location: "HOẠT ĐỘNG 2: HÌNH THÀNH KIẾN THỨC MỚI > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
           enhanced_content: `1.1.NC1a: HS sử dụng công cụ tìm kiếm Google tra cứu kiến thức môn ${subject}, chủ động chọn lọc và đối chiếu thông tin từ các nguồn chính thống.`
         } as any,
         {
-          activity_name: "MỤC 4: HOẠT ĐỘNG 3 TỔ CHỨC",
+          activity_name: "Hoạt động 3: LUYỆN TẬP, VẬN DỤNG",
           location: "HOẠT ĐỘNG 3: LUYỆN TẬP, VẬN DỤNG > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ / Báo cáo kết quả",
           enhanced_content: `3.1.TC2a: HS sử dụng phần mềm sơ đồ tư duy trực tuyến (Canva/Mindmeister) để thiết kế sơ đồ tổng hợp kiến thức bài học môn ${subject} thành sản phẩm số hóa.\n2.2.NC1a: HS chia sẻ sản phẩm lên Padlet/Google Drive để đánh giá chéo trực tuyến.`
         } as any
@@ -166,17 +166,17 @@ NLd.D1: HS đưa câu hỏi cho AI về các giải pháp ứng dụng thực ti
 - Máy tính/Smartphone kết nối Internet, ứng dụng Trợ lý AI (Gemini/ChatGPT).`,
       activities_enhancement: [
         {
-          activity_name: "MỤC 2: HOẠT ĐỘNG 1 TỔ CHỨC",
+          activity_name: "Hoạt động 1: KHỞI ĐỘNG",
           location: "HOẠT ĐỘNG 1: MỞ ĐẦU > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
           enhanced_content: `NLa.A3: HS bước đầu nhận thức về sự phát triển công nghệ và xu hướng tích hợp hệ thống thông minh (AI) hỗ trợ các hoạt động môn ${subject}.`
         } as any,
         {
-          activity_name: "MỤC 3: HOẠT ĐỘNG 2 TỔ CHỨC",
+          activity_name: "Hoạt động 2: HÌNH THÀNH KIẾN THỨC MỚI",
           location: "HOẠT ĐỘNG 2: HÌNH THÀNH KIẾN THỨC MỚI > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
           enhanced_content: `NLc.C2: GV hướng dẫn HS sử dụng chatbot AI hỗ trợ giải đáp bài học → HS gõ câu lệnh (prompt) cụ thể: "Hãy tóm tắt các điểm trọng tâm của bài học môn ${subject}", sau đó phân tích, đối chiếu câu trả lời của AI với SGK.\nNLb.B2: HS khai báo rõ ràng công cụ AI đã dùng khi báo cáo sản phẩm.`
         } as any,
         {
-          activity_name: "MỤC 4: HOẠT ĐỘNG 3 TỔ CHỨC",
+          activity_name: "Hoạt động 3: LUYỆN TẬP, VẬN DỤNG",
           location: "HOẠT ĐỘNG 3: LUYỆN TẬP, VẬN DỤNG > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
           enhanced_content: `NLd.D1: HS đặt câu hỏi cho AI về ứng dụng thực tế của bài học môn ${subject}, từ đó đề xuất ý tưởng giải pháp sáng tạo.`
         } as any
@@ -205,17 +205,17 @@ NLb.B2: HS thực hiện khai báo minh bạch công cụ AI hỗ trợ trong qu
 - Mã QR truy cập nền tảng tương tác (Padlet/Mentimeter), phần mềm sơ đồ tư duy (Canva), Chatbot AI (ChatGPT/Gemini). Lưu ý an toàn: Không yêu cầu HS tạo tài khoản cá nhân.`,
     activities_enhancement: [
       {
-        activity_name: "MỤC 2: HOẠT ĐỘNG 1 TỔ CHỨC",
+        activity_name: "Hoạt động 1: KHỞI ĐỘNG",
         location: "HOẠT ĐỘNG 1: MỞ ĐẦU > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
         enhanced_content: `5.2.TC2a: HS sử dụng điện thoại thông minh quét mã QR do GV cung cấp để truy cập vào nền tảng tương tác trực tuyến (Mentimeter/Padlet), quan sát hình ảnh/video chất lượng cao môn ${subject} và gửi câu trả lời nhanh chóng.\nNLa.A3: HS bước đầu nhận thức về ứng dụng hệ thống thông minh (AI) trong thực tiễn.`
       } as any,
       {
-        activity_name: "MỤC 3: HOẠT ĐỘNG 2 TỔ CHỨC",
+        activity_name: "Hoạt động 2: HÌNH THÀNH KIẾN THỨC MỚI",
         location: "HOẠT ĐỘNG 2: HÌNH THÀNH KIẾN THỨC MỚI > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ",
         enhanced_content: `1.1.NC1a: HS sử dụng công cụ tìm kiếm Google tra cứu thông tin chuyên môn môn ${subject}, chủ động chọn lọc tài liệu từ các nguồn uy tín.\nNLc.C2: GV hướng dẫn HS sử dụng chatbot AI (ChatGPT/Copilot) hỗ trợ giải đáp nhanh các câu hỏi → HS gõ prompt cụ thể: "Giải thích khái niệm trọng tâm trong bài học môn ${subject}", sau đó phân tích, đối chiếu câu trả lời của AI với SGK.\nNLb.B2: HS khai báo phạm vi sử dụng AI khi báo cáo kết quả.`
       } as any,
       {
-        activity_name: "MỤC 4: HOẠT ĐỘNG 3 TỔ CHỨC",
+        activity_name: "Hoạt động 3: LUYỆN TẬP, VẬN DỤNG",
         location: "HOẠT ĐỘNG 3: LUYỆN TẬP, VẬN DỤNG > 4. Tổ chức thực hiện > Cột HS thực hiện nhiệm vụ / Báo cáo kết quả",
         enhanced_content: `3.1.TC2a: HS sử dụng phần mềm sơ đồ tư duy trực tuyến (Canva/Mindmeister) để thiết kế sơ đồ tổng hợp kiến thức môn ${subject} thành sản phẩm số hóa.\n2.2.NC1a: HS chia sẻ sản phẩm lên Padlet/Google Drive để đánh giá chéo trực tuyến.`
       } as any

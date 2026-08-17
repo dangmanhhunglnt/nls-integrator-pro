@@ -191,21 +191,32 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO ĐÚNG MỤC MỤC TIÊU (I.2. VỀ NĂNG LỰC) ---
-        // Ưu tiên cấp 1: Tìm chính xác tiêu đề mục Năng lực
+        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU (HỖ TRỢ MỌI MẪU GIÁO ÁN) ---
         const competencyKeywords = [
+          // Mẫu chuẩn CV 5512
           "I.2. Về năng lực",
           "1.2. Về năng lực",
           "I.2. Năng lực",
           "1.2. Năng lực",
+          "2. Năng lực",
+          "2. Về năng lực",
           "Về năng lực",
           "về năng lực",
-          "Năng lực chung",
           "Năng lực đặc thù",
-          "2. Phát triển năng lực",
-          "2. Năng lực",
+          "Năng lực chung",
+          "Phát triển năng lực",
           "Năng lực cần đạt",
-          "Phẩm chất và năng lực"
+          "Yêu cầu cần đạt về năng lực",
+          // Mẫu phi chuẩn không đánh số
+          "MỤC TIÊU VỀ NĂNG LỰC",
+          "NĂNG LỰC:",
+          "Năng lực:",
+          // Nhóm mục tiêu tổng
+          "I. MỤC TIÊU DẠY HỌC",
+          "I. MỤC TIÊU",
+          "MỤC TIÊU DẠY HỌC",
+          "MỤC TIÊU BÀI HỌC",
+          "YÊU CẦU CẦN ĐẠT"
         ];
 
         let insertAnchorPos = -1;
@@ -217,22 +228,20 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        // Ưu tiên cấp 2: Nếu chưa có mục Năng lực, tìm mục "I. MỤC TIÊU DẠY HỌC"
-        if (insertAnchorPos === -1) {
-          const objectiveKeywords = ["I. MỤC TIÊU DẠY HỌC", "I. MỤC TIÊU", "MỤC TIÊU DẠY HỌC", "MỤC TIÊU BÀI HỌC", "I. Mục tiêu"];
-          for (const kw of objectiveKeywords) {
-            const idx = findFuzzyIndex(docXml, kw);
-            if (idx !== -1) {
-              insertAnchorPos = idx;
-              break;
-            }
-          }
-        }
-
-        // Ưu tiên cấp 3: Dự phòng tìm trước "II. THIẾT BỊ DẠY HỌC"
+        // Nếu giáo án hoàn toàn không có mục Năng lực, neo trước phần Thiết bị/Tiến trình
         let insertBefore = false;
         if (insertAnchorPos === -1) {
-          const fallbackKeywords = ["II. THIẾT BỊ DẠY HỌC", "II. THIẾT BỊ", "THIẾT BỊ DẠY HỌC", "III. TIẾN TRÌNH DẠY HỌC"];
+          const fallbackKeywords = [
+            "II. THIẾT BỊ DẠY HỌC", 
+            "II. THIẾT BỊ", 
+            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", 
+            "THIẾT BỊ DẠY HỌC", 
+            "CHUẨN BỊ CỦA GV VÀ HS",
+            "III. TIẾN TRÌNH DẠY HỌC",
+            "III. TIẾN TRÌNH",
+            "TIẾN TRÌNH DẠY HỌC",
+            "TIẾN TRÌNH HOẠT ĐỘNG"
+          ];
           for (const kw of fallbackKeywords) {
             const idx = findFuzzyIndex(docXml, kw);
             if (idx !== -1) {
@@ -250,13 +259,11 @@ export const injectContentIntoDocx = async (
 
           if (xmlBlock) {
             if (insertBefore) {
-              // Chèn ngay trước thẻ đoạn văn của mục Thiết bị
               const pStart = newXml.lastIndexOf("<w:p", insertAnchorPos);
               if (pStart !== -1) {
                 newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
               }
             } else {
-              // Chèn ngay sau dòng tiêu đề Năng lực / Mục tiêu tìm thấy
               const pEnd = newXml.indexOf("</w:p>", insertAnchorPos);
               if (pEnd !== -1) {
                 const splitPos = pEnd + "</w:p>".length;

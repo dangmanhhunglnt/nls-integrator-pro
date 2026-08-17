@@ -23,6 +23,12 @@ export type IntegrationMode = 'NLS_AI' | 'NLS' | 'NAI';
 export type SubjectType = string;
 export type GradeType = string;
 
+// Bổ sung: Mức độ tích hợp (Tiêu chuẩn / Chuyên sâu thao giảng)
+export type IntegrationLevel = 'STANDARD' | 'INTENSIVE';
+
+// Bổ sung: Kiểu xuất file (Chèn trực tiếp vào giáo án gốc / Xuất phụ lục riêng)
+export type OutputFormat = 'INJECT_DIRECT' | 'APPENDIX_ONLY';
+
 export interface AppState {
   file: File | null;
   subject: SubjectType;

@@ -1,6 +1,6 @@
-import React from 'react';
-import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw } from 'lucide-react';
-import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode } from '../types';
+import React, { useState } from 'react';
+import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText } from 'lucide-react';
+import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
 
@@ -20,6 +20,10 @@ export default function ControlCenter({
   state, setState, mode, setMode, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
+  // State quản lý 2 tùy chọn mới
+  const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
+
   const handleSelectMode = (selectedMode: IntegrationMode) => {
     setMode(selectedMode);
     setState(prev => ({ ...prev, mode: selectedMode }));
@@ -31,7 +35,7 @@ export default function ControlCenter({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up" style={{animationDelay: '0.1s'}}>
             
             {/* Card 1: Chế độ tích hợp năng lực */}
-            <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-all space-y-3">
+            <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-all space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
                       <Activity className="w-4 h-4" />
@@ -83,6 +87,72 @@ export default function ControlCenter({
                         <span className="text-[9px] font-normal text-slate-500">Theo Khung giáo dục AI</span>
                     </button>
                 </div>
+
+                {/* BỔ SUNG: 2 CỤM TÙY CHỌN NHANH (MỨC ĐỘ & KIỂU XUẤT FILE) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                    {/* Tùy chọn 1: Mức độ tích hợp */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
+                            <Sliders className="w-3 h-3 text-indigo-500" /> Mức độ tích hợp
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 bg-slate-100/80 p-1 rounded-xl">
+                            <button
+                                type="button"
+                                onClick={() => setLevel('STANDARD')}
+                                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                    level === 'STANDARD'
+                                    ? 'bg-white text-indigo-700 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                🟢 Tiêu chuẩn (Lên lớp)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setLevel('INTENSIVE')}
+                                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                    level === 'INTENSIVE'
+                                    ? 'bg-white text-indigo-700 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                🟡 Chuyên sâu (Thao giảng)
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tùy chọn 2: Kiểu xuất file */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
+                            <FileText className="w-3 h-3 text-indigo-500" /> Kiểu xuất file
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 bg-slate-100/80 p-1 rounded-xl">
+                            <button
+                                type="button"
+                                onClick={() => setOutputFormat('INJECT_DIRECT')}
+                                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                    outputFormat === 'INJECT_DIRECT'
+                                    ? 'bg-white text-indigo-700 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                📄 Chèn vào giáo án gốc
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setOutputFormat('APPENDIX_ONLY')}
+                                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                    outputFormat === 'APPENDIX_ONLY'
+                                    ? 'bg-white text-indigo-700 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                📑 Xuất phụ lục riêng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             {/* Card 2: Thông tin chuyên môn */}
@@ -121,7 +191,6 @@ export default function ControlCenter({
                                   <option value="Địa Lí">Địa Lí</option>
                                   <option value="Giáo dục kinh tế và pháp luật">GDKT & PL</option>
                                   <option value="Tin Học">Tin Học</option>
-                                  {/* TÁCH RÕ 2 ĐỊNH HƯỚNG CÔNG NGHỆ CHUẨN GDPT 2018 */}
                                   <option value="Công nghệ (Công nghiệp)">Công nghệ (Công nghiệp)</option>
                                   <option value="Công nghệ (Nông nghiệp)">Công nghệ (Nông nghiệp)</option>
                                   <option value="Âm Nhạc">Âm Nhạc</option>
