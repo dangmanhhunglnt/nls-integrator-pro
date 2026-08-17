@@ -14,7 +14,15 @@ interface HeaderProps {
 }
 
 export default function Header({ 
-  user, onLogin, onLogout, onOpenPricing 
+  userApiKey: _userApiKey, 
+  setUserApiKey: _setUserApiKey, 
+  isKeySaved: _isKeySaved, 
+  saveKeyToLocal: _saveKeyToLocal, 
+  handleEditKey: _handleEditKey,
+  user, 
+  onLogin, 
+  onLogout, 
+  onOpenPricing 
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/60 shadow-sm">
@@ -35,6 +43,7 @@ export default function Header({
           
           {/* NÚT NÂNG CẤP BẢN QUYỀN / MUA QUOTA */}
           <button
+            type="button"
             onClick={onOpenPricing}
             className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
           >
@@ -49,6 +58,7 @@ export default function Header({
             <div className="flex items-center gap-2 bg-slate-50 p-1 pl-2.5 rounded-xl border border-slate-200">
               {/* Badge Gói Cước */}
               <button 
+                type="button"
                 onClick={onOpenPricing}
                 className={`px-2 py-0.5 rounded-lg font-extrabold text-[9px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
                   user.plan === 'PRO' || user.plan === 'SCHOOL'
@@ -74,6 +84,7 @@ export default function Header({
 
               {/* Nút Đăng xuất */}
               <button 
+                type="button"
                 onClick={onLogout}
                 title="Đăng xuất"
                 className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer ml-1"
@@ -83,6 +94,7 @@ export default function Header({
             </div>
           ) : (
             <button 
+              type="button"
               onClick={onLogin}
               className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
             >
