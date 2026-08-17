@@ -1,28 +1,108 @@
-import React from 'react';
-import { X, CheckCircle, Zap, Crown, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2 } from 'lucide-react';
+import { supabase } from '../config/supabaseClient';
 
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
   userEmail?: string;
+  onSuccessUpgrade?: () => void;
 }
 
-export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, userEmail }) => {
+export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, userEmail, onSuccessUpgrade }) => {
+  const [giftcode, setGiftcode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   if (!isOpen) return null;
 
-  // Cấu hình tài khoản ngân hàng của thầy
-  const BANK_ID = "MB"; // Tên ngân hàng (MB, VCB, TCB, VPB, ICB...)
-  const ACCOUNT_NO = "0978386357"; // Số tài khoản ngân hàng của thầy
-  const ACCOUNT_NAME = "DANG MANH HUNG"; // Tên chủ tài khoản không dấu
+  // Cấu hình tài khoản ngân hàng MSB của thầy
+  const BANK_ID = "MSB";
+  const ACCOUNT_NO = "19001010628998";
+  const ACCOUNT_NAME = "DANG MANH HUNG";
   const ZALO_PHONE = "0978386357";
 
   // Cú pháp chuyển khoản tự động
   const transferContent = `NLS ${userEmail ? userEmail.split('@')[0] : 'PRO'}`;
   const qrUrl50k = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=50000&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
 
+  const handleRedeemGiftcode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!giftcode.trim()) return;
+    if (!userEmail) {
+      setMsg({ type: 'error', text: 'Vui lòng đăng nhập tài khoản trước khi nhập mã kích hoạt.' });
+      return;
+    }
+
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      // 1. Kiểm tra tính hợp lệ của mã
+      const { data: codeData, error: codeErr } = await supabase
+        .from('giftcodes')
+        .select('*')
+        .eq('code', giftcode.trim().toUpperCase())
+        .single();
+
+      if (codeErr || !codeData) {
+        setMsg({ type: 'error', text: 'Mã kích hoạt không tồn tại hoặc không chính xác!' });
+        setLoading(false);
+        return;
+      }
+
+      if (codeData.is_used) {
+        setMsg({ type: 'error', text: 'Mã kích hoạt này đã được sử dụng trước đó.' });
+        setLoading(false);
+        return;
+      }
+
+      // 2. Cập nhật trạng thái người dùng (Cộng lượt hoặc Mở PRO)
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', userEmail)
+        .single();
+
+      if (codeData.plan_type === 'PRO') {
+        await supabase
+          .from('users')
+          .update({ plan: 'PRO' })
+          .eq('email', userEmail);
+      } else {
+        const currentMax = userProfile?.max_usage || 3;
+        await supabase
+          .from('users')
+          .update({ max_usage: currentMax + (codeData.add_turns || 50) })
+          .eq('email', userEmail);
+      }
+
+      // 3. Đánh dấu mã đã dùng
+      await supabase
+        .from('giftcodes')
+        .update({
+          is_used: true,
+          used_by: userEmail,
+          used_at: new Date().toISOString()
+        })
+        .eq('id', codeData.id);
+
+      setMsg({ type: 'success', text: `Kích hoạt thành công gói ${codeData.plan_type === 'PRO' ? 'PRO 1 Năm' : 'Thêm 50 Lượt'}!` });
+      setTimeout(() => {
+        if (onSuccessUpgrade) onSuccessUpgrade();
+        onClose();
+      }, 1500);
+
+    } catch (err: any) {
+      setMsg({ type: 'error', text: 'Có lỗi xảy ra: ' + err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 md:p-8">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 max-h-[90vh] overflow-y-auto">
         
         {/* Nút đóng */}
         <button 
@@ -43,6 +123,36 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Kích hoạt nhanh chóng trong vòng 1-3 phút sau khi chuyển khoản
           </p>
+        </div>
+
+        {/* Khu vực kích hoạt Giftcode */}
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800/60">
+          <form onSubmit={handleRedeemGiftcode} className="space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 dark:text-indigo-200">
+              <Key className="w-4 h-4 text-indigo-500" /> Đã có Mã kích hoạt (Giftcode)?
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Nhập mã ví dụ: NLS50-K1A9..."
+                value={giftcode}
+                onChange={(e) => setGiftcode(e.target.value)}
+                className="flex-1 px-3 py-2 text-xs font-mono uppercase bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+              />
+              <button
+                type="submit"
+                disabled={loading || !giftcode.trim()}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-1.5"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Kích hoạt'}
+              </button>
+            </div>
+            {msg && (
+              <p className={`text-xs font-medium ${msg.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                {msg.text}
+              </p>
+            )}
+          </form>
         </div>
 
         {/* Danh sách 2 gói cước */}
