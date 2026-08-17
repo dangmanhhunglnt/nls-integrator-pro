@@ -120,16 +120,22 @@ export const injectContentIntoDocx = async (
           return xmlBlock;
         };
 
-        // --- HÀM 3: TÌM KIẾM XUYÊN THẤU (FUZZY XML SEARCH) ---
-        const findFuzzyIndex = (xml: string, keyword: string) => {
-          let idx = xml.indexOf(keyword);
-          if (idx !== -1) return idx;
+        // --- HÀM 3: TÌM KIẾM XUYÊN THẤU TỪNG KÝ TỰ (CHARACTER-LEVEL FUZZY SEARCH) ---
+        const findFuzzyIndex = (xml: string, keyword: string, startIndex = 0) => {
+          if (!keyword) return -1;
+          
+          // Trực tiếp tìm chuỗi gốc nếu có
+          let directIdx = xml.indexOf(keyword, startIndex);
+          if (directIdx !== -1) return directIdx;
 
-          const words = keyword.split(/[\s\u00A0]+/).map(w => escapeRegex(w));
-          if (words.length === 0) return -1;
-
-          const patternStr = words.join('(?:<[^>]+>|[\\s\\u00A0])+');
-          const regex = new RegExp(patternStr, 'gi'); 
+          // Xây dựng Regex chấp nhận XML tag giữa từng ký tự
+          const chars = keyword.split('').map(c => {
+            if (/\s/.test(c)) return '[\\s\\u00A0]+';
+            return escapeRegex(c);
+          });
+          const patternStr = chars.join('(?:<[^>]+>)*');
+          const regex = new RegExp(patternStr, 'gi');
+          regex.lastIndex = startIndex;
           
           const match = regex.exec(xml);
           return match ? match.index : -1;
@@ -185,80 +191,76 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU ---
-        // Bổ sung đầy đủ các biến thể từ khóa theo chuẩn CV 5512
-        const keywords = [
+        // --- 5. CHÈN NĂNG LỰC VÀO ĐÚNG MỤC MỤC TIÊU (I.2. VỀ NĂNG LỰC) ---
+        // Ưu tiên cấp 1: Tìm chính xác tiêu đề mục Năng lực
+        const competencyKeywords = [
           "I.2. Về năng lực",
-          "I.2. Năng lực",
           "1.2. Về năng lực",
+          "I.2. Năng lực",
           "1.2. Năng lực",
           "Về năng lực",
           "về năng lực",
           "Năng lực chung",
           "Năng lực đặc thù",
-          "Phẩm chất năng lực",
           "2. Phát triển năng lực",
           "2. Năng lực",
-          "2. năng lực",
           "Năng lực cần đạt",
-          "3. Năng lực",
-          "I. MỤC TIÊU DẠY HỌC",
-          "I. MỤC TIÊU",
-          "I. Mục tiêu",
-          "MỤC TIÊU DẠY HỌC",
-          "MỤC TIÊU BÀI HỌC"
+          "Phẩm chất và năng lực"
         ];
-        
-        let targetIndices: number[] = [];
-        for (const key of keywords) {
-          const words = key.split(/\s+/).map(w => escapeRegex(w));
-          const patternStr = words.join('(?:<[^>]+>|[\\s\\u00A0])+');
-          const regex = new RegExp(patternStr, 'gi');
-          let match;
-          while ((match = regex.exec(docXml)) !== null) targetIndices.push(match.index);
-          if (targetIndices.length > 0) break; 
-        }
-        targetIndices.sort((a, b) => a - b);
 
-        let newXml = docXml;
-        const reverseIndices = [...targetIndices].reverse(); 
-        
-        if (targetIndices.length > 0) {
-          reverseIndices.forEach((index) => {
-            let contentToInsert = content.objectives_addition;
-            if (contentToInsert) {
-              const currentStyle = detectStyle(newXml, index);
-              const xmlBlock = createXmlBlock(contentToInsert, currentStyle);
-              
-              if (xmlBlock) {
-                const closingTag = "</w:p>";
-                const insertPos = newXml.indexOf(closingTag, index);
-                if (insertPos !== -1) {
-                  const splitPos = insertPos + closingTag.length;
-                  newXml = newXml.substring(0, splitPos) + xmlBlock + newXml.substring(splitPos);
-                }
-              }
-            }
-          });
-        } else {
-          // Dự phòng: Tìm trước mục "II. THIẾT BỊ DẠY HỌC" để không bị chèn lên đầu trang
-          let fallbackPos = -1;
-          const fallbackKeywords = ["II. THIẾT BỊ DẠY HỌC", "II. THIẾT BỊ", "THIẾT BỊ DẠY HỌC", "III. TIẾN TRÌNH DẠY HỌC"];
-          for (const fbKey of fallbackKeywords) {
-            const fbIdx = findFuzzyIndex(newXml, fbKey);
-            if (fbIdx !== -1) {
-              fallbackPos = fbIdx;
+        let insertAnchorPos = -1;
+        for (const kw of competencyKeywords) {
+          const idx = findFuzzyIndex(docXml, kw);
+          if (idx !== -1) {
+            insertAnchorPos = idx;
+            break;
+          }
+        }
+
+        // Ưu tiên cấp 2: Nếu chưa có mục Năng lực, tìm mục "I. MỤC TIÊU DẠY HỌC"
+        if (insertAnchorPos === -1) {
+          const objectiveKeywords = ["I. MỤC TIÊU DẠY HỌC", "I. MỤC TIÊU", "MỤC TIÊU DẠY HỌC", "MỤC TIÊU BÀI HỌC", "I. Mục tiêu"];
+          for (const kw of objectiveKeywords) {
+            const idx = findFuzzyIndex(docXml, kw);
+            if (idx !== -1) {
+              insertAnchorPos = idx;
               break;
             }
           }
+        }
 
-          if (fallbackPos !== -1) {
-            const prevPPos = newXml.lastIndexOf("<w:p", fallbackPos);
-            if (prevPPos !== -1) {
-              const currentStyle = detectStyle(newXml, fallbackPos);
-              const xmlBlock = createXmlBlock(content.objectives_addition, currentStyle);
-              if (xmlBlock) {
-                newXml = newXml.substring(0, prevPPos) + xmlBlock + newXml.substring(prevPPos);
+        // Ưu tiên cấp 3: Dự phòng tìm trước "II. THIẾT BỊ DẠY HỌC"
+        let insertBefore = false;
+        if (insertAnchorPos === -1) {
+          const fallbackKeywords = ["II. THIẾT BỊ DẠY HỌC", "II. THIẾT BỊ", "THIẾT BỊ DẠY HỌC", "III. TIẾN TRÌNH DẠY HỌC"];
+          for (const kw of fallbackKeywords) {
+            const idx = findFuzzyIndex(docXml, kw);
+            if (idx !== -1) {
+              insertAnchorPos = idx;
+              insertBefore = true;
+              break;
+            }
+          }
+        }
+
+        let newXml = docXml;
+        if (insertAnchorPos !== -1) {
+          const currentStyle = detectStyle(newXml, insertAnchorPos);
+          const xmlBlock = createXmlBlock(content.objectives_addition, currentStyle);
+
+          if (xmlBlock) {
+            if (insertBefore) {
+              // Chèn ngay trước thẻ đoạn văn của mục Thiết bị
+              const pStart = newXml.lastIndexOf("<w:p", insertAnchorPos);
+              if (pStart !== -1) {
+                newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
+              }
+            } else {
+              // Chèn ngay sau dòng tiêu đề Năng lực / Mục tiêu tìm thấy
+              const pEnd = newXml.indexOf("</w:p>", insertAnchorPos);
+              if (pEnd !== -1) {
+                const splitPos = pEnd + "</w:p>".length;
+                newXml = newXml.substring(0, splitPos) + xmlBlock + newXml.substring(splitPos);
               }
             }
           }
@@ -347,7 +349,7 @@ export const injectContentIntoDocx = async (
                     "Sản phẩm"
                   ];
                   for (const cKey of cellKeywords) {
-                    const foundPos = docXml.indexOf(cKey, actIndex);
+                    const foundPos = findFuzzyIndex(docXml, cKey, actIndex);
                     if (foundPos !== -1 && foundPos - actIndex < 18000) {
                       targetCellPos = foundPos;
                       break;
