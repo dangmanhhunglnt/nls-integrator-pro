@@ -29,6 +29,9 @@ export type IntegrationLevel = 'STANDARD' | 'INTENSIVE';
 // Bổ sung: Kiểu xuất file (Chèn trực tiếp vào giáo án gốc / Xuất phụ lục riêng)
 export type OutputFormat = 'INJECT_DIRECT' | 'APPENDIX_ONLY';
 
+// Bổ sung: Tùy chỉnh màu chữ chèn (Đỏ / Xanh dương đậm / Đen)
+export type HighlightColor = 'FF0000' | '1D4ED8' | '000000';
+
 export interface AppState {
   file: File | null;
   subject: SubjectType;
@@ -42,6 +45,7 @@ export interface AppState {
     insertActivities: boolean;
     appendTable: boolean;
   };
+  highlightColor: HighlightColor; // Quản lý màu chữ chèn
   generatedContent: GeneratedNLSContent | null;
   result: { fileName: string; blob: Blob } | null;
 }

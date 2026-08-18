@@ -1,6 +1,6 @@
 import React from 'react';
-import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText } from 'lucide-react';
-import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat } from '../types';
+import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette } from 'lucide-react';
+import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
 
@@ -13,6 +13,8 @@ interface ControlCenterProps {
   setLevel: React.Dispatch<React.SetStateAction<IntegrationLevel>>;
   outputFormat: OutputFormat;
   setOutputFormat: React.Dispatch<React.SetStateAction<OutputFormat>>;
+  highlightColor: HighlightColor;
+  setHighlightColor: React.Dispatch<React.SetStateAction<HighlightColor>>;
   pedagogy: string;
   setPedagogy: (p: string) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -21,7 +23,7 @@ interface ControlCenterProps {
 }
 
 export default function ControlCenter({
-  state, setState, mode, setMode, level, setLevel, outputFormat, setOutputFormat, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
+  state, setState, mode, setMode, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
   const handleSelectMode = (selectedMode: IntegrationMode) => {
@@ -88,35 +90,35 @@ export default function ControlCenter({
                     </button>
                 </div>
 
-                {/* BỔ SUNG: 2 CỤM TÙY CHỌN NHANH */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                {/* BỔ SUNG: 3 CỤM TÙY CHỌN (MỨC ĐỘ, KIỂU XUẤT, MÀU CHỮ CHÈN) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
                     {/* Tùy chọn 1: Mức độ tích hợp */}
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
                             <Sliders className="w-3 h-3 text-indigo-500" /> Mức độ tích hợp
                         </label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100/80 p-1 rounded-xl">
+                        <div className="grid grid-cols-2 gap-1.5 bg-slate-100/80 p-1 rounded-xl">
                             <button
                                 type="button"
                                 onClick={() => setLevel('STANDARD')}
-                                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     level === 'STANDARD'
                                     ? 'bg-white text-indigo-700 shadow-xs'
                                     : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                🟢 Tiêu chuẩn (Lên lớp)
+                                🟢 Tiêu chuẩn
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setLevel('INTENSIVE')}
-                                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     level === 'INTENSIVE'
                                     ? 'bg-white text-indigo-700 shadow-xs'
                                     : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                🟡 Chuyên sâu (Thao giảng)
+                                🟡 Chuyên sâu
                             </button>
                         </div>
                     </div>
@@ -126,28 +128,70 @@ export default function ControlCenter({
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
                             <FileText className="w-3 h-3 text-indigo-500" /> Kiểu xuất file
                         </label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100/80 p-1 rounded-xl">
+                        <div className="grid grid-cols-2 gap-1.5 bg-slate-100/80 p-1 rounded-xl">
                             <button
                                 type="button"
                                 onClick={() => setOutputFormat('INJECT_DIRECT')}
-                                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     outputFormat === 'INJECT_DIRECT'
                                     ? 'bg-white text-indigo-700 shadow-xs'
                                     : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                📄 Chèn vào giáo án gốc
+                                📄 Chèn vào gốc
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setOutputFormat('APPENDIX_ONLY')}
-                                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     outputFormat === 'APPENDIX_ONLY'
                                     ? 'bg-white text-indigo-700 shadow-xs'
                                     : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
-                                📑 Xuất phụ lục riêng
+                                📑 Phụ lục riêng
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tùy chọn 3: Màu chữ chèn */}
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
+                            <Palette className="w-3 h-3 text-indigo-500" /> Màu chữ chèn
+                        </label>
+                        <div className="grid grid-cols-3 gap-1 bg-slate-100/80 p-1 rounded-xl">
+                            <button
+                                type="button"
+                                onClick={() => setHighlightColor('FF0000')}
+                                className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
+                                    highlightColor === 'FF0000'
+                                    ? 'bg-white text-red-600 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                🔴 Đỏ
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setHighlightColor('1D4ED8')}
+                                className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
+                                    highlightColor === '1D4ED8'
+                                    ? 'bg-white text-blue-600 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                🔵 Xanh
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setHighlightColor('000000')}
+                                className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
+                                    highlightColor === '000000'
+                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                ⚫ Đen
                             </button>
                         </div>
                     </div>

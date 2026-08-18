@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, UserProfile } from './types';
+import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx } from './services/docxManipulator';
 import { PEDAGOGY_MODELS } from './utils';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
   const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
+  const [highlightColor, setHighlightColor] = useState<HighlightColor>('FF0000');
   const [userApiKey, setUserApiKey] = useState('');
   const [isKeySaved, setIsKeySaved] = useState(false);
 
@@ -120,6 +121,7 @@ const App: React.FC = () => {
     step: 'upload', 
     logs: [],
     config: { insertObjectives: true, insertMaterials: true, insertActivities: true, appendTable: true },
+    highlightColor: 'FF0000',
     generatedContent: null, 
     result: null
   });
@@ -198,6 +200,7 @@ const App: React.FC = () => {
       addLog(`⚙️ Chiến lược: ${modelName}`);
       addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
       addLog(`🎯 Mức độ: ${level === 'INTENSIVE' ? 'Chuyên sâu (Thao giảng)' : 'Tiêu chuẩn (Lên lớp)'}`);
+      addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
       addLog("🔍 Đang phân tích cấu trúc giáo án...");
       
       const textContext = await extractTextFromDocx(state.file);
@@ -260,7 +263,7 @@ const App: React.FC = () => {
         newBlob = await createAppendixDocx(finalContent, state.subject, state.grade, mode);
         outputFileName = `[Phụ lục NLS-AI] ${state.file.name}`;
       } else {
-        newBlob = await injectContentIntoDocx(state.file, finalContent, mode, addLog);
+        newBlob = await injectContentIntoDocx(state.file, finalContent, mode, addLog, highlightColor);
         outputFileName = `[NLS-PRO] ${state.file.name}`;
       }
 
@@ -311,6 +314,8 @@ const App: React.FC = () => {
               setLevel={setLevel}
               outputFormat={outputFormat}
               setOutputFormat={setOutputFormat}
+              highlightColor={highlightColor}
+              setHighlightColor={setHighlightColor}
               pedagogy={pedagogy}
               setPedagogy={setPedagogy}
               handleFileChange={handleFileChange}

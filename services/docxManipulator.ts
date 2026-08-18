@@ -1,6 +1,6 @@
 import PizZip from 'pizzip';
 import mammoth from 'mammoth';
-import { GeneratedNLSContent, IntegrationMode } from '../types';
+import { GeneratedNLSContent, IntegrationMode, HighlightColor } from '../types';
 
 /**
  * 1. HÀM ĐỌC VÀ TRÍCH XUẤT VĂN BẢN TỪ FILE WORD (.DOCX)
@@ -23,7 +23,8 @@ export const injectContentIntoDocx = async (
   file: File,
   content: GeneratedNLSContent,
   mode: IntegrationMode,
-  _log: (msg: string) => void
+  _log: (msg: string) => void,
+  colorHex: HighlightColor = 'FF0000'
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -67,15 +68,15 @@ export const injectContentIntoDocx = async (
           return { fontSize, fontTag };
         };
 
-        // --- HÀM 2: TẠO KHỐI XML (MÀU ĐỎ + THỪA KẾ STYLE GỐC) ---
+        // --- HÀM 2: TẠO KHỐI XML (MÀU TÙY CHỈNH + THỪA KẾ STYLE GỐC) ---
         const createXmlBlock = (text: string, style: { fontSize: string | null, fontTag: string }) => {
           if (!text) return "";
           
           const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           if (lines.length === 0) return "";
 
-          let rPrHeader = `<w:b/><w:color w:val="FF0000"/>`; 
-          let rPrBody = `<w:color w:val="FF0000"/>`;
+          let rPrHeader = `<w:b/><w:color w:val="${colorHex}"/>`; 
+          let rPrBody = `<w:color w:val="${colorHex}"/>`;
 
           if (style.fontSize) {
             const szTag = `<w:sz w:val="${style.fontSize}"/><w:szCs w:val="${style.fontSize}"/>`;
@@ -144,6 +145,7 @@ export const injectContentIntoDocx = async (
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
           let rowsXml = "";
+          // Row Header (Tiêu đề bảng)
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
@@ -154,6 +156,7 @@ export const injectContentIntoDocx = async (
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
+          // Data Rows (Các dòng nội dung)
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
@@ -189,6 +192,7 @@ export const injectContentIntoDocx = async (
 
         // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU (HỖ TRỢ MỌI MẪU GIÁO ÁN) ---
         const competencyKeywords = [
+          // Mẫu chuẩn CV 5512
           "I.2. Về năng lực",
           "1.2. Về năng lực",
           "I.2. Năng lực",
@@ -202,9 +206,11 @@ export const injectContentIntoDocx = async (
           "Phát triển năng lực",
           "Năng lực cần đạt",
           "Yêu cầu cần đạt về năng lực",
+          // Mẫu phi chuẩn không đánh số
           "MỤC TIÊU VỀ NĂNG LỰC",
           "NĂNG LỰC:",
           "Năng lực:",
+          // Nhóm mục tiêu tổng
           "I. MỤC TIÊU DẠY HỌC",
           "I. MỤC TIÊU",
           "MỤC TIÊU DẠY HỌC",
@@ -221,6 +227,7 @@ export const injectContentIntoDocx = async (
           }
         }
 
+        // Nếu giáo án hoàn toàn không có mục Năng lực, neo trước phần Thiết bị/Tiến trình
         let insertBefore = false;
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
