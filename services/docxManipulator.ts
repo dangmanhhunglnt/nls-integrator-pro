@@ -488,6 +488,24 @@ export const createAppendixDocx = async (
   return zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" });
 };
 
+/**
+ * 4. HÀM ĐÓNG GÓI NHIỀU FILE WORD THÀNH 1 TỆP ZIP DUY NHẤT (XỬ LÝ HÀNG LOẠT)
+ */
+export const createZipFromBlobs = async (
+  files: { name: string; blob: Blob }[]
+): Promise<Blob> => {
+  const zip = new PizZip();
+  for (const item of files) {
+    const arrayBuffer = await item.blob.arrayBuffer();
+    zip.file(item.name, arrayBuffer);
+  }
+  return zip.generate({
+    type: "blob",
+    mimeType: "application/zip",
+    compression: "DEFLATE",
+  });
+};
+
 const escapeRegex = (string: string) => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };

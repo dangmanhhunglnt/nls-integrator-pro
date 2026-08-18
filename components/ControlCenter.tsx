@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette } from 'lucide-react';
+import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
@@ -30,6 +30,8 @@ export default function ControlCenter({
     setMode(selectedMode);
     setState(prev => ({ ...prev, mode: selectedMode }));
   };
+
+  const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
 
   return (
     <>
@@ -283,28 +285,32 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* Card 3: Tài liệu đầu vào */}
+            {/* Card 3: Tài liệu đầu vào (Hỗ trợ nạp 1 hoặc nhiều file) */}
             <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
-                        * File Giáo án (.docx)
+                        * File Giáo án (.docx) {fileCount > 1 && <span className="text-indigo-600 font-extrabold">(Đã chọn {fileCount} file)</span>}
                     </label>
                     <label className={`relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-4 group ${
-                      state.file 
+                      fileCount > 0 
                       ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
                       : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
                     }`}>
                         <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
-                            {state.file ? (
+                            {fileCount > 0 ? (
                                 <div className="flex items-center gap-3 w-full px-2">
                                     <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-                                        <CheckCircle2 className="w-5 h-5" />
+                                        {fileCount > 1 ? <Files className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                                     </div>
                                     <div className="min-w-0 flex-1 text-left">
                                         <div className="flex items-center gap-1.5">
-                                          <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">Đã nạp</span>
+                                          <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
+                                            {fileCount > 1 ? `Đã nạp ${fileCount} file` : 'Đã nạp 1 file'}
+                                          </span>
                                         </div>
-                                        <p className="font-bold text-slate-800 text-xs truncate mt-0.5">{state.file.name}</p>
+                                        <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
+                                          {fileCount > 1 ? state.files.map(f => f.name).join(', ') : state.file?.name}
+                                        </p>
                                     </div>
                                     <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 shrink-0 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
                                       <RefreshCw className="w-3 h-3" /> Đổi
@@ -316,11 +322,11 @@ export default function ControlCenter({
                                         <FileUp className="w-4 h-4" />
                                     </div>
                                     <p className="font-bold text-slate-700 text-xs">Tải lên Giáo án (.docx)</p>
-                                    <span className="text-[10px] text-slate-400 mt-0.5">Bấm để chọn hoặc kéo thả file Word</span>
+                                    <span className="text-[10px] text-slate-400 mt-0.5">Chọn 1 hoặc giữ Ctrl chọn nhiều file cùng lúc</span>
                                 </>
                             )}
                         </div>
-                        <input type="file" accept=".docx" className="hidden" onChange={handleFileChange} />
+                        <input type="file" accept=".docx" multiple className="hidden" onChange={handleFileChange} />
                     </label>
                 </div>
 
@@ -373,15 +379,15 @@ export default function ControlCenter({
                     </div>
                 ) : (
                     <button 
-                      disabled={!state.file} 
+                      disabled={fileCount === 0} 
                       onClick={handleAnalyze} 
                       className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
-                            !state.file 
+                            fileCount === 0 
                             ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
                             : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
                         }`}
                     >
-                      <Wand2 className="w-4 h-4 text-amber-300" /> Kích hoạt AI
+                      <Wand2 className="w-4 h-4 text-amber-300" /> {fileCount > 1 ? `Kích hoạt AI xử lý ${fileCount} giáo án` : 'Kích hoạt AI'}
                     </button>
                 )}
             </div>
@@ -389,7 +395,7 @@ export default function ControlCenter({
         </div>
       )}
 
-      {/* Smart Editor */}
+      {/* Smart Editor (Dành cho chế độ 1 file đơn lẻ) */}
       {state.step === 'review' && state.generatedContent && (
          <SmartEditor initialContent={state.generatedContent} onConfirm={handleFinalizeAndDownload} onCancel={() => setState(prev => ({ ...prev, step: 'upload', generatedContent: null }))} />
       )}
@@ -399,11 +405,15 @@ export default function ControlCenter({
         <div className="bg-white rounded-2xl p-8 shadow-xl shadow-emerald-500/10 border border-emerald-100 text-center animate-fade-in-up">
             <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-4 mx-auto ring-4 ring-emerald-50/50"><Sparkles className="w-8 h-8" /></div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">Thành công!</h3>
-            <p className="text-slate-500 mb-6 text-xs">Giáo án đã được tích hợp năng lực chuẩn GDPT 2018.</p>
+            <p className="text-slate-500 mb-6 text-xs">
+              {state.result.fileName.endsWith('.zip') ? 'Tất cả các giáo án đã được xử lý hàng loạt và đóng gói thành công.' : 'Giáo án đã được tích hợp năng lực chuẩn GDPT 2018.'}
+            </p>
             
             <div className="flex justify-center gap-3">
-                <button onClick={() => setState(prev => ({ ...prev, step: 'upload', result: null, generatedContent: null }))} className="px-5 py-2.5 rounded-lg font-bold text-xs text-slate-600 hover:bg-slate-50 border border-slate-200">Làm lại</button>
-                <button onClick={() => { if (state.result) { const url = URL.createObjectURL(state.result.blob); const a = document.createElement('a'); a.href = url; a.download = state.result.fileName; a.click(); } }} className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-200 hover:-translate-y-0.5 transition-all"><Download className="w-4 h-4" /> Tải về ngay</button>
+                <button onClick={() => setState(prev => ({ ...prev, step: 'upload', result: null, generatedContent: null, files: [], file: null }))} className="px-5 py-2.5 rounded-lg font-bold text-xs text-slate-600 hover:bg-slate-50 border border-slate-200">Làm lại</button>
+                <button onClick={() => { if (state.result) { const url = URL.createObjectURL(state.result.blob); const a = document.createElement('a'); a.href = url; a.download = state.result.fileName; a.click(); } }} className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-200 hover:-translate-y-0.5 transition-all">
+                  <Download className="w-4 h-4" /> {state.result.fileName.endsWith('.zip') ? 'Tải về toàn bộ (ZIP)' : 'Tải về ngay'}
+                </button>
             </div>
         </div>
       )}

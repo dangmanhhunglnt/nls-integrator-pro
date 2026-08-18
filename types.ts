@@ -34,6 +34,7 @@ export type HighlightColor = 'FF0000' | '1D4ED8' | '000000';
 
 export interface AppState {
   file: File | null;
+  files: File[]; // Bổ sung: Hỗ trợ nạp và xử lý hàng loạt nhiều file giáo án
   subject: SubjectType;
   grade: GradeType;
   isProcessing: boolean;

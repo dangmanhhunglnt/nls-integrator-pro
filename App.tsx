@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
-import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx } from './services/docxManipulator';
+import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
 import { PEDAGOGY_MODELS } from './utils';
 import packageJson from './package.json';
 
@@ -115,6 +115,7 @@ const App: React.FC = () => {
 
   const [state, setState] = useState<AppState>({
     file: null, 
+    files: [], // Khắc phục lỗi thiếu trường files của AppState
     subject: '' as SubjectType, 
     grade: '' as GradeType, 
     isProcessing: false, 
@@ -150,15 +151,18 @@ const App: React.FC = () => {
   const handleEditKey = () => setIsKeySaved(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.name.endsWith('.docx')) {
+    const selectedFiles = Array.from(e.target.files || []).filter(f => f.name.endsWith('.docx'));
+    if (selectedFiles.length > 0) {
       setState(prev => ({ 
         ...prev, 
-        file, 
+        files: selectedFiles,
+        file: selectedFiles[0], 
         result: null, 
         generatedContent: null, 
         step: 'upload', 
-        logs: [`📂 Đã nạp file: ${file.name}`] 
+        logs: selectedFiles.length > 1 
+          ? [`📂 Đã nạp hàng loạt ${selectedFiles.length} file giáo án.`] 
+          : [`📂 Đã nạp file: ${selectedFiles[0].name}`] 
       }));
     } else { 
       alert("Chỉ hỗ trợ định dạng Word (.docx)!"); 
@@ -169,10 +173,12 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, logs: [...prev.logs, msg] })); 
   };
 
-  // 3. Hàm phân tích giáo án & Trừ lượt dùng
+  // 3. Hàm phân tích giáo án & Hỗ trợ Xử lý hàng loạt (Batch Processing)
   const handleAnalyze = async () => {
-    if (!state.file || !state.subject || !state.grade) { 
-      alert("Vui lòng chọn đầy đủ Môn và Khối lớp!"); 
+    const targetFiles = state.files && state.files.length > 0 ? state.files : (state.file ? [state.file] : []);
+
+    if (targetFiles.length === 0 || !state.subject || !state.grade) { 
+      alert("Vui lòng chọn đầy đủ Môn, Khối lớp và File giáo án!"); 
       return; 
     }
 
@@ -184,7 +190,7 @@ const App: React.FC = () => {
     }
 
     // 2. Kiểm tra hạn mức nếu là tài khoản Free -> Tự mở modal bảng giá nạp tiền
-    if (user.plan !== 'PRO' && user.usageCount >= user.maxUsage) {
+    if (user.plan !== 'PRO' && (user.usageCount + targetFiles.length) > user.maxUsage) {
       setIsPricingOpen(true);
       return;
     }
@@ -195,31 +201,99 @@ const App: React.FC = () => {
       logs: [`🚀 Khởi động Core ${APP_VERSION}...`] 
     }));
 
-    try {
-      const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
-      addLog(`⚙️ Chiến lược: ${modelName}`);
-      addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
-      addLog(`🎯 Mức độ: ${level === 'INTENSIVE' ? 'Chuyên sâu (Thao giảng)' : 'Tiêu chuẩn (Lên lớp)'}`);
-      addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
-      addLog("🔍 Đang phân tích cấu trúc giáo án...");
-      
-      const textContext = await extractTextFromDocx(state.file);
-            
-      addLog("🧠 AI đang tư duy và thiết kế nội dung...");
-      const generatedContent = await generateCompetencyIntegration(
-        textContext,
-        state.subject,
-        state.grade,
-        mode,
-        userApiKey,
-        level
-      );
-      addLog(`✓ Hoàn tất thiết kế.`);
+    const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
+    addLog(`⚙️ Chiến lược: ${modelName}`);
+    addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
+    addLog(`🎯 Mức độ: ${level === 'INTENSIVE' ? 'Chuyên sâu (Thao giảng)' : 'Tiêu chuẩn (Lên lớp)'}`);
+    addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
-      // 3. Tự động tăng và lưu số lượt vào Supabase nếu là FREE
-      if (user.plan !== 'PRO') {
-        const nextUsage = (user.usageCount || 0) + 1;
+    try {
+      // TRƯỜNG HỢP 1: XỬ LÝ 1 FILE ĐƠN LẺ -> Cho phép xem lại (Smart Editor)
+      if (targetFiles.length === 1) {
+        const currentFile = targetFiles[0];
+        addLog(`🔍 Đang phân tích cấu trúc giáo án: ${currentFile.name}...`);
+        const textContext = await extractTextFromDocx(currentFile);
+              
+        addLog("🧠 AI đang tư duy và thiết kế nội dung...");
+        const generatedContent = await generateCompetencyIntegration(
+          textContext,
+          state.subject,
+          state.grade,
+          mode,
+          userApiKey,
+          level
+        );
+        addLog(`✓ Hoàn tất thiết kế.`);
+
+        // 3. Tự động tăng và lưu số lượt vào Supabase nếu là FREE
+        if (user.plan !== 'PRO') {
+          const nextUsage = (user.usageCount || 0) + 1;
+          
+          await supabase
+            .from('profiles')
+            .upsert({ 
+              id: user.uid, 
+              email: user.email, 
+              full_name: user.displayName,
+              usage_count: nextUsage,
+              max_usage: user.maxUsage,
+              role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
+            });
+          
+          setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
+          addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
+        }
         
+        setState(prev => ({ 
+          ...prev, 
+          isProcessing: false, 
+          generatedContent, 
+          step: 'review' 
+        }));
+        return;
+      }
+
+      // TRƯỜNG HỢP 2: XỬ LÝ HÀNG LOẠT (BATCH PROCESSING) -> Tự động chạy tuần tự & nén ZIP
+      addLog(`⚡ Bắt đầu tiến trình xử lý hàng loạt ${targetFiles.length} file...`);
+      const outputBlobs: { name: string; blob: Blob }[] = [];
+
+      for (let i = 0; i < targetFiles.length; i++) {
+        const fileItem = targetFiles[i];
+        addLog(`━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        addLog(`[${i + 1}/${targetFiles.length}] Đang xử lý: ${fileItem.name}`);
+        
+        const fileText = await extractTextFromDocx(fileItem);
+        const itemContent = await generateCompetencyIntegration(
+          fileText,
+          state.subject,
+          state.grade,
+          mode,
+          userApiKey,
+          level
+        );
+
+        let finalBlob: Blob;
+        let outName: string;
+
+        if (outputFormat === 'APPENDIX_ONLY') {
+          finalBlob = await createAppendixDocx(itemContent, state.subject, state.grade, mode);
+          outName = `[Phụ lục NLS-AI] ${fileItem.name}`;
+        } else {
+          finalBlob = await injectContentIntoDocx(fileItem, itemContent, mode, addLog, highlightColor);
+          outName = `[NLS-PRO] ${fileItem.name}`;
+        }
+
+        outputBlobs.push({ name: outName, blob: finalBlob });
+        addLog(`✓ Đã hoàn thành [${i + 1}/${targetFiles.length}]: ${fileItem.name}`);
+      }
+
+      // Đóng gói thành 1 file ZIP duy nhất
+      addLog(`📦 Đang nén ${outputBlobs.length} file vào tệp ZIP...`);
+      const zipBlob = await createZipFromBlobs(outputBlobs);
+      const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_tich_hop_${state.subject}_${state.grade}.zip`;
+
+      if (user.plan !== 'PRO') {
+        const nextUsage = (user.usageCount || 0) + targetFiles.length;
         await supabase
           .from('profiles')
           .upsert({ 
@@ -230,17 +304,18 @@ const App: React.FC = () => {
             max_usage: user.maxUsage,
             role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
           });
-        
         setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
         addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
       }
-      
-      setState(prev => ({ 
-        ...prev, 
-        isProcessing: false, 
-        generatedContent, 
-        step: 'review' 
+
+      addLog(`✨ Đã đóng gói thành công tệp ZIP!`);
+      setState(prev => ({
+        ...prev,
+        isProcessing: false,
+        step: 'done',
+        result: { fileName: zipFileName, blob: zipBlob }
       }));
+
     } catch (error) {
       addLog(`❌ Lỗi: ${error instanceof Error ? error.message : "Không xác định"}`);
       setState(prev => ({ ...prev, isProcessing: false }));
