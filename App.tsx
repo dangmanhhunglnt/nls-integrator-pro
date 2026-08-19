@@ -143,7 +143,7 @@ const App: React.FC = () => {
     } else { 
       localStorage.removeItem('gemini_api_key');
       setUserApiKey('');
-      setIsKeySaved(false);
+      setIsKeySaved(false); 
       addLog("⚡ Chuyển sang chế độ Dùng thử hệ thống."); 
     }
   };
@@ -356,55 +356,72 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 pb-10 overflow-x-hidden selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 flex flex-col justify-between overflow-x-hidden selection:bg-indigo-100 selection:text-indigo-900">
       
-      {/* HEADER COMPONENT */}
-      <Header 
-        userApiKey={userApiKey}
-        setUserApiKey={setUserApiKey}
-        isKeySaved={isKeySaved}
-        saveKeyToLocal={saveKeyToLocal}
-        handleEditKey={handleEditKey}
-        user={user}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        onOpenPricing={() => setIsPricingOpen(true)}
-      />
+      {/* 1. HEADER COMPONENT */}
+      <div>
+        <Header 
+          userApiKey={userApiKey}
+          setUserApiKey={setUserApiKey}
+          isKeySaved={isKeySaved}
+          saveKeyToLocal={saveKeyToLocal}
+          handleEditKey={handleEditKey}
+          user={user}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+          onOpenPricing={() => setIsPricingOpen(true)}
+        />
 
-      <main className="relative z-10 max-w-7xl mx-auto px-6 py-8">
-        
-        {/* HERO SECTION COMPONENT */}
-        <HeroSection appVersion={APP_VERSION} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           
-          {/* LEFT: CONTROL CENTER COMPONENT */}
-          <div className="lg:col-span-8 space-y-6">
-            <ControlCenter 
-              state={state}
-              setState={setState}
-              mode={mode}
-              setMode={setMode}
-              level={level}
-              setLevel={setLevel}
-              outputFormat={outputFormat}
-              setOutputFormat={setOutputFormat}
-              highlightColor={highlightColor}
-              setHighlightColor={setHighlightColor}
-              pedagogy={pedagogy}
-              setPedagogy={setPedagogy}
-              handleFileChange={handleFileChange}
-              handleAnalyze={handleAnalyze}
-              handleFinalizeAndDownload={handleFinalizeAndDownload}
-            />
+          {/* 2. HERO SECTION COMPONENT */}
+          <HeroSection appVersion={APP_VERSION} />
+
+          {/* 3. MAIN WORKSPACE GRID: Cân bằng tỷ lệ 7/5 giúp 2 cột đều và đẹp hơn */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            
+            {/* LEFT: CONTROL CENTER COMPONENT */}
+            <div className="lg:col-span-7 space-y-6">
+              <ControlCenter 
+                state={state}
+                setState={setState}
+                mode={mode}
+                setMode={setMode}
+                level={level}
+                setLevel={setLevel}
+                outputFormat={outputFormat}
+                setOutputFormat={setOutputFormat}
+                highlightColor={highlightColor}
+                setHighlightColor={setHighlightColor}
+                pedagogy={pedagogy}
+                setPedagogy={setPedagogy}
+                handleFileChange={handleFileChange}
+                handleAnalyze={handleAnalyze}
+                handleFinalizeAndDownload={handleFinalizeAndDownload}
+              />
+            </div>
+            
+            {/* RIGHT: TERMINAL & AUTHOR SIDEBAR COMPONENT (Bám dính mượt mà) */}
+            <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
+               <TerminalSidebar logs={state.logs} isProcessing={state.isProcessing} />
+            </div>
           </div>
-          
-          {/* RIGHT: TERMINAL & AUTHOR SIDEBAR COMPONENT */}
-          <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-24">
-             <TerminalSidebar logs={state.logs} isProcessing={state.isProcessing} />
+        </main>
+      </div>
+
+      {/* 4. FOOTER CHÂN TRANG: Cân bằng trang, định vị thương hiệu và bản quyền */}
+      <footer className="mt-12 border-t border-slate-200 bg-white/70 backdrop-blur py-6 px-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <div>
+            © 2026 <strong>NLS Integrator Pro</strong> • Phát triển và sở hữu bởi <strong>Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông).
+          </div>
+          <div className="flex items-center gap-4">
+            <span>Chuẩn hóa GDPT 2018 (CV 5512, TT 02/2025/TT-BGDĐT)</span>
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span className="font-semibold text-slate-700">Hỗ trợ: 097 8386 357</span>
           </div>
         </div>
-      </main>
+      </footer>
 
       {/* POPUP BẢNG GIÁ & NẠP TIỀN VIETQR */}
       <PricingModal 
