@@ -415,7 +415,14 @@ const App: React.FC = () => {
           <div>
             © 2026 <strong>NLS Integrator Pro</strong> • Phát triển và sở hữu bởi <strong>Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông).
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <button 
+              onClick={() => setIsPricingOpen(true)}
+              className="font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors cursor-pointer flex items-center gap-1 bg-indigo-50/60 px-2.5 py-1 rounded-lg"
+            >
+              <span>💎</span> Bảng giá &amp; Hướng dẫn mua lượt
+            </button>
+            <span className="hidden md:inline text-slate-300">|</span>
             <span>Chuẩn hóa GDPT 2018 (CV 5512, TT 02/2025/TT-BGDĐT)</span>
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span className="font-semibold text-slate-700">Hỗ trợ: 097 8386 357</span>

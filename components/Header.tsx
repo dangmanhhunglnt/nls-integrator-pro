@@ -28,20 +28,20 @@ export default function Header({
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/60 shadow-sm">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         
         {/* LOGO & BRAND NAME */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
             <Sparkles className="w-4 h-4" />
           </div>
-          <h1 className="font-bold text-slate-800 text-lg tracking-tight">
+          <h1 className="font-bold text-slate-800 text-base sm:text-lg tracking-tight">
             NLS Integrator <span className="text-indigo-600">Pro</span>
           </h1>
         </div>
 
         {/* KHU VỰC PHẢI: NÂNG CẤP PRO + TÀI KHOẢN */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           
           {/* NÚT NÂNG CẤP BẢN QUYỀN / MUA QUOTA */}
           {!isPro && (
@@ -51,15 +51,15 @@ export default function Header({
               className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
             >
               <Crown className="w-3.5 h-3.5 fill-current" />
-              <span className="hidden sm:inline">Nâng cấp PRO</span>
+              <span className="inline">Nâng cấp PRO</span>
             </button>
           )}
 
-          {!isPro && <div className="w-[1px] h-6 bg-slate-200 mx-1 hidden sm:block" />}
+          {!isPro && <div className="w-[1px] h-6 bg-slate-200 mx-0.5 sm:mx-1 hidden sm:block" />}
 
           {/* TÀI KHOẢN NGƯỜI DÙNG / ĐĂNG NHẬP GOOGLE */}
           {user ? (
-            <div className="flex items-center gap-2 bg-slate-50 p-1 pl-2.5 rounded-xl border border-slate-200">
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-50 p-1 pl-2 sm:pl-2.5 rounded-xl border border-slate-200 shadow-xs">
               {/* Badge Gói Cước */}
               <button 
                 type="button"
@@ -86,7 +86,7 @@ export default function Header({
               </button>
 
               {/* User Avatar */}
-              <div className="flex items-center gap-1.5 ml-1">
+              <div className="flex items-center gap-1.5 ml-0.5 sm:ml-1">
                 {user.photoURL ? (
                   <img src={user.photoURL} alt={user.displayName || 'Avatar'} className="w-6 h-6 rounded-full ring-2 ring-indigo-500/20 object-cover" />
                 ) : (
@@ -94,7 +94,7 @@ export default function Header({
                     {user.displayName?.charAt(0) || <User className="w-3 h-3" />}
                   </div>
                 )}
-                <span className="text-xs font-bold text-slate-700 hidden md:inline max-w-[100px] truncate">{user.displayName}</span>
+                <span className="text-xs font-bold text-slate-700 hidden md:inline max-w-[110px] truncate">{user.displayName}</span>
               </div>
 
               {/* Nút Đăng xuất */}
@@ -102,7 +102,7 @@ export default function Header({
                 type="button"
                 onClick={onLogout}
                 title="Đăng xuất"
-                className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer ml-1"
+                className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer ml-0.5 sm:ml-1"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -111,7 +111,7 @@ export default function Header({
             <button 
               type="button"
               onClick={onLogin}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
             >
               <LogIn className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Đăng nhập</span>
             </button>
