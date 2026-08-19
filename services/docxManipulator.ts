@@ -190,9 +190,8 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU (HỖ TRỢ MỌI MẪU GIÁO ÁN) ---
-        const competencyKeywords = [
-          // Bổ sung các mốc kết thúc phần Năng lực để chèn xuống cuối
+        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC (TRƯỚC MỤC 3. PHẨM CHẤT) ---
+        const endKeywords = [
           "3. Phẩm chất",
           "3. Về phẩm chất",
           "III. Phẩm chất",
@@ -200,61 +199,33 @@ export const injectContentIntoDocx = async (
           "1.3. Về phẩm chất",
           "Phẩm chất:",
           "PHẨM CHẤT:",
-          "Về phẩm chất",
-          // Các tiêu đề năng lực theo mẫu chuẩn CV 5512
-          "I.2. Về năng lực",
-          "1.2. Về năng lực",
-          "I.2. Năng lực",
-          "1.2. Năng lực",
-          "2. Năng lực",
-          "2. Về năng lực",
-          "Về năng lực",
-          "về năng lực",
-          "Năng lực đặc thù",
-          "Năng lực chung",
-          "Phát triển năng lực",
-          "Năng lực cần đạt",
-          "Yêu cầu cần đạt về năng lực",
-          // Mẫu phi chuẩn không đánh số
-          "MỤC TIÊU VỀ NĂNG LỰC",
-          "NĂNG LỰC:",
-          "Năng lực:",
-          // Nhóm mục tiêu tổng
-          "I. MỤC TIÊU DẠY HỌC",
-          "I. MỤC TIÊU",
-          "MỤC TIÊU DẠY HỌC",
-          "MỤC TIÊU BÀI HỌC",
-          "YÊU CẦU CẦN ĐẠT"
+          "Về phẩm chất"
         ];
 
         let insertAnchorPos = -1;
-        for (const kw of competencyKeywords) {
+        let isBeforeKeyword = false;
+
+        // Ưu tiên 1: Tìm mốc Phẩm chất để chèn ngay TRƯỚC nó (tức là cuối mục Năng lực)
+        for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw);
           if (idx !== -1) {
             insertAnchorPos = idx;
+            isBeforeKeyword = true;
             break;
           }
         }
 
-        // Nếu giáo án hoàn toàn không có mục Năng lực, neo trước phần Thiết bị/Tiến trình
-        let insertBefore = false;
+        // Ưu tiên 2 (dự phòng): Nếu giáo án không có mục Phẩm chất, tìm tiêu đề Năng lực để chèn sau
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
-            "II. THIẾT BỊ DẠY HỌC", 
-            "II. THIẾT BỊ", 
-            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", 
-            "THIẾT BỊ DẠY HỌC", 
-            "CHUẨN BỊ CỦA GV VÀ HS",
-            "III. TIẾN TRÌNH DẠY HỌC",
-            "III. TIẾN TRÌNH",
-            "TIẾN TRÌNH DẠY HỌC",
-            "TIẾN TRÌNH HOẠT ĐỘNG"
+            "2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "I.2. Về năng lực",
+            "1.2. Năng lực", "1.2. Về năng lực", "Về năng lực", "NĂNG LỰC:", "Năng lực:"
           ];
           for (const kw of fallbackKeywords) {
             const idx = findFuzzyIndex(docXml, kw);
             if (idx !== -1) {
               insertAnchorPos = idx;
-              insertBefore = true;
+              isBeforeKeyword = false;
               break;
             }
           }
@@ -266,12 +237,26 @@ export const injectContentIntoDocx = async (
           const xmlBlock = createXmlBlock(content.objectives_addition, currentStyle);
 
           if (xmlBlock) {
-            if (insertBefore) {
-              const pStart = newXml.lastIndexOf("<w:p>", insertAnchorPos) !== -1 ? newXml.lastIndexOf("<w:p>", insertAnchorPos) : newXml.lastIndexOf("<w:p ", insertAnchorPos);
+            if (isBeforeKeyword) {
+              // Tìm đúng thẻ mở <w:p> của dòng "3. Phẩm chất" để chèn lên phía trên nó
+              let pStart = -1;
+              let searchIndex = insertAnchorPos;
+              while (searchIndex >= 0) {
+                const found = newXml.lastIndexOf("<w:p", searchIndex);
+                if (found === -1) break;
+                const charAfter = newXml.charAt(found + 4);
+                if (charAfter === " " || charAfter === ">") {
+                  pStart = found;
+                  break;
+                }
+                searchIndex = found - 1;
+              }
+
               if (pStart !== -1) {
                 newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
               }
             } else {
+              // Chèn sau dòng tiêu đề Năng lực nếu không có mốc Phẩm chất
               const pEnd = newXml.indexOf("</w:p>", insertAnchorPos);
               if (pEnd !== -1) {
                 const splitPos = pEnd + "</w:p>".length;
