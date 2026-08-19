@@ -47,6 +47,21 @@ export const injectContentIntoDocx = async (
           label = "Tích hợp AI";
         }
 
+        // --- HÀM TÌM ĐÚNG VỊ TRÍ BẮT ĐẦU THẺ <w:p> (TRÁNH BẮT NHẦM <w:pPr>) ---
+        const findTrueParagraphStart = (xml: string, pos: number): number => {
+          let cur = pos;
+          while (cur >= 0) {
+            const idx = xml.lastIndexOf("<w:p", cur);
+            if (idx === -1) return -1;
+            const nextChar = xml.charAt(idx + 4);
+            if (nextChar === " " || nextChar === ">" || nextChar === "/") {
+              return idx;
+            }
+            cur = idx - 1;
+          }
+          return -1;
+        };
+
         // --- HÀM 1: PHÁT HIỆN STYLE (TỰ ĐỘNG THỪA KẾ FONT/SIZE) ---
         const detectStyle = (xml: string, index: number) => {
           const chunk = xml.substring(Math.max(0, index - 10000), index); 
@@ -190,9 +205,8 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI MỤC NĂNG LỰC (TRƯỚC MỤC PHẨM CHẤT) ---
+        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI MỤC NĂNG LỰC (TRƯỚC PHẨM CHẤT) ---
         const competencyKeywords = [
-          // Mốc kết thúc mục Năng lực: chèn ngay trước mục Phẩm chất
           "3. Phẩm chất",
           "3. Về phẩm chất",
           "III. Phẩm chất",
@@ -201,7 +215,6 @@ export const injectContentIntoDocx = async (
           "Phẩm chất:",
           "PHẨM CHẤT:",
           "Về phẩm chất",
-          // Mẫu chuẩn CV 5512 (dự phòng)
           "I.2. Về năng lực",
           "1.2. Về năng lực",
           "I.2. Năng lực",
@@ -215,11 +228,9 @@ export const injectContentIntoDocx = async (
           "Phát triển năng lực",
           "Năng lực cần đạt",
           "Yêu cầu cần đạt về năng lực",
-          // Mẫu phi chuẩn không đánh số
           "MỤC TIÊU VỀ NĂNG LỰC",
           "NĂNG LỰC:",
           "Năng lực:",
-          // Nhóm mục tiêu tổng
           "I. MỤC TIÊU DẠY HỌC",
           "I. MỤC TIÊU",
           "MỤC TIÊU DẠY HỌC",
@@ -234,7 +245,6 @@ export const injectContentIntoDocx = async (
           const idx = findFuzzyIndex(docXml, kw);
           if (idx !== -1) {
             insertAnchorPos = idx;
-            // Nếu bắt trúng mốc Phẩm chất thì chèn TRƯỚC để nằm ở cuối mục Năng lực
             if (kw.toLowerCase().includes("phẩm chất")) {
               insertBefore = true;
             }
@@ -242,7 +252,6 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        // Nếu giáo án hoàn toàn không có mục Năng lực/Phẩm chất, neo trước phần Thiết bị/Tiến trình
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
             "II. THIẾT BỊ DẠY HỌC", 
@@ -272,7 +281,7 @@ export const injectContentIntoDocx = async (
 
           if (xmlBlock) {
             if (insertBefore) {
-              const pStart = newXml.lastIndexOf("<w:p", insertAnchorPos);
+              const pStart = findTrueParagraphStart(newXml, insertAnchorPos);
               if (pStart !== -1) {
                 newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
               }
@@ -395,14 +404,21 @@ export const injectContentIntoDocx = async (
           });
         }
 
-        // --- 7. TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
+        // --- 7. TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI (TRƯỚC SECTPR) ---
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
           const tableXml = createSummaryTableXml(content.summary_table);
           if (tableXml) {
-            const bodyEndTag = "</w:body>";
-            const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
-            if (bodyEndIndex !== -1) {
-              docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
+            const sectPrPos = docXml.lastIndexOf("<w:sectPr");
+            if (sectPrPos !== -1) {
+              const pBeforeSect = findTrueParagraphStart(docXml, sectPrPos);
+              const insertPos = pBeforeSect !== -1 ? pBeforeSect : sectPrPos;
+              docXml = docXml.substring(0, insertPos) + tableXml + docXml.substring(insertPos);
+            } else {
+              const bodyEndTag = "</w:body>";
+              const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
+              if (bodyEndIndex !== -1) {
+                docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
+              }
             }
           }
         }
