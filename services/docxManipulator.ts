@@ -94,7 +94,7 @@ export const injectContentIntoDocx = async (
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
                               <w:rPr>${rPrHeader}</w:rPr>
-                              <w:t>👉 ${escapeXml(label)}:</w:t>
+                              <w:t xml:space="preserve">👉 ${escapeXml(label)}:</w:t>
                             </w:r>
                           </w:p>`;
 
@@ -145,6 +145,7 @@ export const injectContentIntoDocx = async (
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
           let rowsXml = "";
+          // Row Header (Tiêu đề bảng)
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
@@ -155,6 +156,7 @@ export const injectContentIntoDocx = async (
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
+          // Data Rows (Các dòng nội dung)
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
@@ -188,37 +190,29 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU ---
-        const competencyKeywords = [
-          "Năng lực mô hình hóa",
-          "Năng lực sử dụng công cụ",
-          "Năng lực giao tiếp",
-          "Năng lực giải quyết vấn đề",
-          "Năng lực chung",
-          "I.2. Về năng lực",
-          "1.2. Về năng lực",
-          "I.2. Năng lực",
-          "1.2. Năng lực",
-          "2. Năng lực",
-          "2. Về năng lực",
-          "Về năng lực",
-          "về năng lực",
-          "Năng lực đặc thù",
-          "Phát triển năng lực",
-          "Năng lực cần đạt",
-          "Yêu cầu cần đạt về năng lực",
-          "MỤC TIÊU VỀ NĂNG LỰC",
-          "NĂNG LỰC:",
-          "Năng lực:",
-          "I. MỤC TIÊU DẠY HỌC",
-          "I. MỤC TIÊU",
-          "MỤC TIÊU DẠY HỌC",
-          "MỤC TIÊU BÀI HỌC",
-          "YÊU CẦU CẦN ĐẠT"
+        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI MỤC NĂNG LỰC (TRƯỚC MỤC 3. PHẨM CHẤT) ---
+        const endOfCompetencyKeywords = [
+          "3. Phẩm chất",
+          "3. Về phẩm chất",
+          "III. Phẩm chất",
+          "1.3. Phẩm chất",
+          "1.3. Về phẩm chất",
+          "Phẩm chất:",
+          "PHẨM CHẤT:",
+          "Về phẩm chất",
+          "II. THIẾT BỊ DẠY HỌC", 
+          "II. THIẾT BỊ", 
+          "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", 
+          "THIẾT BỊ DẠY HỌC", 
+          "CHUẨN BỊ CỦA GV VÀ HS",
+          "III. TIẾN TRÌNH DẠY HỌC",
+          "TIẾN TRÌNH DẠY HỌC"
         ];
 
         let insertAnchorPos = -1;
-        for (const kw of competencyKeywords) {
+        let insertBefore = true;
+
+        for (const kw of endOfCompetencyKeywords) {
           const idx = findFuzzyIndex(docXml, kw);
           if (idx !== -1) {
             insertAnchorPos = idx;
@@ -226,24 +220,17 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        let insertBefore = false;
+        // Dự phòng nếu giáo án không có mục Phẩm chất
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
-            "II. THIẾT BỊ DẠY HỌC", 
-            "II. THIẾT BỊ", 
-            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", 
-            "THIẾT BỊ DẠY HỌC", 
-            "CHUẨN BỊ CỦA GV VÀ HS",
-            "III. TIẾN TRÌNH DẠY HỌC",
-            "III. TIẾN TRÌNH",
-            "TIẾN TRÌNH DẠY HỌC",
-            "TIẾN TRÌNH HOẠT ĐỘNG"
+            "2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "I.2. Về năng lực",
+            "Năng lực chung", "Năng lực đặc thù", "Năng lực cần đạt", "I. MỤC TIÊU"
           ];
           for (const kw of fallbackKeywords) {
             const idx = findFuzzyIndex(docXml, kw);
             if (idx !== -1) {
               insertAnchorPos = idx;
-              insertBefore = true;
+              insertBefore = false;
               break;
             }
           }
@@ -256,7 +243,7 @@ export const injectContentIntoDocx = async (
 
           if (xmlBlock) {
             if (insertBefore) {
-              const pStart = newXml.lastIndexOf("<w:p>", insertAnchorPos) !== -1 ? newXml.lastIndexOf("<w:p>", insertAnchorPos) : newXml.lastIndexOf("<w:p ", insertAnchorPos);
+              const pStart = newXml.lastIndexOf("<w:p", insertAnchorPos);
               if (pStart !== -1) {
                 newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
               }
@@ -271,7 +258,7 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (TÌM KIẾM MỞ RỘNG TRÁNH LỖI DÍNH CHỮ) ---
+        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN BỔ SUNG TRỰC TIẾP VÀO Ô BẢNG CV 5512) ---
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
             const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -282,9 +269,13 @@ export const injectContentIntoDocx = async (
             let safeName = escapeXml(actName);
             let actIndex = findFuzzyIndex(docXml, safeName);
 
-            // Mở rộng tìm kiếm từ khóa cốt lõi (bất chấp dính chữ A, B, C...)
-            if (actIndex === -1) {
-              const coreKeywords = ["KHỞI ĐỘNG", "HÌNH THÀNH KIẾN THỨC", "LUYỆN TẬP", "VẬN DỤNG", "MỞ ĐẦU", "KẾT NỐI"];
+            if (actIndex === -1 && safeName) {
+              const coreKeywords = [
+                "KHỞI ĐỘNG", "MỞ ĐẦU", "XÁC ĐỊNH VẤN ĐỀ",
+                "HÌNH THÀNH KIẾN THỨC", "KHÁM PHÁ", "TÌM HIỂU KIẾN THỨC",
+                "LUYỆN TẬP", "THỰC HÀNH",
+                "VẬN DỤNG", "MỞ RỘNG"
+              ];
               for (const key of coreKeywords) {
                 if (safeName.toUpperCase().includes(key)) {
                   actIndex = findFuzzyIndex(docXml, key);
@@ -293,11 +284,10 @@ export const injectContentIntoDocx = async (
               }
             }
 
-            // Tìm theo số thứ tự hoạt động
             if (actIndex === -1) {
               const matchNum = safeName ? safeName.match(/\d+/) : null;
               const num = matchNum ? matchNum[0] : String(index + 1);
-              const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`];
+              const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`, `Nhiệm vụ ${num}`];
               for (const v of variants) {
                 actIndex = findFuzzyIndex(docXml, v);
                 if (actIndex !== -1) break;
@@ -309,11 +299,63 @@ export const injectContentIntoDocx = async (
               const xmlBlock = createXmlBlock(actContent, currentStyle);
 
               if (xmlBlock) {
-                // Ưu tiên chèn ngay sau tiêu đề hoạt động
-                const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
-                if (headerInsertPos !== -1) {
-                  const splitPos = headerInsertPos + "</w:p>".length;
-                  docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                const tblPos = docXml.indexOf("<w:tbl>", actIndex);
+                let targetCellPos = -1;
+
+                if (tblPos !== -1 && tblPos - actIndex < 20000) {
+                  const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
+                  
+                  if (hsHeaderPos !== -1) {
+                    const contentRowPos = docXml.indexOf("<w:tr>", tblPos + hsHeaderPos);
+                    if (contentRowPos !== -1 && contentRowPos - tblPos < 10000) {
+                      const firstCell = docXml.indexOf("<w:tc>", contentRowPos);
+                      if (firstCell !== -1) {
+                        const secondCell = docXml.indexOf("<w:tc>", firstCell + 6);
+                        if (secondCell !== -1) {
+                          targetCellPos = secondCell;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (targetCellPos === -1) {
+                  const cellKeywords = [
+                    "- HS tiến hành",
+                    "- HS sử dụng",
+                    "- Quan sát, trả lời",
+                    "- Nhóm trưởng điều phối",
+                    "- Mỗi nhóm được sử dụng",
+                    "HS tiến hành",
+                    "HS sử dụng",
+                    "điện thoại cá nhân",
+                    "HS thực hiện nhiệm vụ",
+                    "HS thực hiện",
+                    "Học sinh thực hiện",
+                    "Báo cáo kết quả",
+                    "Sản phẩm"
+                  ];
+                  for (const cKey of cellKeywords) {
+                    const foundPos = findFuzzyIndex(docXml, cKey, actIndex);
+                    if (foundPos !== -1 && foundPos - actIndex < 18000) {
+                      targetCellPos = foundPos;
+                      break;
+                    }
+                  }
+                }
+
+                if (targetCellPos !== -1) {
+                  const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
+                  if (cellInsertPos !== -1) {
+                    const splitPos = cellInsertPos + "</w:p>".length;
+                    docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                  }
+                } else {
+                  const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
+                  if (headerInsertPos !== -1) {
+                    const splitPos = headerInsertPos + "</w:p>".length;
+                    docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                  }
                 }
               }
             }
@@ -356,6 +398,7 @@ export const createAppendixDocx = async (
   if (mode === 'NLS') label = "KẾ HOẠCH TÍCH HỢP NĂNG LỰC SỐ (TT 02/2025/TT-BGDĐT)";
   if (mode === 'NAI') label = "KẾ HOẠCH TÍCH HỢP GIÁO DỤC AI (QĐ 3439/QĐ-BGDĐT)";
 
+  // 1. Tạo các dòng bảng ma trận
   let tableRowsXml = `
     <w:tr>
       <w:trPr><w:tblHeader/></w:trPr>
@@ -377,6 +420,7 @@ export const createAppendixDocx = async (
       </w:tr>`;
   });
 
+  // 2. Tạo nội dung chi tiết từng hoạt động
   let actXml = "";
   (content.activities_enhancement || []).forEach(act => {
     actXml += `
@@ -384,6 +428,7 @@ export const createAppendixDocx = async (
       <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:rPr><w:color w:val="334155"/></w:rPr><w:t>${escapeXml(act.enhanced_content)}</w:t></w:r></w:p>`;
   });
 
+  // 3. Toàn bộ cấu trúc tài liệu Phụ lục
   const fullDocXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
       <w:body>
