@@ -38,14 +38,6 @@ export const injectContentIntoDocx = async (
         if (!docFile) throw new Error("File Word không hợp lệ (thiếu document.xml)");
         
         let docXml = docFile.asText();
-
-        // --- BỔ SUNG: DỌN DẸP / XÓA BỎ CÁC DÒNG NLS CŨ CÓ SẴN TRONG GIÁO ÁN GỐC ---
-        const oldNlsPatterns = [
-          /<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?(?:Năng\s+lực\s+s[ốo]|Tích\s+hợp\s+NLS|Mã\s+NLS|NC1b|TC2a)(?:(?!<\/w:p>)[\s\S])*?<\/w:p>/gi
-        ];
-        oldNlsPatterns.forEach(pattern => {
-          docXml = docXml.replace(pattern, '');
-        });
         
         // Nhãn tiêu đề động theo 3 chế độ
         let label = "Tích hợp NLS & AI";
@@ -198,9 +190,9 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI MỤC NĂNG LỰC (NGAY TRƯỚC PHẨM CHẤT HOẶC THIẾT BỊ) ---
-        const endOfCompetencyKeywords = [
-          // Neo ngay trước mục Phẩm chất để nằm ở cuối mục Năng lực
+        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU (ƯU TIÊN CUỐI MỤC NĂNG LỰC - TRƯỚC PHẨM CHẤT) ---
+        const competencyKeywords = [
+          // Mốc kết thúc mục Năng lực (chèn ngay phía trước mục Phẩm chất)
           "3. Phẩm chất",
           "3. Về phẩm chất",
           "III. Phẩm chất",
@@ -209,44 +201,65 @@ export const injectContentIntoDocx = async (
           "Phẩm chất:",
           "PHẨM CHẤT:",
           "Về phẩm chất",
-          // Neo trước mục II. Thiết bị dạy học nếu giáo án không có mục Phẩm chất
-          "II. THIẾT BỊ DẠY HỌC", 
-          "II. THIẾT BỊ", 
-          "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", 
-          "THIẾT BỊ DẠY HỌC", 
-          "CHUẨN BỊ CỦA GV VÀ HS",
-          "III. TIẾN TRÌNH DẠY HỌC",
-          "III. TIẾN TRÌNH",
-          "TIẾN TRÌNH DẠY HỌC",
-          "TIẾN TRÌNH HOẠT ĐỘNG"
+          // Mẫu chuẩn CV 5512
+          "I.2. Về năng lực",
+          "1.2. Về năng lực",
+          "I.2. Năng lực",
+          "1.2. Năng lực",
+          "2. Năng lực",
+          "2. Về năng lực",
+          "Về năng lực",
+          "về năng lực",
+          "Năng lực đặc thù",
+          "Năng lực chung",
+          "Phát triển năng lực",
+          "Năng lực cần đạt",
+          "Yêu cầu cần đạt về năng lực",
+          // Mẫu phi chuẩn không đánh số
+          "MỤC TIÊU VỀ NĂNG LỰC",
+          "NĂNG LỰC:",
+          "Năng lực:",
+          // Nhóm mục tiêu tổng
+          "I. MỤC TIÊU DẠY HỌC",
+          "I. MỤC TIÊU",
+          "MỤC TIÊU DẠY HỌC",
+          "MỤC TIÊU BÀI HỌC",
+          "YÊU CẦU CẦN ĐẠT"
         ];
 
         let insertAnchorPos = -1;
-        let insertBefore = true; // Luôn chèn TRƯỚC mục tiếp theo để nằm ở CUỐI mục Năng lực
+        let insertBefore = false;
 
-        for (const kw of endOfCompetencyKeywords) {
+        for (const kw of competencyKeywords) {
           const idx = findFuzzyIndex(docXml, kw);
           if (idx !== -1) {
             insertAnchorPos = idx;
+            // Nếu tìm thấy mốc Phẩm chất -> chèn trước nó để nằm ở cuối mục Năng lực
+            if (kw.toLowerCase().includes("phẩm chất")) {
+              insertBefore = true;
+            }
             break;
           }
         }
 
-        // Dự phòng nếu không tìm thấy các mốc trên thì mới tìm tiêu đề Năng lực
+        // Nếu giáo án hoàn toàn không có mục Năng lực, neo trước phần Thiết bị/Tiến trình
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
-            "I.2. Về năng lực", "1.2. Về năng lực", "I.2. Năng lực", "1.2. Năng lực",
-            "2. Năng lực", "2. Về năng lực", "Về năng lực", "về năng lực",
-            "Năng lực đặc thù", "Năng lực chung", "Phát triển năng lực",
-            "Năng lực cần đạt", "Yêu cầu cần đạt về năng lực",
-            "MỤC TIÊU VỀ NĂNG LỰC", "NĂNG LỰC:", "Năng lực:",
-            "I. MỤC TIÊU DẠY HỌC", "I. MỤC TIÊU", "MỤC TIÊU DẠY HỌC", "MỤC TIÊU BÀI HỌC", "YÊU CẦU CẦN ĐẠT"
+            "II. THIẾT BỊ DẠY HỌC", 
+            "II. THIẾT BỊ", 
+            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", 
+            "THIẾT BỊ DẠY HỌC", 
+            "CHUẨN BỊ CỦA GV VÀ HS",
+            "III. TIẾN TRÌNH DẠY HỌC",
+            "III. TIẾN TRÌNH",
+            "TIẾN TRÌNH DẠY HỌC",
+            "TIẾN TRÌNH HOẠT ĐỘNG"
           ];
           for (const kw of fallbackKeywords) {
             const idx = findFuzzyIndex(docXml, kw);
             if (idx !== -1) {
               insertAnchorPos = idx;
-              insertBefore = false;
+              insertBefore = true;
               break;
             }
           }
