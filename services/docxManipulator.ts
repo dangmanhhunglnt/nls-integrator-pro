@@ -94,7 +94,7 @@ export const injectContentIntoDocx = async (
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
                               <w:rPr>${rPrHeader}</w:rPr>
-                              <w:t xml:space="preserve">👉 ${escapeXml(label)}:</w:t>
+                              <w:t>👉 ${escapeXml(label)}:</w:t>
                             </w:r>
                           </w:p>`;
 
@@ -190,8 +190,9 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI MỤC NĂNG LỰC (TRƯỚC MỤC 3. PHẨM CHẤT) ---
-        const endOfCompetencyKeywords = [
+        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU (HỖ TRỢ MỌI MẪU GIÁO ÁN) ---
+        const competencyKeywords = [
+          // Bổ sung các mốc kết thúc phần Năng lực để chèn xuống cuối
           "3. Phẩm chất",
           "3. Về phẩm chất",
           "III. Phẩm chất",
@@ -200,19 +201,34 @@ export const injectContentIntoDocx = async (
           "Phẩm chất:",
           "PHẨM CHẤT:",
           "Về phẩm chất",
-          "II. THIẾT BỊ DẠY HỌC", 
-          "II. THIẾT BỊ", 
-          "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", 
-          "THIẾT BỊ DẠY HỌC", 
-          "CHUẨN BỊ CỦA GV VÀ HS",
-          "III. TIẾN TRÌNH DẠY HỌC",
-          "TIẾN TRÌNH DẠY HỌC"
+          // Các tiêu đề năng lực theo mẫu chuẩn CV 5512
+          "I.2. Về năng lực",
+          "1.2. Về năng lực",
+          "I.2. Năng lực",
+          "1.2. Năng lực",
+          "2. Năng lực",
+          "2. Về năng lực",
+          "Về năng lực",
+          "về năng lực",
+          "Năng lực đặc thù",
+          "Năng lực chung",
+          "Phát triển năng lực",
+          "Năng lực cần đạt",
+          "Yêu cầu cần đạt về năng lực",
+          // Mẫu phi chuẩn không đánh số
+          "MỤC TIÊU VỀ NĂNG LỰC",
+          "NĂNG LỰC:",
+          "Năng lực:",
+          // Nhóm mục tiêu tổng
+          "I. MỤC TIÊU DẠY HỌC",
+          "I. MỤC TIÊU",
+          "MỤC TIÊU DẠY HỌC",
+          "MỤC TIÊU BÀI HỌC",
+          "YÊU CẦU CẦN ĐẠT"
         ];
 
         let insertAnchorPos = -1;
-        let insertBefore = true;
-
-        for (const kw of endOfCompetencyKeywords) {
+        for (const kw of competencyKeywords) {
           const idx = findFuzzyIndex(docXml, kw);
           if (idx !== -1) {
             insertAnchorPos = idx;
@@ -220,17 +236,25 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        // Dự phòng nếu giáo án không có mục Phẩm chất
+        // Nếu giáo án hoàn toàn không có mục Năng lực, neo trước phần Thiết bị/Tiến trình
+        let insertBefore = false;
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
-            "2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "I.2. Về năng lực",
-            "Năng lực chung", "Năng lực đặc thù", "Năng lực cần đạt", "I. MỤC TIÊU"
+            "II. THIẾT BỊ DẠY HỌC", 
+            "II. THIẾT BỊ", 
+            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", 
+            "THIẾT BỊ DẠY HỌC", 
+            "CHUẨN BỊ CỦA GV VÀ HS",
+            "III. TIẾN TRÌNH DẠY HỌC",
+            "III. TIẾN TRÌNH",
+            "TIẾN TRÌNH DẠY HỌC",
+            "TIẾN TRÌNH HOẠT ĐỘNG"
           ];
           for (const kw of fallbackKeywords) {
             const idx = findFuzzyIndex(docXml, kw);
             if (idx !== -1) {
               insertAnchorPos = idx;
-              insertBefore = false;
+              insertBefore = true;
               break;
             }
           }
@@ -243,7 +267,7 @@ export const injectContentIntoDocx = async (
 
           if (xmlBlock) {
             if (insertBefore) {
-              const pStart = newXml.lastIndexOf("<w:p", insertAnchorPos);
+              const pStart = newXml.lastIndexOf("<w:p>", insertAnchorPos) !== -1 ? newXml.lastIndexOf("<w:p>", insertAnchorPos) : newXml.lastIndexOf("<w:p ", insertAnchorPos);
               if (pStart !== -1) {
                 newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
               }
@@ -269,16 +293,26 @@ export const injectContentIntoDocx = async (
             let safeName = escapeXml(actName);
             let actIndex = findFuzzyIndex(docXml, safeName);
 
+            // Bổ sung: Tìm kiếm mở rộng các từ khóa chung áp dụng cho mọi môn học
             if (actIndex === -1 && safeName) {
               const coreKeywords = [
                 "KHỞI ĐỘNG", "MỞ ĐẦU", "XÁC ĐỊNH VẤN ĐỀ",
-                "HÌNH THÀNH KIẾN THỨC", "KHÁM PHÁ", "TÌM HIỂU KIẾN THỨC",
+                "HÌNH THÀNH KIẾN THỨC", "KHÁM PHÁ", "TÌM HIỂU KIẾN THỨC", "ĐỌC HIỂU",
                 "LUYỆN TẬP", "THỰC HÀNH",
-                "VẬN DỤNG", "MỞ RỘNG"
+                "VẬN DỤNG", "MỞ RỘNG", "GIAO VIỆC VỀ NHÀ"
               ];
               for (const key of coreKeywords) {
                 if (safeName.toUpperCase().includes(key)) {
-                  actIndex = findFuzzyIndex(docXml, key);
+                  const variants = [
+                    `HOẠT ĐỘNG ${key.toUpperCase()}`, 
+                    `HOẠT ĐỘNG ${key}`,             
+                    `${key.toUpperCase()}`
+                  ];
+                  for (const v of variants) {
+                    actIndex = findFuzzyIndex(docXml, v);
+                    if (actIndex !== -1) break;
+                  }
+                  if (actIndex === -1) actIndex = findFuzzyIndex(docXml, key);
                   if (actIndex !== -1) break;
                 }
               }
