@@ -47,21 +47,6 @@ export const injectContentIntoDocx = async (
           label = "Tích hợp AI";
         }
 
-        // --- HÀM TÌM ĐÚNG VỊ TRÍ BẮT ĐẦU THẺ <w:p> (TRÁNH BẮT NHẦM <w:pPr>) ---
-        const findTrueParagraphStart = (xml: string, pos: number): number => {
-          let cur = pos;
-          while (cur >= 0) {
-            const idx = xml.lastIndexOf("<w:p", cur);
-            if (idx === -1) return -1;
-            const nextChar = xml.charAt(idx + 4);
-            if (nextChar === " " || nextChar === ">" || nextChar === "/") {
-              return idx;
-            }
-            cur = idx - 1;
-          }
-          return -1;
-        };
-
         // --- HÀM 1: PHÁT HIỆN STYLE (TỰ ĐỘNG THỪA KẾ FONT/SIZE) ---
         const detectStyle = (xml: string, index: number) => {
           const chunk = xml.substring(Math.max(0, index - 10000), index); 
@@ -160,7 +145,6 @@ export const injectContentIntoDocx = async (
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
           let rowsXml = "";
-          // Row Header (Tiêu đề bảng)
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
@@ -171,7 +155,6 @@ export const injectContentIntoDocx = async (
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
-          // Data Rows (Các dòng nội dung)
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
@@ -205,16 +188,13 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI MỤC NĂNG LỰC (TRƯỚC PHẨM CHẤT) ---
+        // --- 5. CHÈN NĂNG LỰC VÀO MỤC MỤC TIÊU ---
         const competencyKeywords = [
-          "3. Phẩm chất",
-          "3. Về phẩm chất",
-          "III. Phẩm chất",
-          "1.3. Phẩm chất",
-          "1.3. Về phẩm chất",
-          "Phẩm chất:",
-          "PHẨM CHẤT:",
-          "Về phẩm chất",
+          "Năng lực mô hình hóa",
+          "Năng lực sử dụng công cụ",
+          "Năng lực giao tiếp",
+          "Năng lực giải quyết vấn đề",
+          "Năng lực chung",
           "I.2. Về năng lực",
           "1.2. Về năng lực",
           "I.2. Năng lực",
@@ -224,7 +204,6 @@ export const injectContentIntoDocx = async (
           "Về năng lực",
           "về năng lực",
           "Năng lực đặc thù",
-          "Năng lực chung",
           "Phát triển năng lực",
           "Năng lực cần đạt",
           "Yêu cầu cần đạt về năng lực",
@@ -239,19 +218,15 @@ export const injectContentIntoDocx = async (
         ];
 
         let insertAnchorPos = -1;
-        let insertBefore = false;
-
         for (const kw of competencyKeywords) {
           const idx = findFuzzyIndex(docXml, kw);
           if (idx !== -1) {
             insertAnchorPos = idx;
-            if (kw.toLowerCase().includes("phẩm chất")) {
-              insertBefore = true;
-            }
             break;
           }
         }
 
+        let insertBefore = false;
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
             "II. THIẾT BỊ DẠY HỌC", 
@@ -281,7 +256,7 @@ export const injectContentIntoDocx = async (
 
           if (xmlBlock) {
             if (insertBefore) {
-              const pStart = findTrueParagraphStart(newXml, insertAnchorPos);
+              const pStart = newXml.lastIndexOf("<w:p>", insertAnchorPos) !== -1 ? newXml.lastIndexOf("<w:p>", insertAnchorPos) : newXml.lastIndexOf("<w:p ", insertAnchorPos);
               if (pStart !== -1) {
                 newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
               }
@@ -296,7 +271,7 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN BỔ SUNG TRỰC TIẾP VÀO Ô BẢNG CV 5512) ---
+        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (TÌM KIẾM MỞ RỘNG TRÁNH LỖI DÍNH CHỮ) ---
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
             const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -307,29 +282,22 @@ export const injectContentIntoDocx = async (
             let safeName = escapeXml(actName);
             let actIndex = findFuzzyIndex(docXml, safeName);
 
-            if (actIndex === -1 && safeName) {
-              const coreKeywords = ["Khởi động", "Hình thành kiến thức", "Luyện tập", "Vận dụng", "Mở đầu", "Kết nối"];
+            // Mở rộng tìm kiếm từ khóa cốt lõi (bất chấp dính chữ A, B, C...)
+            if (actIndex === -1) {
+              const coreKeywords = ["KHỞI ĐỘNG", "HÌNH THÀNH KIẾN THỨC", "LUYỆN TẬP", "VẬN DỤNG", "MỞ ĐẦU", "KẾT NỐI"];
               for (const key of coreKeywords) {
-                if (safeName.includes(key)) {
-                  const variants = [
-                    `HOẠT ĐỘNG ${key.toUpperCase()}`, 
-                    `HOẠT ĐỘNG ${key}`,             
-                    `${key.toUpperCase()}`
-                  ];
-                  for (const v of variants) {
-                    actIndex = findFuzzyIndex(docXml, v);
-                    if (actIndex !== -1) break;
-                  }
-                  if (actIndex === -1) actIndex = findFuzzyIndex(docXml, key);
+                if (safeName.toUpperCase().includes(key)) {
+                  actIndex = findFuzzyIndex(docXml, key);
                   if (actIndex !== -1) break;
                 }
               }
             }
 
+            // Tìm theo số thứ tự hoạt động
             if (actIndex === -1) {
               const matchNum = safeName ? safeName.match(/\d+/) : null;
               const num = matchNum ? matchNum[0] : String(index + 1);
-              const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`, `Nhiệm vụ ${num}`];
+              const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`];
               for (const v of variants) {
                 actIndex = findFuzzyIndex(docXml, v);
                 if (actIndex !== -1) break;
@@ -341,84 +309,25 @@ export const injectContentIntoDocx = async (
               const xmlBlock = createXmlBlock(actContent, currentStyle);
 
               if (xmlBlock) {
-                const tblPos = docXml.indexOf("<w:tbl>", actIndex);
-                let targetCellPos = -1;
-
-                if (tblPos !== -1 && tblPos - actIndex < 20000) {
-                  const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
-                  
-                  if (hsHeaderPos !== -1) {
-                    const contentRowPos = docXml.indexOf("<w:tr>", tblPos + hsHeaderPos);
-                    if (contentRowPos !== -1 && contentRowPos - tblPos < 10000) {
-                      const firstCell = docXml.indexOf("<w:tc>", contentRowPos);
-                      if (firstCell !== -1) {
-                        const secondCell = docXml.indexOf("<w:tc>", firstCell + 6);
-                        if (secondCell !== -1) {
-                          targetCellPos = secondCell;
-                        }
-                      }
-                    }
-                  }
-                }
-
-                if (targetCellPos === -1) {
-                  const cellKeywords = [
-                    "- HS tiến hành",
-                    "- HS sử dụng",
-                    "- Quan sát, trả lời",
-                    "- Nhóm trưởng điều phối",
-                    "- Mỗi nhóm được sử dụng",
-                    "HS tiến hành",
-                    "HS sử dụng",
-                    "điện thoại cá nhân",
-                    "HS thực hiện nhiệm vụ",
-                    "HS thực hiện",
-                    "Học sinh thực hiện",
-                    "Báo cáo kết quả",
-                    "Sản phẩm"
-                  ];
-                  for (const cKey of cellKeywords) {
-                    const foundPos = findFuzzyIndex(docXml, cKey, actIndex);
-                    if (foundPos !== -1 && foundPos - actIndex < 18000) {
-                      targetCellPos = foundPos;
-                      break;
-                    }
-                  }
-                }
-
-                if (targetCellPos !== -1) {
-                  const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
-                  if (cellInsertPos !== -1) {
-                    const splitPos = cellInsertPos + "</w:p>".length;
-                    docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
-                  }
-                } else {
-                  const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
-                  if (headerInsertPos !== -1) {
-                    const splitPos = headerInsertPos + "</w:p>".length;
-                    docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
-                  }
+                // Ưu tiên chèn ngay sau tiêu đề hoạt động
+                const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
+                if (headerInsertPos !== -1) {
+                  const splitPos = headerInsertPos + "</w:p>".length;
+                  docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
                 }
               }
             }
           });
         }
 
-        // --- 7. TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI (TRƯỚC SECTPR) ---
+        // --- 7. TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
           const tableXml = createSummaryTableXml(content.summary_table);
           if (tableXml) {
-            const sectPrPos = docXml.lastIndexOf("<w:sectPr");
-            if (sectPrPos !== -1) {
-              const pBeforeSect = findTrueParagraphStart(docXml, sectPrPos);
-              const insertPos = pBeforeSect !== -1 ? pBeforeSect : sectPrPos;
-              docXml = docXml.substring(0, insertPos) + tableXml + docXml.substring(insertPos);
-            } else {
-              const bodyEndTag = "</w:body>";
-              const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
-              if (bodyEndIndex !== -1) {
-                docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
-              }
+            const bodyEndTag = "</w:body>";
+            const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
+            if (bodyEndIndex !== -1) {
+              docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
             }
           }
         }
@@ -447,7 +356,6 @@ export const createAppendixDocx = async (
   if (mode === 'NLS') label = "KẾ HOẠCH TÍCH HỢP NĂNG LỰC SỐ (TT 02/2025/TT-BGDĐT)";
   if (mode === 'NAI') label = "KẾ HOẠCH TÍCH HỢP GIÁO DỤC AI (QĐ 3439/QĐ-BGDĐT)";
 
-  // 1. Tạo các dòng bảng ma trận
   let tableRowsXml = `
     <w:tr>
       <w:trPr><w:tblHeader/></w:trPr>
@@ -469,7 +377,6 @@ export const createAppendixDocx = async (
       </w:tr>`;
   });
 
-  // 2. Tạo nội dung chi tiết từng hoạt động
   let actXml = "";
   (content.activities_enhancement || []).forEach(act => {
     actXml += `
@@ -477,7 +384,6 @@ export const createAppendixDocx = async (
       <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:rPr><w:color w:val="334155"/></w:rPr><w:t>${escapeXml(act.enhanced_content)}</w:t></w:r></w:p>`;
   });
 
-  // 3. Toàn bộ cấu trúc tài liệu Phụ lục
   const fullDocXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
       <w:body>
