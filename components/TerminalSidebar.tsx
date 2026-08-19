@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Cpu, GraduationCap } from 'lucide-react';
 
 interface TerminalSidebarProps {
@@ -16,9 +16,9 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
   }, [logs]);
 
   return (
-    <>
+    <div className="w-full space-y-4">
        {/* Terminal Card */}
-       <div className="bg-[#0f172a] rounded-xl p-4 shadow-xl shadow-slate-900/10 border border-slate-800 flex flex-col h-[250px] relative overflow-hidden group">
+       <div className="bg-[#0f172a] rounded-xl p-4 shadow-xl shadow-slate-900/10 border border-slate-800 flex flex-col min-h-[460px] max-h-[560px] relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-75"></div>
           
           <div className="flex items-center justify-between mb-3 border-b border-slate-700/50 pb-2">
@@ -26,7 +26,10 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
                  <Cpu className="w-3.5 h-3.5 text-indigo-400" />
                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider font-mono">System Core</span>
               </div>
-              <div className="flex gap-1"><div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div><div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div></div>
+              <div className="flex gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div>
+              </div>
           </div>
           
           <div 
@@ -34,14 +37,21 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
             className="flex-1 overflow-y-auto custom-scrollbar space-y-2 font-mono text-[10px] leading-relaxed pr-1 relative scroll-smooth"
           >
              {logs.length === 0 ? (
-               <div className="h-full flex flex-col items-center justify-center text-slate-700/50">
-                  <Cpu className="w-6 h-6 mb-2 opacity-50" />
-                  <p className="text-[9px]">Sẵn sàng nhận lệnh...</p>
+               <div className="h-full flex flex-col justify-between py-2">
+                 <div className="space-y-1.5 text-slate-500 text-[9px] border-b border-slate-800/60 pb-3">
+                   <p className="text-emerald-400">● Core Engine: Ready v2.2.0 PRO</p>
+                   <p>● Tiêu chuẩn: TT 02/2025/TT-BGDĐT &amp; QĐ 3439/QĐ-BGDĐT</p>
+                   <p>● Bảo lưu 100% định dạng MathType &amp; Bảng biểu</p>
+                 </div>
+                 <div className="flex flex-col items-center justify-center text-slate-700/50 my-auto py-8">
+                   <Cpu className="w-8 h-8 mb-2 opacity-50 text-indigo-500/40" />
+                   <p className="text-[10px] text-slate-400">Sẵn sàng nhận lệnh &amp; phân tích giáo án...</p>
+                 </div>
                </div>
              ) : (
                logs.map((log, i) => {
                 const isLast = i === logs.length - 1;
-                const opacityClass = isLast ? 'opacity-100' : 'opacity-40';
+                const opacityClass = isLast ? 'opacity-100' : 'opacity-70';
                 
                 return (
                   <div key={i} className={`flex gap-2 animate-fade-in-left transition-opacity duration-500 ${opacityClass}`}>
@@ -71,6 +81,6 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
              <p className="text-[9px] text-slate-400">Hỗ trợ: <span className="text-indigo-500 font-mono font-medium">097 8386 357</span></p>
           </div>
        </div>
-    </>
+    </div>
   );
 }
