@@ -27,6 +27,9 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
   const objectivesText = normalizeVietnamese(initialContent.objectives_addition);
   const activities = initialContent.activities_enhancement || [];
 
+  // Tính số lượng mục thực tế: 1 mục Mục tiêu + số lượng Hoạt động thực tế
+  const totalItems = (objectivesText ? 1 : 0) + activities.length;
+
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-indigo-100 overflow-hidden animate-fade-in-up">
       {/* Banner tiêu đề */}
@@ -54,7 +57,7 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
       <div className="flex border-b border-slate-200 bg-slate-50 px-6 pt-3 gap-2">
         <button onClick={() => setActiveTab('manual')} className={`pb-3 px-5 text-xs font-bold border-b-2 flex items-center gap-2 rounded-t-lg cursor-pointer ${activeTab === 'manual' ? 'border-indigo-600 text-indigo-600 bg-white shadow-sm border-x border-t border-slate-200' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
           <FileText className="w-4 h-4" /> Hướng dẫn chèn thủ công (Copy nhanh)
-          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px]">5 mục</span>
+          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px]">{totalItems} mục</span>
         </button>
         <button onClick={() => setActiveTab('auto')} className={`pb-3 px-5 text-xs font-bold border-b-2 flex items-center gap-2 rounded-t-lg cursor-pointer ${activeTab === 'auto' ? 'border-indigo-600 text-indigo-600 bg-white shadow-sm border-x border-t border-slate-200' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
           <Download className="w-4 h-4" /> Xuất file Word tự động (.docx)
@@ -118,8 +121,8 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
                     <div className="bg-amber-50/80 border border-amber-200/60 rounded-lg p-3 text-xs">
                       <span className="font-bold text-amber-900">📍 VỊ TRÍ CHÈN TRONG GIÁO ÁN CỦA BẠN:</span>
                       <p className="text-slate-700 font-medium pl-2 mt-0.5">
-  {act.location || `Mục III. TIẾN TRÌNH DẠY HỌC > ${actName} > Vùng Tổ chức thực hiện`}
-</p>
+                        {act.location || `Mục III. TIẾN TRÌNH DẠY HỌC > ${actName} > Vùng Tổ chức thực hiện`}
+                      </p>
                     </div>
                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-xs space-y-2">
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">📌 NỘI DUNG NLS CẦN DÁN (CHỮ MÀU ĐỎ - TIMES NEW ROMAN):</span>
