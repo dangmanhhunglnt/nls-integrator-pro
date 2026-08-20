@@ -92,8 +92,9 @@ export default function ControlCenter({
                     </button>
                 </div>
 
-                {/* 3 CỤM TÙY CHỌN */}
+                {/* BỔ SUNG: 3 CỤM TÙY CHỌN (MỨC ĐỘ, KIỂU XUẤT, MÀU CHỮ CHÈN) */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                    {/* Tùy chọn 1: Mức độ tích hợp */}
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
                             <Sliders className="w-3 h-3 text-indigo-500" /> Mức độ tích hợp
@@ -124,6 +125,7 @@ export default function ControlCenter({
                         </div>
                     </div>
 
+                    {/* Tùy chọn 2: Kiểu xuất file */}
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
                             <FileText className="w-3 h-3 text-indigo-500" /> Kiểu xuất file
@@ -154,6 +156,7 @@ export default function ControlCenter({
                         </div>
                     </div>
 
+                    {/* Tùy chọn 3: Màu chữ chèn */}
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
                             <Palette className="w-3 h-3 text-indigo-500" /> Màu chữ chèn
@@ -218,34 +221,49 @@ export default function ControlCenter({
                         <div className="relative group">
                           <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={state.subject} onChange={(e) => setState(prev => ({...prev, subject: e.target.value as SubjectType}))}>
                               <option value="">-- Chọn môn --</option>
-                              <optgroup label="Môn Chung / THPT & THCS">
+                              
+                              {/* CẤP TIỂU HỌC (CẤP 1) */}
+                              <optgroup label="Cấp Tiểu học (Cấp 1)">
+                                  <option value="Toán">Toán (Tiểu học)</option>
+                                  <option value="Tiếng Việt">Tiếng Việt</option>
+                                  <option value="Tiếng Anh">Tiếng Anh (Tiểu học)</option>
+                                  <option value="Tự nhiên và Xã hội">Tự nhiên và Xã hội (Lớp 1, 2, 3)</option>
+                                  <option value="Khoa học">Khoa học (Lớp 4, 5)</option>
+                                  <option value="Lịch sử và Địa lí">Lịch sử và Địa lí (Lớp 4, 5)</option>
+                                  <option value="Tin học và Công nghệ">Tin học và Công nghệ (Lớp 3, 4, 5)</option>
+                                  <option value="Đạo đức">Đạo đức</option>
+                                  <option value="Âm Nhạc">Âm Nhạc (Tiểu học)</option>
+                                  <option value="Mỹ Thuật">Mĩ Thuật (Tiểu học)</option>
+                                  <option value="Giáo dục thể chất">Giáo dục thể chất (Tiểu học)</option>
+                                  <option value="Hoạt động trải nghiệm">Hoạt động trải nghiệm (Tiểu học)</option>
+                              </optgroup>
+
+                              {/* CẤP THCS & THPT - MÔN BẮT BUỘC / CHUNG */}
+                              <optgroup label="Cấp THCS & THPT - Môn Bắt buộc">
                                   <option value="Toán">Toán học</option>
                                   <option value="Ngữ Văn">Ngữ Văn</option>
                                   <option value="Tiếng Anh">Tiếng Anh</option>
                                   <option value="Lịch Sử">Lịch Sử</option>
-                                  <option value="Địa Lí">Địa Lí</option>
-                                  <option value="Lịch sử và Địa lí">Lịch sử và Địa lí</option>
-                                  <option value="Khoa học tự nhiên">Khoa học tự nhiên</option>
+                                  <option value="Khoa học tự nhiên">Khoa học tự nhiên (THCS)</option>
+                                  <option value="Lịch sử và Địa lí">Lịch sử và Địa lí (THCS)</option>
+                                  <option value="Giáo dục thể chất">GD Thể chất</option>
+                                  <option value="Giáo dục quốc phòng và an ninh">GDQP & AN</option>
+                                  <option value="Hoạt động trải nghiệm, hướng nghiệp">HĐ Trải nghiệm, hướng nghiệp</option>
+                              </optgroup>
+
+                              {/* CẤP THCS & THPT - MÔN LỰA CHỌN */}
+                              <optgroup label="Cấp THCS & THPT - Môn Lựa chọn">
                                   <option value="Vật Lí">Vật Lí</option>
                                   <option value="Hóa Học">Hóa Học</option>
                                   <option value="Sinh Học">Sinh Học</option>
+                                  <option value="Địa Lí">Địa Lí</option>
+                                  <option value="Giáo dục công dân">Giáo dục công dân (THCS)</option>
+                                  <option value="Giáo dục kinh tế và pháp luật">GDKT & PL (THPT)</option>
                                   <option value="Tin Học">Tin Học</option>
                                   <option value="Công nghệ (Công nghiệp)">Công nghệ (Công nghiệp)</option>
                                   <option value="Công nghệ (Nông nghiệp)">Công nghệ (Nông nghiệp)</option>
-                                  <option value="Giáo dục công dân">Giáo dục công dân</option>
-                                  <option value="Giáo dục kinh tế và pháp luật">GDKT & PL</option>
-                                  <option value="Giáo dục thể chất">GD Thể chất</option>
-                                  <option value="Giáo dục quốc phòng và an ninh">GDQP & AN</option>
-                                  <option value="Hoạt động trải nghiệm, hướng nghiệp">HĐ Trải nghiệm</option>
                                   <option value="Âm Nhạc">Âm Nhạc</option>
                                   <option value="Mỹ Thuật">Mỹ Thuật</option>
-                              </optgroup>
-                              <optgroup label="Cấp Tiểu học (Cấp 1)">
-                                  <option value="Tiếng Việt">Tiếng Việt</option>
-                                  <option value="Tự nhiên và Xã hội">Tự nhiên và Xã hội</option>
-                                  <option value="Khoa học">Khoa học</option>
-                                  <option value="Tin học và Công nghệ">Tin học và Công nghệ</option>
-                                  <option value="Đạo đức">Đạo đức</option>
                               </optgroup>
                           </select>
                           <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
@@ -260,22 +278,22 @@ export default function ControlCenter({
                           <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={state.grade} onChange={(e) => setState(prev => ({...prev, grade: e.target.value as GradeType}))}>
                               <option value="">-- Chọn khối --</option>
                               <optgroup label="Trung học Phổ thông (Cấp 3)">
-                                  <option value="Lớp 12">Lớp 12</option>
-                                  <option value="Lớp 11">Lớp 11</option>
                                   <option value="Lớp 10">Lớp 10</option>
+                                  <option value="Lớp 11">Lớp 11</option>
+                                  <option value="Lớp 12">Lớp 12</option>
                               </optgroup>
                               <optgroup label="Trung học Cơ sở (Cấp 2)">
-                                  <option value="Lớp 9">Lớp 9</option>
-                                  <option value="Lớp 8">Lớp 8</option>
-                                  <option value="Lớp 7">Lớp 7</option>
                                   <option value="Lớp 6">Lớp 6</option>
+                                  <option value="Lớp 7">Lớp 7</option>
+                                  <option value="Lớp 8">Lớp 8</option>
+                                  <option value="Lớp 9">Lớp 9</option>
                               </optgroup>
                               <optgroup label="Tiểu học (Cấp 1)">
-                                  <option value="Lớp 5">Lớp 5</option>
-                                  <option value="Lớp 4">Lớp 4</option>
-                                  <option value="Lớp 3">Lớp 3</option>
-                                  <option value="Lớp 2">Lớp 2</option>
                                   <option value="Lớp 1">Lớp 1</option>
+                                  <option value="Lớp 2">Lớp 2</option>
+                                  <option value="Lớp 3">Lớp 3</option>
+                                  <option value="Lớp 4">Lớp 4</option>
+                                  <option value="Lớp 5">Lớp 5</option>
                               </optgroup>
                           </select>
                           <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
@@ -297,7 +315,7 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* Card 3: Tài liệu đầu vào */}
+            {/* Card 3: Tài liệu đầu vào (Hỗ trợ nạp 1 hoặc nhiều file) */}
             <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
@@ -407,7 +425,7 @@ export default function ControlCenter({
         </div>
       )}
 
-      {/* Smart Editor */}
+      {/* Smart Editor (Dành cho chế độ 1 file đơn lẻ) */}
       {state.step === 'review' && state.generatedContent && (
          <SmartEditor initialContent={state.generatedContent} onConfirm={handleFinalizeAndDownload} onCancel={() => setState(prev => ({ ...prev, step: 'upload', generatedContent: null }))} />
       )}
