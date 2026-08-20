@@ -192,7 +192,7 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC (TRƯỚC MỤC 3. PHẨM CHẤT) ---
+        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC / YÊU CẦU CẦN ĐẠT ---
         const endKeywords = [
           "3. Phẩm chất",
           "3. Về phẩm chất",
@@ -201,7 +201,14 @@ export const injectContentIntoDocx = async (
           "1.3. Về phẩm chất",
           "Phẩm chất:",
           "PHẨM CHẤT:",
-          "Về phẩm chất"
+          "Về phẩm chất",
+          "- Phẩm chất:",
+          // Bổ sung các mốc neo chuẩn cho cấp Tiểu học:
+          "II. ĐỒ DÙNG DẠY HỌC",
+          "II. ĐỒ DÙNG DẠY - HỌC",
+          "II. THIẾT BỊ DẠY HỌC",
+          "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
+          "II. ĐỒ DÙNG DẠY VÀ HỌC"
         ];
 
         let insertAnchorPos = -1;
