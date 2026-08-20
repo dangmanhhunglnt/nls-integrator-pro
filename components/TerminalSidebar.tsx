@@ -53,7 +53,7 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
 
         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] text-emerald-700 bg-emerald-50/60 p-2.5 rounded-xl">
           <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Chuẩn hóa <strong>TT 02/2025</strong> &amp; <strong>QĐ 3439</strong> của Bộ GD&amp;ĐT</span>
+          <span>Chuẩn hóa <strong>TT 02/2025</strong> &amp; <strong>QĐ 2422</strong> của Bộ GD&amp;ĐT</span>
         </div>
       </div>
 

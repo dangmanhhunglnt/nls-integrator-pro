@@ -3,7 +3,7 @@ import { GeneratedNLSContent, SubjectType, GradeType, IntegrationMode, Integrati
 /**
  * Xây dựng System Prompt chuẩn hóa bám sát:
  * 1. Thông tư 02/2025/TT-BGDĐT (Khung năng lực số cho người học).
- * 2. Quyết định 3439/QĐ-BGDĐT & Khung Giáo dục AI hoàn thiện năm 2026 (Cốt lõi 12 tiết/năm).
+ * 2. Quyết định 2422/QĐ-BGDĐT & Khung Giáo dục AI hoàn thiện năm 2026 (Cốt lõi 12 tiết/năm).
  * 3. Hướng dẫn triển khai thực hiện GD AI từ năm học 2026-2027 của Bộ GD&ĐT.
  */
 export const buildSystemPrompt = (
@@ -21,7 +21,7 @@ CHẾ ĐỘ TÍCH HỢP: CHỈ NĂNG LỰC SỐ (Theo Thông tư 02/2025/TT-BGD�
 - KHÔNG đưa bất kỳ mã năng lực AI (NLa, NLb, NLc, NLd) nào vào đầu ra.`;
   } else if (mode === 'NAI') {
     modeInstruction = `
-CHẾ ĐỘ TÍCH HỢP: CHỈ GIÁO DỤC TRÍ TUỆ NHÂN TẠO (Theo Khung Giáo dục AI 2026 của Bộ GD&ĐT & QĐ 3439/QĐ-BGDĐT).
+CHẾ ĐỘ TÍCH HỢP: CHỈ GIÁO DỤC TRÍ TUỆ NHÂN TẠO (Theo Khung Giáo dục AI 2026 của Bộ GD&ĐT & QĐ 2422/QĐ-BGDĐT).
 - CHỈ TRÍCH XUẤT các mã Năng lực AI theo 4 mạch đặc thù chuẩn:
   + NLa (A): Tư duy lấy con người làm trung tâm (NLa.A1, NLa.A2, NLa.A3...)
   + NLb (B): Đạo đức AI, bảo vệ dữ liệu cá nhân & khai báo minh bạch (NLb.B1, NLb.B2...)
@@ -30,7 +30,7 @@ CHẾ ĐỘ TÍCH HỢP: CHỈ GIÁO DỤC TRÍ TUỆ NHÂN TẠO (Theo Khung Gi
 - KHÔNG chèn các mã NLS thuần túy từ Thông tư 02/2025.`;
   } else {
     modeInstruction = `
-CHẾ ĐỘ TÍCH HỢP: KẾT HỢP TOÀN DIỆN NĂNG LỰC SỐ (TT 02/2025/TT-BGDĐT) & GIÁO DỤC AI (QĐ 3439 & KHUNG BỘ GD&ĐT 2026).
+CHẾ ĐỘ TÍCH HỢP: KẾT HỢP TOÀN DIỆN NĂNG LỰC SỐ (TT 02/2025/TT-BGDĐT) & GIÁO DỤC AI (QĐ 2422 & KHUNG BỘ GD&ĐT 2026).
 - Kết hợp song song các mã NLS (1.1.NC1a, 2.2.NC1a, 3.1.TC2a, 5.2.TC2a...) và các mã Năng lực AI bám sát 4 mạch (NLa.A3, NLb.B2, NLc.C2, NLd.D1...) tương ứng kiến thức môn ${subject} - ${grade}.`;
   }
 
@@ -54,7 +54,7 @@ MỨC ĐỘ TÍCH HỢP: TIÊU CHUẨN (DÀNH CHO LÊN LỚP HẰNG NGÀY).
   }
 
   return `
-Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 3439/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Khung GD AI 2026).
+Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 2422/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Khung GD AI 2026).
 Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, CÁC KHÁI NIỆM TRỌNG TÂM VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
 
 ${modeInstruction}
@@ -76,7 +76,7 @@ QUY TẮC PHÂN TÍCH VÀ ĐẦU RA BẮT BUỘC ĐỂ ĐẠT CHUẨN SỞ/PHÒN
 
 ĐỊNH DẠNG ĐẦU RA (Yêu cầu trả về JSON thuần túy, tuyệt đối không bọc thẻ markdown \`\`\`json):
 {
-  "objectives_addition": "* [Tích hợp chế độ ${mode} Môn ${subject} - ${grade} (Theo TT 02/2025 & QĐ 3439/QĐ-BGDĐT)]:\\n[Chi tiết từng mã YCĐ kèm biểu hiện cụ thể của HS bám sát bài học môn ${subject}]",
+  "objectives_addition": "* [Tích hợp chế độ ${mode} Môn ${subject} - ${grade} (Theo TT 02/2025 & QĐ 2422/QĐ-BGDĐT)]:\\n[Chi tiết từng mã YCĐ kèm biểu hiện cụ thể của HS bám sát bài học môn ${subject}]",
   "materials_addition": "* Thiết bị dạy học và Học liệu số tích hợp AI môn ${subject}:\\n- Máy tính, máy chiếu, thiết bị thông minh kết nối Internet (dùng chung dưới sự hướng dẫn của GV).\\n- Nền tảng tương tác trực tuyến (Padlet/Mentimeter), phần mềm đồ họa (Canva), Chatbot AI (Gemini/ChatGPT).\\n- Lưu ý an toàn: Không yêu cầu HS tạo tài khoản cá nhân, không thu thập dữ liệu cá nhân nhạy cảm.",
   "activities_enhancement": [
     {
@@ -220,7 +220,7 @@ export async function generateCompetencyIntegration(
   if (mode === 'NAI') {
     if (level === 'INTENSIVE') {
       return {
-        objectives_addition: `* Tích hợp Năng lực Trí tuệ Nhân tạo CHUYÊN SÂU (Theo QĐ 3439/QĐ-BGDĐT - Môn ${subject} - ${grade}):
+        objectives_addition: `* Tích hợp Năng lực Trí tuệ Nhân tạo CHUYÊN SÂU (Theo QĐ 2422/QĐ-BGDĐT - Môn ${subject} - ${grade}):
 NLc.C2: HS thiết kế chuỗi câu lệnh (prompt engineering) chi tiết tương tác với Chatbot AI giải đáp các bài toán/khái niệm phức tạp môn ${subject}.
 NLa.A3: HS nhận thức sâu sắc về giới hạn của AI, thực hiện quy trình đối chiếu và kiểm chứng nghiêm ngặt với SGK nhằm phát hiện lỗi ảo giác AI.
 NLb.B2: HS thực hiện đạo đức học thuật, khai báo minh bạch công cụ AI và mức độ đóng góp của AI trong sản phẩm báo cáo.
@@ -254,7 +254,7 @@ NLd.D1: HS đặt câu hỏi phản biện cho AI để tìm kiếm các giải 
       };
     } else {
       return {
-        objectives_addition: `* Tích hợp Năng lực Trí tuệ Nhân tạo TIÊU CHUẨN (Theo QĐ 3439/QĐ-BGDĐT - Môn ${subject} - ${grade}):
+        objectives_addition: `* Tích hợp Năng lực Trí tuệ Nhân tạo TIÊU CHUẨN (Theo QĐ 2422/QĐ-BGDĐT - Môn ${subject} - ${grade}):
 NLc.C2: HS sử dụng Chatbot AI với câu lệnh phù hợp hỗ trợ giải đáp bài học môn ${subject}.
 NLa.A3: HS đối chiếu, kiểm chứng câu trả lời của AI với SGK.
 NLb.B2: HS khai báo minh bạch khi sử dụng AI.`,
@@ -284,7 +284,7 @@ NLb.B2: HS khai báo minh bạch khi sử dụng AI.`,
   // --- 3. CHẾ ĐỘ TOÀN DIỆN NLS & AI (NLS_AI) ---
   if (level === 'INTENSIVE') {
     return {
-      objectives_addition: `* Phát triển năng lực số và năng lực AI CHUYÊN SÂU (Theo TT 02/2025 & QĐ 3439/QĐ-BGDĐT - Môn ${subject} - ${grade}):
+      objectives_addition: `* Phát triển năng lực số và năng lực AI CHUYÊN SÂU (Theo TT 02/2025 & QĐ 2422/QĐ-BGDĐT - Môn ${subject} - ${grade}):
 1.1.NC1a: HS sử dụng công cụ tìm kiếm nâng cao tra cứu, chọn lọc và đánh giá độ tin cậy của tài liệu môn ${subject}.
 2.2.NC1a: HS làm việc nhóm đồng bộ thời gian thực, chia sẻ và phản biện sản phẩm học tập trực tuyến qua nền tảng số.
 3.1.TC2a: HS sử dụng phần mềm đồ họa số (Canva/Mindmeister) và phần mềm mô phỏng (GeoGebra/PhET) để số hóa toàn diện kết quả học tập.
@@ -327,7 +327,7 @@ NLb.B2: HS thực hiện chuẩn mực đạo đức AI, khai báo minh bạch c
 
   // Tiêu chuẩn mặc định (STANDARD)
   return {
-    objectives_addition: `* Phát triển năng lực số và năng lực AI TIÊU CHUẨN (Theo TT 02/2025 & QĐ 3439/QĐ-BGDĐT - Môn ${subject} - ${grade}):
+    objectives_addition: `* Phát triển năng lực số và năng lực AI TIÊU CHUẨN (Theo TT 02/2025 & QĐ 2422/QĐ-BGDĐT - Môn ${subject} - ${grade}):
 1.1.NC1a: HS sử dụng công cụ tìm kiếm tra cứu tài liệu môn ${subject}.
 5.2.TC2a: HS sử dụng thiết bị số quét mã QR truy cập nền tảng tương tác (Mentimeter/Padlet).
 NLc.C2: HS sử dụng Chatbot AI với câu lệnh phù hợp hỗ trợ giải đáp bài học môn ${subject}.

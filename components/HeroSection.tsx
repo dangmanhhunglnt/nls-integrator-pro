@@ -27,7 +27,7 @@ export default function HeroSection({ appVersion }: HeroSectionProps) {
           </h2>
 
           <p className="text-gray-300 text-sm md:text-base max-w-3xl mx-auto mt-2 leading-relaxed">
-            Tự động tích hợp <span className="font-semibold text-blue-300">Năng lực số (TT 02/2025)</span> & <span className="font-semibold text-purple-300">Giáo dục AI (QĐ 3439, Khung AI 2026 & HD 2026-2027)</span> vào bài dạy. Bảo lưu 100% định dạng, bảng biểu và công thức MathType.
+            Tự động tích hợp <span className="font-semibold text-blue-300">Năng lực số (TT 02/2025)</span> & <span className="font-semibold text-purple-300">Giáo dục AI (QĐ 2422, Khung AI 2026 & HD 2026-2027)</span> vào bài dạy. Bảo lưu 100% định dạng, bảng biểu và công thức MathType.
           </p>
         </div>
 
