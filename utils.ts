@@ -229,7 +229,7 @@ export const createIntegrationTextPrompt = (text: string, subject: string, grade
   - Trọng tâm phát triển theo cấp: ${matrixConfig.focusArea}
   - Quy tắc sư phạm bắt buộc: ${matrixConfig.pedagogyRules}
   - Nhóm động từ hành vi ưu tiên: ${matrixConfig.actionVerbs.join(', ')}
-  - Gợi ý công cụ học liệu số phân tầng:
+  - Gợi ý công cụ học liệu số phân tầng cho cấp này:
   ${recommendedTools}
   - Tiêu chí đánh giá định hướng:
   ${assessmentRubric}
@@ -243,20 +243,26 @@ export const createIntegrationTextPrompt = (text: string, subject: string, grade
 
   === NHIỆM VỤ 1: TÍCH HỢP VÀO MỤC MỤC TIÊU ===
   - Trích xuất các mã Yêu cầu cần đạt và diễn giải biểu hiện cụ thể của HS phù hợp với lứa tuổi ${grade}, bám sát trực tiếp vào kiến thức trọng tâm của bài dạy này.
-  - Văn bản pháp lý căn cứ: TT 02/2025/TT-BGDĐT (NLS) và QĐ 2422/QĐ-BGDĐT (Giáo dục AI).
+  - Căn cứ pháp lý: TT 02/2025/TT-BGDĐT (NLS) và QĐ 2422/QĐ-BGDĐT (Giáo dục AI).
 
-  === NHIỆM VỤ 2: QUÉT HOẠT ĐỘNG (CHI TIẾT & CHÍNH XÁC) ===
+  === NHIỆM VỤ 2: TÍCH HỢP HỌC LIỆU SỐ (MỤC II - PHÙ HỢP CẤP HỌC ${grade}) ===
+  - Đưa ra 1 dòng ngắn gọn danh mục thiết bị, phần mềm mô phỏng và ứng dụng AI dành riêng cho học sinh ${grade} môn ${subject}.
+
+  === NHIỆM VỤ 3: QUÉT HOẠT ĐỘNG & TỔ CHỨC THỰC HIỆN ===
   - Quan trọng: Khi chọn hoạt động nào, hãy COPY Y HỆT tên tiêu đề của nó trong giáo án gốc (Ví dụ: "HOẠT ĐỘNG 1: MỞ ĐẦU", "1. Hoạt động 1: Khởi động").
-  - Viết hướng dẫn thao tác cụ thể cho GV và HS sử dụng công cụ số/AI trong bài dạy này (phù hợp năng lực học sinh ${grade}).
+  - Viết nội dung bổ sung rõ ràng:
+    + Công cụ: Tên ứng dụng/công cụ số phù hợp ${grade}
+    + GV (Chuyển giao): Hướng dẫn nhiệm vụ số/câu lệnh prompt cụ thể
+    + HS (Thực hiện): Thao tác trên thiết bị, đối chiếu kết quả với SGK và minh bạch nguồn AI
 
   === CẤU TRÚC JSON ĐẦU RA ===
   {
     "objectives_addition": "* [Tiêu đề đúng chế độ ${mode} - Căn cứ TT 02/2025 & QĐ 2422/QĐ-BGDĐT]:\\n- [Chi tiết các mã YCĐ kèm biểu hiện cụ thể của học sinh ${grade} trong bài]",
-    "materials_addition": "* Thiết bị dạy học và Học liệu số môn ${subject} (${grade}):\\n- [Thiết bị, phần mềm mô phỏng, công cụ số/AI cụ thể]",
+    "materials_addition": "- Học liệu số & Thiết bị thông minh (${grade}): [Thiết bị, phần mềm mô phỏng, công cụ số/AI cụ thể cho môn ${subject}]",
     "activities_enhancement": [
       { 
         "activity_name": "[COPY Y HỆT TÊN TIÊU ĐỀ TRONG GIÁO ÁN GỐC]", 
-        "enhanced_content": "- Công cụ: [Tên công cụ phù hợp ${grade}]\\n- GV: [Hướng dẫn giao nhiệm vụ số/AI]\\n- HS: [Thực hiện thao tác cụ thể]" 
+        "enhanced_content": "- Công cụ: [Tên công cụ phù hợp ${grade}]\\n- GV (Chuyển giao): [Hướng dẫn giao nhiệm vụ số/AI rõ ràng]\\n- HS (Thực hiện): [Thực hiện thao tác số, đối chiếu kết quả với SGK và minh bạch nguồn]" 
       }
     ]
   }

@@ -69,7 +69,7 @@ export const injectContentIntoDocx = async (
         };
 
         // --- HÀM 2: TẠO KHỐI XML (MÀU TÙY CHỈNH + THỪA KẾ STYLE GỐC) ---
-        const createXmlBlock = (text: string, style: { fontSize: string | null, fontTag: string }) => {
+        const createXmlBlock = (text: string, style: { fontSize: string | null, fontTag: string }, customPrefix?: string) => {
           if (!text) return "";
           
           const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -89,12 +89,14 @@ export const injectContentIntoDocx = async (
             rPrBody += style.fontTag;
           }
 
+          const headerTitle = customPrefix || `👉 ${label}:`;
+
           // 1. Tạo dòng Tiêu đề
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
                               <w:rPr>${rPrHeader}</w:rPr>
-                              <w:t>👉 ${escapeXml(label)}:</w:t>
+                              <w:t>${escapeXml(headerTitle)}</w:t>
                             </w:r>
                           </w:p>`;
 
@@ -205,7 +207,7 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // Ưu tiên 1: Tìm mốc Phẩm chất để chèn ngay TRƯỚC nó (tức là cuối mục Năng lực)
+        // Ưu tiên 1: Tìm mốc Phẩm chất để chèn ngay TRƯỚC nó
         for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw);
           if (idx !== -1) {
@@ -215,7 +217,7 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        // Ưu tiên 2 (dự phòng): Nếu giáo án không có mục Phẩm chất, tìm tiêu đề Năng lực để chèn sau
+        // Ưu tiên 2 (dự phòng): Tìm tiêu đề Năng lực để chèn sau
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
             "2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "I.2. Về năng lực",
@@ -232,13 +234,12 @@ export const injectContentIntoDocx = async (
         }
 
         let newXml = docXml;
-        if (insertAnchorPos !== -1) {
+        if (insertAnchorPos !== -1 && content.objectives_addition) {
           const currentStyle = detectStyle(newXml, insertAnchorPos);
           const xmlBlock = createXmlBlock(content.objectives_addition, currentStyle);
 
           if (xmlBlock) {
             if (isBeforeKeyword) {
-              // Tìm đúng thẻ mở <w:p> của dòng "3. Phẩm chất" để chèn lên phía trên nó
               let pStart = -1;
               let searchIndex = insertAnchorPos;
               while (searchIndex >= 0) {
@@ -256,7 +257,6 @@ export const injectContentIntoDocx = async (
                 newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
               }
             } else {
-              // Chèn sau dòng tiêu đề Năng lực nếu không có mốc Phẩm chất
               const pEnd = newXml.indexOf("</w:p>", insertAnchorPos);
               if (pEnd !== -1) {
                 const splitPos = pEnd + "</w:p>".length;
@@ -266,6 +266,51 @@ export const injectContentIntoDocx = async (
           }
         }
         docXml = newXml;
+
+        // --- BỔ SUNG: 5.1. TỰ ĐỘNG CHÈN MỤC II (THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU SỐ) ---
+        if (content.materials_addition) {
+          const matKeywords = [
+            "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
+            "II. THIẾT BỊ DẠY HỌC",
+            "2. Thiết bị dạy học và học liệu",
+            "II. ĐỒ DÙNG DẠY HỌC",
+            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
+            "Thiết bị dạy học và học liệu"
+          ];
+
+          let matIndex = -1;
+          for (const mkw of matKeywords) {
+            const idx = findFuzzyIndex(docXml, mkw);
+            if (idx !== -1) {
+              matIndex = idx;
+              break;
+            }
+          }
+
+          if (matIndex !== -1) {
+            const currentStyle = detectStyle(docXml, matIndex);
+            // Tạo paragraph dạng bullet cho học liệu số
+            let rPrBody = `<w:color w:val="${colorHex}"/>`;
+            if (currentStyle.fontSize) rPrBody += `<w:sz w:val="${currentStyle.fontSize}"/><w:szCs w:val="${currentStyle.fontSize}"/>`;
+            if (currentStyle.fontTag) rPrBody += currentStyle.fontTag;
+
+            let cleanMat = content.materials_addition.replace(/\*\*/g, "").replace(/^[-•+]\s*/, "").trim();
+            const matBlockXml = `<w:p>
+                                   <w:pPr><w:ind w:left="360"/></w:pPr>
+                                   <w:r>
+                                     <w:rPr>${rPrBody}</w:rPr>
+                                     <w:t xml:space="preserve">- ${escapeXml(cleanMat)}</w:t>
+                                   </w:r>
+                                 </w:p>`;
+
+            // Tìm đoạn kết thúc của dòng tiêu đề Mục II để chèn vào ngay bên dưới
+            const pEnd = docXml.indexOf("</w:p>", matIndex);
+            if (pEnd !== -1) {
+              const splitPos = pEnd + "</w:p>".length;
+              docXml = docXml.substring(0, splitPos) + matBlockXml + docXml.substring(splitPos);
+            }
+          }
+        }
 
         // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN BỔ SUNG TRỰC TIẾP VÀO Ô BẢNG CV 5512) ---
         if (Array.isArray(content.activities_enhancement)) {
@@ -278,7 +323,7 @@ export const injectContentIntoDocx = async (
             let safeName = escapeXml(actName);
             let actIndex = findFuzzyIndex(docXml, safeName);
 
-            // Bổ sung: Tìm kiếm mở rộng các từ khóa chung áp dụng cho mọi môn học
+            // Tìm kiếm mở rộng các từ khóa chung
             if (actIndex === -1 && safeName) {
               const coreKeywords = [
                 "KHỞI ĐỘNG", "MỞ ĐẦU", "XÁC ĐỊNH VẤN ĐỀ",
@@ -352,6 +397,8 @@ export const injectContentIntoDocx = async (
                     "HS thực hiện",
                     "Học sinh thực hiện",
                     "Báo cáo kết quả",
+                    "c) Sản phẩm",
+                    "Sản phẩm:",
                     "Sản phẩm"
                   ];
                   for (const cKey of cellKeywords) {
