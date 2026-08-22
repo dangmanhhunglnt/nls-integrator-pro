@@ -73,8 +73,8 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     e.preventDefault();
     
     // 1. Kiểm tra mật khẩu Admin
-    if (adminForm.adminKey.trim() !== 'hung123') {
-      alert('Mật khẩu quản trị không chính xác! Vui lòng nhập đúng: hung123');
+    if (adminForm.adminKey.trim() !== 'Hung@0123') {
+      alert('Mật khẩu quản trị không chính xác! Vui lòng nhập đúng: ');
       return;
     }
 
