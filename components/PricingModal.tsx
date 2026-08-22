@@ -20,7 +20,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminClicks, setAdminClicks] = useState(0);
   const [adminForm, setAdminForm] = useState({
-    adminKey: '', // Ô nhập mật khẩu
+    adminKey: '',
     planType: 'SINGLE_YEAR',
     groupName: '',
     quantity: 1
@@ -57,25 +57,65 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     }
   };
 
-  // Admin sinh mã và xuất file Excel / CSV
+  // Hàm sinh mã ngẫu nhiên bảo mật
+  const makeRandomCode = (prefix: string) => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      if (i === 3) result += '-';
+    }
+    return `${prefix}-${result}`;
+  };
+
+  // Admin sinh mã TRỰC TIẾP và xuất file Excel / CSV (Không qua Serverless API)
   const handleAdminExportExcel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminForm.adminKey.trim()) {
-      alert('Vui lòng nhập mật khẩu quản trị.');
+    
+    // 1. Kiểm tra mật khẩu Admin
+    if (adminForm.adminKey.trim() !== 'hung123') {
+      alert('Mật khẩu quản trị không chính xác! Vui lòng nhập đúng: hung123');
+      return;
+    }
+
+    if (!adminForm.groupName.trim()) {
+      alert('Vui lòng nhập tên Người mua / Đơn vị.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await fetch('/api/generate-licenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(adminForm)
-      });
+      const prefixMap: Record<string, string> = {
+        COUNT_50: 'NLS-50L',
+        SINGLE_YEAR: 'NLS-VIP',
+        TEAM: 'NLS-TEAM',
+        SCHOOL: 'NLS-SCH'
+      };
 
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Mật khẩu sai hoặc không thể tạo mã');
+      const prefix = prefixMap[adminForm.planType] || 'NLS-KEY';
+      const numQty = Math.max(1, Math.min(200, Number(adminForm.quantity) || 1));
+      const records = [];
+
+      for (let i = 1; i <= numQty; i++) {
+        records.push({
+          code: makeRandomCode(prefix),
+          plan_type: adminForm.planType,
+          group_name: numQty > 1 ? `${adminForm.groupName} (GV ${i})` : adminForm.groupName,
+          quota_remaining: adminForm.planType === 'COUNT_50' ? 50 : 9999,
+          is_active: true
+        });
+      }
+
+      // Lưu trực tiếp vào bảng licenses trên Supabase
+      const { data, error } = await supabase
+        .from('licenses')
+        .insert(records)
+        .select('code, plan_type, group_name, quota_remaining');
+
+      if (error) {
+        throw new Error('Supabase Error: ' + error.message);
+      }
 
       const planNameMap: Record<string, string> = {
         COUNT_50: 'Gói 50 Lượt (50.000đ)',
@@ -84,10 +124,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
         SCHOOL: 'PRO Toàn Trường (1.999.000đ)'
       };
 
+      const outputList = data && data.length > 0 ? data : records;
+
       let csv = '\uFEFFSTT,Mã kích hoạt,Loại gói,Tên người dùng / Đơn vị,Hạn mức / Lượt,Hướng dẫn sử dụng\n';
-      data.licenses.forEach((item: any, i: number) => {
+      outputList.forEach((item: any, i: number) => {
         const quotaText = item.plan_type === 'COUNT_50' ? `${item.quota_remaining} lượt` : '1 Năm (Không giới hạn)';
-        csv += `${i + 1},"${item.code}","${planNameMap[item.plan_type] || item.plan_type}","${item.group_name}","${quotaText}","Mở web -> Nhập vào ô Đã có mã kích hoạt -> Khóa 1 máy"\n`;
+        csv += `${i + 1},"${item.code}","${planNameMap[item.plan_type] || item.plan_type}","${item.group_name}","${quotaText}","Mở web -> Bấm Đã có mã kích hoạt -> Dán mã vào (Khóa 1 máy)"\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -98,16 +140,17 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       a.download = `Danh_Sach_Ma_${cleanFileName}.csv`;
       a.click();
 
-      alert(`Đã tạo thành công ${data.licenses.length} mã và xuất file Excel!`);
+      alert(`Đã tạo thành công ${outputList.length} mã và xuất file Excel!`);
       setShowAdmin(false);
-      setAdminForm(prev => ({ ...prev, adminKey: '' })); // Xóa mật khẩu sau khi tải xong
+      setAdminForm(prev => ({ ...prev, adminKey: '' }));
     } catch (err: any) {
-      alert('Lỗi: ' + err.message);
+      alert('Lỗi tạo mã: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // Kích hoạt Giftcode từ phía người dùng
   const handleRedeemGiftcode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!giftcode.trim()) return;
@@ -119,30 +162,41 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       const deviceId = await getDeviceId();
       const cleanCode = giftcode.trim().toUpperCase();
 
-      const verifyRes = await fetch('/api/verify-license', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: cleanCode,
-          deviceId: deviceId
-        })
-      });
+      // Kiểm tra trực tiếp trên bảng licenses của Supabase
+      const { data: license, error: licenseError } = await supabase
+        .from('licenses')
+        .select('*')
+        .eq('code', cleanCode)
+        .single();
 
-      const verifyData = await verifyRes.json();
+      if (licenseError || !license) {
+        setMsg({ type: 'error', text: 'Mã kích hoạt không tồn tại trên hệ thống.' });
+        setLoading(false);
+        return;
+      }
 
-      if (!verifyRes.ok || !verifyData.success) {
-        setMsg({ 
-          type: 'error', 
-          text: verifyData.error || 'Mã kích hoạt không hợp lệ hoặc đã dùng trên máy khác!' 
-        });
+      if (!license.is_active) {
+        setMsg({ type: 'error', text: 'Mã kích hoạt này đã bị khóa hoặc hết hạn.' });
+        setLoading(false);
+        return;
+      }
+
+      // Khóa thiết bị
+      if (!license.bound_device_id) {
+        await supabase
+          .from('licenses')
+          .update({ bound_device_id: deviceId })
+          .eq('code', cleanCode);
+      } else if (license.bound_device_id !== deviceId) {
+        setMsg({ type: 'error', text: 'Mã này đã được kích hoạt trên một máy tính khác.' });
         setLoading(false);
         return;
       }
 
       localStorage.setItem('USER_LICENSE_CODE', cleanCode);
-      localStorage.setItem('USER_PLAN_TYPE', verifyData.planType || 'PRO');
+      localStorage.setItem('USER_PLAN_TYPE', license.plan_type || 'PRO');
 
-      if (userEmail && supabase) {
+      if (userEmail) {
         try {
           const { data: userProfile } = await supabase
             .from('profiles')
@@ -150,7 +204,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             .eq('email', userEmail)
             .single();
 
-          if (verifyData.planType !== 'COUNT_50') {
+          if (license.plan_type !== 'COUNT_50') {
             await supabase
               .from('profiles')
               .update({ role: 'pro', max_usage: 9999 })
@@ -159,7 +213,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             const currentMax = userProfile?.max_usage || 3;
             await supabase
               .from('profiles')
-              .update({ max_usage: currentMax + (verifyData.quota || 50) })
+              .update({ max_usage: currentMax + (license.quota_remaining || 50) })
               .eq('email', userEmail);
           }
         } catch (dbErr) {
@@ -169,7 +223,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
 
       setMsg({ 
         type: 'success', 
-        text: verifyData.message || 'Kích hoạt thành công trên thiết bị này!' 
+        text: 'Kích hoạt bản quyền thành công trên thiết bị này!' 
       });
 
       setTimeout(() => {
@@ -213,7 +267,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
           </p>
         </div>
 
-        {/* BẢNG QUẢN TRỊ BÍ MẬT DÀNH CHO ADMIN (CÓ Ô NHẬP MẬT KHẨU) */}
+        {/* BẢNG QUẢN TRỊ BÍ MẬT DÀNH CHO ADMIN */}
         {showAdmin && (
           <div className="mb-6 p-4 rounded-xl bg-slate-900 text-white border-2 border-amber-500 shadow-2xl space-y-3">
             <div className="flex justify-between items-center border-b border-slate-700 pb-2">
@@ -268,7 +322,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                 <label className="block text-slate-300 mb-1 font-semibold">Tên Người mua / Tổ / Trường:</label>
                 <input 
                   type="text" 
-                  placeholder={adminForm.planType === 'SINGLE_YEAR' ? "VD: Thầy Nguyễn Văn A" : "VD: Tổ Toán THPT Lý Nhân Tông"} 
+                  placeholder={adminForm.planType === 'SINGLE_YEAR' ? "VD: Thầy Nguyễn Văn A" : (adminForm.planType === 'COUNT_50' ? "VD: Cô Trần Thị B (50 lượt)" : "VD: Tổ Toán - THPT Lý Nhân Tông")} 
                   value={adminForm.groupName} 
                   onChange={e => setAdminForm({ ...adminForm, groupName: e.target.value })}
                   required
