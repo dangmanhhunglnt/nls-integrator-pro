@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2 } from 'lucide-react';
+import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { getDeviceId } from '../utils';
 
@@ -13,19 +13,28 @@ interface PricingModalProps {
 export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, userEmail, onSuccessUpgrade }) => {
   const [giftcode, setGiftcode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'COUNT_50' | 'PRO_YEAR' | 'TEAM'>('PRO_YEAR');
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   if (!isOpen) return null;
 
-  // Cấu hình tài khoản ngân hàng MSB của thầy
+  // Cấu hình tài khoản ngân hàng MSB
   const BANK_ID = "MSB";
   const ACCOUNT_NO = "19001010628998";
   const ACCOUNT_NAME = "DANG MANH HUNG";
   const ZALO_PHONE = "0978386357";
 
-  // Cú pháp chuyển khoản tự động
-  const transferContent = `NLS ${userEmail ? userEmail.split('@')[0] : 'PRO'}`;
-  const qrUrl50k = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=50000&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
+  // Cấu hình giá & nội dung chuyển khoản theo gói đang chọn
+  const planDetails = {
+    COUNT_50: { amount: 50000, codePrefix: '50L' },
+    PRO_YEAR: { amount: 299000, codePrefix: 'PRO' },
+    TEAM: { amount: 699000, codePrefix: 'TO' },
+  };
+
+  const currentAmount = planDetails[selectedPlan].amount;
+  const userTag = userEmail ? userEmail.split('@')[0] : 'GV';
+  const transferContent = `NLS ${planDetails[selectedPlan].codePrefix} ${userTag}`;
+  const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${currentAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
 
   const handleRedeemGiftcode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,11 +44,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     setMsg(null);
 
     try {
-      // 1. Lấy mã định danh thiết bị (Device Fingerprint)
+      // 1. Lấy mã định danh máy
       const deviceId = await getDeviceId();
       const cleanCode = giftcode.trim().toUpperCase();
 
-      // 2. Gọi Serverless API để xác thực và khóa bản quyền theo thiết bị
+      // 2. Gọi Serverless API xác thực và khóa theo thiết bị
       const verifyRes = await fetch('/api/verify-license', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,17 +63,17 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       if (!verifyRes.ok || !verifyData.success) {
         setMsg({ 
           type: 'error', 
-          text: verifyData.error || 'Mã kích hoạt không hợp lệ hoặc đã được kích hoạt trên thiết bị khác!' 
+          text: verifyData.error || 'Mã kích hoạt không hợp lệ hoặc đã dùng trên máy khác!' 
         });
         setLoading(false);
         return;
       }
 
-      // Lưu mã kích hoạt và loại gói vào máy của người dùng
+      // 3. Lưu vào máy cá nhân
       localStorage.setItem('USER_LICENSE_CODE', cleanCode);
       localStorage.setItem('USER_PLAN_TYPE', verifyData.planType || 'PRO');
 
-      // 3. Nếu người dùng có đăng nhập bằng Email, đồng bộ vào bảng profiles (nếu có kết nối Supabase)
+      // Đồng bộ profile nếu có tài khoản
       if (userEmail && supabase) {
         try {
           const { data: userProfile } = await supabase
@@ -73,37 +82,30 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             .eq('email', userEmail)
             .single();
 
-          if (verifyData.planType === 'SINGLE_YEAR' || verifyData.planType === 'TEAM' || verifyData.planType === 'SCHOOL') {
+          if (verifyData.planType !== 'COUNT_50') {
             await supabase
               .from('profiles')
-              .update({ 
-                role: 'pro',
-                max_usage: 9999
-              })
+              .update({ role: 'pro', max_usage: 9999 })
               .eq('email', userEmail);
           } else {
             const currentMax = userProfile?.max_usage || 3;
             await supabase
               .from('profiles')
-              .update({ 
-                max_usage: currentMax + (verifyData.quota || 50) 
-              })
+              .update({ max_usage: currentMax + (verifyData.quota || 50) })
               .eq('email', userEmail);
           }
         } catch (dbErr) {
-          console.warn("Không thể đồng bộ profile trực tiếp:", dbErr);
+          console.warn("Không thể đồng bộ profile:", dbErr);
         }
       }
 
       setMsg({ 
         type: 'success', 
-        text: verifyData.message || 'Kích hoạt bản quyền thành công trên thiết bị này!' 
+        text: verifyData.message || 'Kích hoạt thành công trên thiết bị này!' 
       });
 
       setTimeout(() => {
-        if (onSuccessUpgrade) {
-          onSuccessUpgrade();
-        }
+        if (onSuccessUpgrade) onSuccessUpgrade();
         onClose();
       }, 1200);
 
@@ -116,7 +118,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 max-h-[90vh] overflow-y-auto">
         
         {/* Nút đóng */}
         <button 
@@ -135,7 +137,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             Mở khóa Năng lực Soạn giáo án Số & AI
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Kích hoạt nhanh chóng trong vòng 1-3 phút sau khi chuyển khoản
+            Kích hoạt nhanh chóng trong 1-3 phút sau khi chuyển khoản
           </p>
         </div>
 
@@ -169,60 +171,102 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
           </form>
         </div>
 
-        {/* Danh sách 2 gói cước */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Gói lượt */}
-          <div className="border-2 border-indigo-500/40 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-xl p-5 relative flex flex-col justify-between">
+        {/* Danh sách 3 gói cước */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-6">
+          {/* Gói 1: Gói lượt */}
+          <div 
+            onClick={() => setSelectedPlan('COUNT_50')}
+            className={`border-2 rounded-xl p-4 cursor-pointer transition relative flex flex-col justify-between ${
+              selectedPlan === 'COUNT_50' 
+                ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-sm' 
+                : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300'
+            }`}
+          >
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-indigo-900 dark:text-indigo-300">Gói 50 Lượt</span>
-                <span className="text-xs bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded-full font-medium">Tiết kiệm</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-xs text-indigo-900 dark:text-indigo-300">Gói 50 Lượt</span>
+                <span className="text-[10px] bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-1.5 py-0.5 rounded font-medium">Tiết kiệm</span>
               </div>
-              <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 mb-3">
+              <div className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 mb-2">
                 50.000đ
               </div>
-              <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
-                <li className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> 50 lượt tích hợp NLS & AI</li>
-                <li className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> Không giới hạn thời gian sử dụng</li>
-                <li className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> Giữ nguyên MathType & bảng biểu</li>
+              <ul className="text-[11px] space-y-1.5 text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> 50 lượt tích hợp NLS & AI</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Không giới hạn thời gian</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Giữ nguyên MathType</li>
               </ul>
             </div>
           </div>
 
-          {/* Gói PRO Năm */}
-          <div className="border-2 border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl p-5 relative flex flex-col justify-between">
-            <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md">
+          {/* Gói 2: PRO Cá Nhân */}
+          <div 
+            onClick={() => setSelectedPlan('PRO_YEAR')}
+            className={`border-2 rounded-xl p-4 cursor-pointer transition relative flex flex-col justify-between ${
+              selectedPlan === 'PRO_YEAR' 
+                ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 shadow-md ring-1 ring-amber-400' 
+                : 'border-slate-200 dark:border-slate-800 hover:border-amber-300'
+            }`}
+          >
+            <div className="absolute -top-2.5 right-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow">
               KHUYÊN DÙNG
             </div>
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-amber-900 dark:text-amber-300">PRO Cả Năm</span>
-                <Crown className="w-4 h-4 text-amber-500" />
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-xs text-amber-900 dark:text-amber-300">PRO Cá Nhân</span>
+                <Crown className="w-3.5 h-3.5 text-amber-500" />
               </div>
-              <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mb-3">
-                299.000đ <span className="text-xs font-normal text-slate-400">/năm</span>
+              <div className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mb-2">
+                299.000đ <span className="text-[10px] font-normal text-slate-400">/năm</span>
               </div>
-              <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-300">
-                <li className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> Không giới hạn lượt sử dụng</li>
-                <li className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> Tự động cập nhật Khung AI 2026</li>
-                <li className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> Hỗ trợ kỹ thuật 1-1 qua Zalo</li>
+              <ul className="text-[11px] space-y-1.5 text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Không giới hạn lượt dùng</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Khóa 1 máy tính cá nhân</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Cập nhật Khung AI 2026</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Gói 3: Gói Tổ / Trường */}
+          <div 
+            onClick={() => setSelectedPlan('TEAM')}
+            className={`border-2 rounded-xl p-4 cursor-pointer transition relative flex flex-col justify-between ${
+              selectedPlan === 'TEAM' 
+                ? 'border-purple-600 bg-purple-50/60 dark:bg-purple-950/40 shadow-sm' 
+                : 'border-slate-200 dark:border-slate-800 hover:border-purple-300'
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-xs text-purple-900 dark:text-purple-300">Tổ Chuyên Môn</span>
+                <Users className="w-3.5 h-3.5 text-purple-500" />
+              </div>
+              <div className="text-xl font-extrabold text-purple-600 dark:text-purple-400 mb-2">
+                699.000đ <span className="text-[10px] font-normal text-slate-400">/năm</span>
+              </div>
+              <ul className="text-[11px] space-y-1.5 text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Gói 5 - 10 Giáo viên</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Cấp mã riêng cho từng GV</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Hỗ trợ mẫu giáo án tổ</li>
               </ul>
             </div>
           </div>
         </div>
 
-        {/* Mã QR VietQR Chuyển khoản */}
+        {/* Mã QR VietQR Chuyển khoản (Tự cập nhật theo gói đang chọn) */}
         <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 border border-slate-200 dark:border-slate-700">
           <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-200 flex-shrink-0">
             <img 
-              src={qrUrl50k} 
+              src={qrUrl} 
               alt="Mã VietQR Thanh toán" 
               className="w-32 h-32 object-contain"
             />
           </div>
           <div className="text-left text-xs space-y-1.5 w-full">
-            <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-500" /> Quét mã QR chuyển khoản tự động
+            <div className="font-bold text-slate-800 dark:text-white flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-500" /> Chuyển khoản gói: <strong className="text-indigo-600 dark:text-indigo-400">{currentAmount.toLocaleString('vi-VN')}đ</strong>
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">Quét mã bằng app ngân hàng</span>
             </div>
             <div className="text-slate-600 dark:text-slate-300">
               Ngân hàng: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{BANK_ID}</span> - STK: <span className="font-mono font-bold text-slate-900 dark:text-white">{ACCOUNT_NO}</span>
@@ -244,7 +288,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
           >
-            <MessageCircle className="w-4 h-4" /> Nhắn tin qua Zalo ({ZALO_PHONE}) để duyệt lượt tức thì
+            <MessageCircle className="w-4 h-4" /> Nhắn tin qua Zalo ({ZALO_PHONE}) để nhận mã kích hoạt tức thì (hỗ trợ xuất hóa đơn/hợp đồng trường)
           </a>
         </div>
 
