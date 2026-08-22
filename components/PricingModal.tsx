@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users, Building2, Download, ShieldCheck } from 'lucide-react';
+import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users, Building2, Download, ShieldCheck, Lock } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { getDeviceId } from '../utils';
 
@@ -16,16 +16,14 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
   const [selectedPlan, setSelectedPlan] = useState<'COUNT_50' | 'PRO_YEAR' | 'TEAM' | 'SCHOOL'>('PRO_YEAR');
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // ==========================================
-  // BỔ SUNG: STATE DÀNH CHO ADMIN BÍ MẬT XUẤT EXCEL
-  // ==========================================
+  // State dành cho Admin bí mật
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminClicks, setAdminClicks] = useState(0);
   const [adminForm, setAdminForm] = useState({
+    adminKey: '', // Ô nhập mật khẩu
     planType: 'SINGLE_YEAR',
     groupName: '',
-    quantity: 1,
-    adminKey: 'hungmath_admin_2026'
+    quantity: 1
   });
 
   if (!isOpen) return null;
@@ -49,9 +47,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
   const transferContent = `NLS ${planDetails[selectedPlan].codePrefix} ${userTag}`;
   const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${currentAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
 
-  // ==========================================
-  // BỔ SUNG: HÀM MỞ ADMIN KHI CLICK 3 LẦN VƯƠNG MIỆN
-  // ==========================================
+  // Click 3 lần vào vương miện để mở Admin bí mật
   const handleSecretAdminTrigger = () => {
     if (adminClicks + 1 >= 3) {
       setShowAdmin(true);
@@ -61,11 +57,14 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     }
   };
 
-  // ==========================================
-  // BỔ SUNG: HÀM SINH MÃ VÀ XUẤT FILE EXCEL (.CSV)
-  // ==========================================
+  // Admin sinh mã và xuất file Excel / CSV
   const handleAdminExportExcel = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!adminForm.adminKey.trim()) {
+      alert('Vui lòng nhập mật khẩu quản trị.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -76,7 +75,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Không thể tạo mã bản quyền');
+      if (!res.ok || !data.success) throw new Error(data.error || 'Mật khẩu sai hoặc không thể tạo mã');
 
       const planNameMap: Record<string, string> = {
         COUNT_50: 'Gói 50 Lượt (50.000đ)',
@@ -99,10 +98,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       a.download = `Danh_Sach_Ma_${cleanFileName}.csv`;
       a.click();
 
-      alert(`Đã tạo thành công ${data.licenses.length} mã và xuất file Excel về máy!`);
+      alert(`Đã tạo thành công ${data.licenses.length} mã và xuất file Excel!`);
       setShowAdmin(false);
+      setAdminForm(prev => ({ ...prev, adminKey: '' })); // Xóa mật khẩu sau khi tải xong
     } catch (err: any) {
-      alert('Lỗi tạo mã: ' + err.message);
+      alert('Lỗi: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -116,11 +116,9 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     setMsg(null);
 
     try {
-      // 1. Lấy mã định danh máy
       const deviceId = await getDeviceId();
       const cleanCode = giftcode.trim().toUpperCase();
 
-      // 2. Gọi Serverless API xác thực và khóa theo thiết bị
       const verifyRes = await fetch('/api/verify-license', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,11 +139,9 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
         return;
       }
 
-      // 3. Lưu vào máy cá nhân
       localStorage.setItem('USER_LICENSE_CODE', cleanCode);
       localStorage.setItem('USER_PLAN_TYPE', verifyData.planType || 'PRO');
 
-      // Đồng bộ profile nếu có tài khoản
       if (userEmail && supabase) {
         try {
           const { data: userProfile } = await supabase
@@ -200,7 +196,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
           <X className="w-6 h-6" />
         </button>
 
-        {/* Tiêu đề (Click 3 lần vào vương miện để mở Admin bí mật) */}
+        {/* Tiêu đề (Click 3 lần vào vương miện để mở Admin) */}
         <div className="text-center space-y-2 mb-6">
           <div 
             onClick={handleSecretAdminTrigger}
@@ -217,7 +213,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
           </p>
         </div>
 
-        {/* BẢNG QUẢN TRỊ BÍ MẬT DÀNH CHO ADMIN */}
+        {/* BẢNG QUẢN TRỊ BÍ MẬT DÀNH CHO ADMIN (CÓ Ô NHẬP MẬT KHẨU) */}
         {showAdmin && (
           <div className="mb-6 p-4 rounded-xl bg-slate-900 text-white border-2 border-amber-500 shadow-2xl space-y-3">
             <div className="flex justify-between items-center border-b border-slate-700 pb-2">
@@ -233,7 +229,21 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
               </button>
             </div>
 
-            <form onSubmit={handleAdminExportExcel} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <form onSubmit={handleAdminExportExcel} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" /> Mật khẩu Admin:
+                </label>
+                <input 
+                  type="password" 
+                  placeholder="Nhập: hung123" 
+                  value={adminForm.adminKey} 
+                  onChange={e => setAdminForm({ ...adminForm, adminKey: e.target.value })}
+                  required
+                  className="w-full p-2 bg-slate-800 rounded border border-slate-700 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
               <div>
                 <label className="block text-slate-300 mb-1 font-semibold">Loại gói phát hành:</label>
                 <select 
@@ -247,10 +257,10 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                   }}
                   className="w-full p-2 bg-slate-800 rounded border border-slate-700 text-white focus:outline-none focus:border-amber-500"
                 >
-                  <option value="COUNT_50">1. Gói 50 Lượt (Bán lẻ 50k)</option>
-                  <option value="SINGLE_YEAR">2. Gói Cá Nhân 1 Năm (Bán lẻ 299k)</option>
-                  <option value="TEAM">3. Gói Tổ Chuyên Môn (5-10 GV - 699k)</option>
-                  <option value="SCHOOL">4. Gói Toàn Trường (40-80+ GV - 1.999k)</option>
+                  <option value="COUNT_50">1. Gói 50 Lượt (50k)</option>
+                  <option value="SINGLE_YEAR">2. Gói Cá Nhân 1 Năm (299k)</option>
+                  <option value="TEAM">3. Gói Tổ Chuyên Môn (699k)</option>
+                  <option value="SCHOOL">4. Gói Toàn Trường (1.999k)</option>
                 </select>
               </div>
 
@@ -258,7 +268,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                 <label className="block text-slate-300 mb-1 font-semibold">Tên Người mua / Tổ / Trường:</label>
                 <input 
                   type="text" 
-                  placeholder={adminForm.planType === 'SINGLE_YEAR' ? "VD: Thầy Nguyễn Văn A" : (adminForm.planType === 'COUNT_50' ? "VD: Cô Trần Thị B (50 lượt)" : "VD: Tổ Toán - THPT Lý Nhân Tông")} 
+                  placeholder={adminForm.planType === 'SINGLE_YEAR' ? "VD: Thầy Nguyễn Văn A" : "VD: Tổ Toán THPT Lý Nhân Tông"} 
                   value={adminForm.groupName} 
                   onChange={e => setAdminForm({ ...adminForm, groupName: e.target.value })}
                   required
@@ -267,7 +277,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1 font-semibold">Số lượng mã cần sinh:</label>
+                <label className="block text-slate-300 mb-1 font-semibold">Số lượng & Xuất:</label>
                 <div className="flex gap-2">
                   <input 
                     type="number" 
@@ -275,15 +285,15 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                     max="200" 
                     value={adminForm.quantity} 
                     onChange={e => setAdminForm({ ...adminForm, quantity: Number(e.target.value) })}
-                    className="w-20 p-2 bg-slate-800 rounded border border-slate-700 text-white text-center font-bold"
+                    className="w-16 p-2 bg-slate-800 rounded border border-slate-700 text-white text-center font-bold"
                   />
                   <button 
                     type="submit" 
                     disabled={loading}
-                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded flex items-center justify-center gap-1.5 shadow transition"
+                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded flex items-center justify-center gap-1 shadow transition"
                   >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                    Tải File Excel
+                    Tải Excel
                   </button>
                 </div>
               </div>
