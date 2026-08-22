@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users, Building2 } from 'lucide-react';
+import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users, Building2, Download, ShieldCheck } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { getDeviceId } from '../utils';
 
@@ -15,6 +15,18 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'COUNT_50' | 'PRO_YEAR' | 'TEAM' | 'SCHOOL'>('PRO_YEAR');
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // ==========================================
+  // BỔ SUNG: STATE DÀNH CHO ADMIN BÍ MẬT XUẤT EXCEL
+  // ==========================================
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [adminClicks, setAdminClicks] = useState(0);
+  const [adminForm, setAdminForm] = useState({
+    planType: 'SINGLE_YEAR',
+    groupName: '',
+    quantity: 1,
+    adminKey: 'hungmath_admin_2026'
+  });
 
   if (!isOpen) return null;
 
@@ -36,6 +48,65 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
   const userTag = userEmail ? userEmail.split('@')[0] : 'GV';
   const transferContent = `NLS ${planDetails[selectedPlan].codePrefix} ${userTag}`;
   const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${currentAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
+
+  // ==========================================
+  // BỔ SUNG: HÀM MỞ ADMIN KHI CLICK 3 LẦN VƯƠNG MIỆN
+  // ==========================================
+  const handleSecretAdminTrigger = () => {
+    if (adminClicks + 1 >= 3) {
+      setShowAdmin(true);
+      setAdminClicks(0);
+    } else {
+      setAdminClicks(prev => prev + 1);
+    }
+  };
+
+  // ==========================================
+  // BỔ SUNG: HÀM SINH MÃ VÀ XUẤT FILE EXCEL (.CSV)
+  // ==========================================
+  const handleAdminExportExcel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/generate-licenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(adminForm)
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Không thể tạo mã bản quyền');
+
+      const planNameMap: Record<string, string> = {
+        COUNT_50: 'Gói 50 Lượt (50.000đ)',
+        SINGLE_YEAR: 'PRO Cá Nhân 1 Năm (299.000đ)',
+        TEAM: 'PRO Tổ Chuyên Môn (699.000đ)',
+        SCHOOL: 'PRO Toàn Trường (1.999.000đ)'
+      };
+
+      let csv = '\uFEFFSTT,Mã kích hoạt,Loại gói,Tên người dùng / Đơn vị,Hạn mức / Lượt,Hướng dẫn sử dụng\n';
+      data.licenses.forEach((item: any, i: number) => {
+        const quotaText = item.plan_type === 'COUNT_50' ? `${item.quota_remaining} lượt` : '1 Năm (Không giới hạn)';
+        csv += `${i + 1},"${item.code}","${planNameMap[item.plan_type] || item.plan_type}","${item.group_name}","${quotaText}","Mở web -> Nhập vào ô Đã có mã kích hoạt -> Khóa 1 máy"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const cleanFileName = adminForm.groupName.replace(/\s+/g, '_') || 'Ban_Quyen_NLS';
+      a.download = `Danh_Sach_Ma_${cleanFileName}.csv`;
+      a.click();
+
+      alert(`Đã tạo thành công ${data.licenses.length} mã và xuất file Excel về máy!`);
+      setShowAdmin(false);
+    } catch (err: any) {
+      alert('Lỗi tạo mã: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleRedeemGiftcode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,9 +200,13 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
           <X className="w-6 h-6" />
         </button>
 
-        {/* Tiêu đề */}
+        {/* Tiêu đề (Click 3 lần vào vương miện để mở Admin bí mật) */}
         <div className="text-center space-y-2 mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold text-xs uppercase tracking-wider">
+          <div 
+            onClick={handleSecretAdminTrigger}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none transition hover:scale-105"
+            title="Quản trị viên: Click 3 lần để mở xuất file mã Excel"
+          >
             <Crown className="w-4 h-4 text-amber-500" /> Bảng giá & Nâng cấp bản quyền
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -141,6 +216,80 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             Kích hoạt nhanh chóng trong 1-3 phút sau khi chuyển khoản
           </p>
         </div>
+
+        {/* BẢNG QUẢN TRỊ BÍ MẬT DÀNH CHO ADMIN */}
+        {showAdmin && (
+          <div className="mb-6 p-4 rounded-xl bg-slate-900 text-white border-2 border-amber-500 shadow-2xl space-y-3">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+              <span className="font-bold text-amber-400 text-xs flex items-center gap-1.5 uppercase">
+                <ShieldCheck className="w-4 h-4" /> Bảng Quản Trị: Tạo Mã Hàng Loạt & Xuất Excel
+              </span>
+              <button 
+                type="button" 
+                onClick={() => setShowAdmin(false)} 
+                className="text-slate-400 hover:text-white text-xs font-bold px-2 py-0.5 bg-slate-800 rounded"
+              >
+                ✕ Đóng
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminExportExcel} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold">Loại gói phát hành:</label>
+                <select 
+                  value={adminForm.planType} 
+                  onChange={e => {
+                    const newPlan = e.target.value;
+                    let defaultQty = 1;
+                    if (newPlan === 'TEAM') defaultQty = 10;
+                    if (newPlan === 'SCHOOL') defaultQty = 50;
+                    setAdminForm({ ...adminForm, planType: newPlan, quantity: defaultQty });
+                  }}
+                  className="w-full p-2 bg-slate-800 rounded border border-slate-700 text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="COUNT_50">1. Gói 50 Lượt (Bán lẻ 50k)</option>
+                  <option value="SINGLE_YEAR">2. Gói Cá Nhân 1 Năm (Bán lẻ 299k)</option>
+                  <option value="TEAM">3. Gói Tổ Chuyên Môn (5-10 GV - 699k)</option>
+                  <option value="SCHOOL">4. Gói Toàn Trường (40-80+ GV - 1.999k)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold">Tên Người mua / Tổ / Trường:</label>
+                <input 
+                  type="text" 
+                  placeholder={adminForm.planType === 'SINGLE_YEAR' ? "VD: Thầy Nguyễn Văn A" : (adminForm.planType === 'COUNT_50' ? "VD: Cô Trần Thị B (50 lượt)" : "VD: Tổ Toán - THPT Lý Nhân Tông")} 
+                  value={adminForm.groupName} 
+                  onChange={e => setAdminForm({ ...adminForm, groupName: e.target.value })}
+                  required
+                  className="w-full p-2 bg-slate-800 rounded border border-slate-700 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 mb-1 font-semibold">Số lượng mã cần sinh:</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max="200" 
+                    value={adminForm.quantity} 
+                    onChange={e => setAdminForm({ ...adminForm, quantity: Number(e.target.value) })}
+                    className="w-20 p-2 bg-slate-800 rounded border border-slate-700 text-white text-center font-bold"
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded flex items-center justify-center gap-1.5 shadow transition"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    Tải File Excel
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Khu vực kích hoạt Giftcode */}
         <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800/60">
