@@ -1,4 +1,5 @@
 import PizZip from 'pizzip';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { IntegrationMode } from './types';
 
 // ==========================================
@@ -273,3 +274,24 @@ export const createIntegrationTextPrompt = (text: string, subject: string, grade
   """
   `;
 };
+
+// ==========================================
+// HÀM LẤY MÃ ĐỊNH DANH MÁY TÍNH DUY NHẤT (DEVICE FINGERPRINT)
+// ==========================================
+export async function getDeviceId(): Promise<string> {
+  try {
+    const fp = await FingerprintJS.load();
+    const result = await fp.get();
+    return result.visitorId;
+  } catch (error) {
+    console.error("Lỗi khởi tạo Fingerprint:", error);
+    let fallbackId = typeof window !== 'undefined' ? localStorage.getItem('_fallback_device_id') : null;
+    if (!fallbackId) {
+      fallbackId = 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('_fallback_device_id', fallbackId);
+      }
+    }
+    return fallbackId;
+  }
+}

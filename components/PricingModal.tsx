@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2 } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
+import { getDeviceId } from '../utils';
 
 interface PricingModalProps {
   isOpen: boolean;
@@ -29,70 +30,76 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
   const handleRedeemGiftcode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!giftcode.trim()) return;
-    if (!userEmail) {
-      setMsg({ type: 'error', text: 'Vui lòng đăng nhập tài khoản trước khi nhập mã kích hoạt.' });
-      return;
-    }
 
     setLoading(true);
     setMsg(null);
 
     try {
-      // 1. Kiểm tra tính hợp lệ của mã
-      const { data: codeData, error: codeErr } = await supabase
-        .from('giftcodes')
-        .select('*')
-        .eq('code', giftcode.trim().toUpperCase())
-        .single();
+      // 1. Lấy mã định danh thiết bị (Device Fingerprint)
+      const deviceId = await getDeviceId();
+      const cleanCode = giftcode.trim().toUpperCase();
 
-      if (codeErr || !codeData) {
-        setMsg({ type: 'error', text: 'Mã kích hoạt không tồn tại hoặc không chính xác!' });
-        setLoading(false);
-        return;
-      }
-
-      if (codeData.is_used) {
-        setMsg({ type: 'error', text: 'Mã kích hoạt này đã được sử dụng trước đó.' });
-        setLoading(false);
-        return;
-      }
-
-      // 2. Cập nhật trạng thái người dùng (Cộng lượt hoặc Mở PRO) vào bảng profiles
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', userEmail)
-        .single();
-
-      if (codeData.plan_type === 'PRO') {
-        await supabase
-          .from('profiles')
-          .update({ 
-            role: 'pro',
-            max_usage: 9999
-          })
-          .eq('email', userEmail);
-      } else {
-        const currentMax = userProfile?.max_usage || 3;
-        await supabase
-          .from('profiles')
-          .update({ 
-            max_usage: currentMax + (codeData.add_turns || 50) 
-          })
-          .eq('email', userEmail);
-      }
-
-      // 3. Đánh dấu mã đã dùng
-      await supabase
-        .from('giftcodes')
-        .update({
-          is_used: true,
-          used_by: userEmail,
-          used_at: new Date().toISOString()
+      // 2. Gọi Serverless API để xác thực và khóa bản quyền theo thiết bị
+      const verifyRes = await fetch('/api/verify-license', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: cleanCode,
+          deviceId: deviceId
         })
-        .eq('id', codeData.id);
+      });
 
-      setMsg({ type: 'success', text: `Kích hoạt thành công gói ${codeData.plan_type === 'PRO' ? 'PRO 1 Năm' : 'Thêm 50 Lượt'}!` });
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok || !verifyData.success) {
+        setMsg({ 
+          type: 'error', 
+          text: verifyData.error || 'Mã kích hoạt không hợp lệ hoặc đã được kích hoạt trên thiết bị khác!' 
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Lưu mã kích hoạt và loại gói vào máy của người dùng
+      localStorage.setItem('USER_LICENSE_CODE', cleanCode);
+      localStorage.setItem('USER_PLAN_TYPE', verifyData.planType || 'PRO');
+
+      // 3. Nếu người dùng có đăng nhập bằng Email, đồng bộ vào bảng profiles (nếu có kết nối Supabase)
+      if (userEmail && supabase) {
+        try {
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', userEmail)
+            .single();
+
+          if (verifyData.planType === 'SINGLE_YEAR' || verifyData.planType === 'TEAM' || verifyData.planType === 'SCHOOL') {
+            await supabase
+              .from('profiles')
+              .update({ 
+                role: 'pro',
+                max_usage: 9999
+              })
+              .eq('email', userEmail);
+          } else {
+            const currentMax = userProfile?.max_usage || 3;
+            await supabase
+              .from('profiles')
+              .update({ 
+                max_usage: currentMax + (verifyData.quota || 50) 
+              })
+              .eq('email', userEmail);
+          }
+        } catch (dbErr) {
+          console.warn("Không thể đồng bộ profile trực tiếp:", dbErr);
+        }
+      }
+
+      setMsg({ 
+        type: 'success', 
+        text: verifyData.message || 'Kích hoạt bản quyền thành công trên thiết bị này!' 
+      });
+
       setTimeout(() => {
         if (onSuccessUpgrade) {
           onSuccessUpgrade();

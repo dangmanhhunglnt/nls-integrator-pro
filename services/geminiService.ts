@@ -1,4 +1,5 @@
 import { GeneratedNLSContent, SubjectType, GradeType, IntegrationMode, IntegrationLevel } from '../types';
+import { getDeviceId } from '../utils';
 
 /**
  * Hàm phân loại cấp học từ chuỗi khối lớp
@@ -131,6 +132,8 @@ export async function generateCompetencyIntegration(
 ): Promise<GeneratedNLSContent> {
   const customApiKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('CUSTOM_GEMINI_KEY') || '' : '');
   const userToken = typeof window !== 'undefined' ? localStorage.getItem('USER_TOKEN') || 'user_logged_in' : '';
+  const licenseCode = typeof window !== 'undefined' ? localStorage.getItem('USER_LICENSE_CODE') || '' : '';
+  const deviceId = typeof window !== 'undefined' ? await getDeviceId() : '';
   const eduLevel = getEducationLevel(grade);
 
   try {
@@ -146,6 +149,8 @@ export async function generateCompetencyIntegration(
         prompt: fullPrompt,
         customApiKey: customApiKey,
         userToken: userToken,
+        licenseCode: licenseCode,
+        deviceId: deviceId,
       }),
     });
 
@@ -156,7 +161,11 @@ export async function generateCompetencyIntegration(
         return JSON.parse(cleanJson) as GeneratedNLSContent;
       }
     } else {
-      console.warn('Lỗi gọi Serverless Function:', await response.text());
+      const errRes = await response.json().catch(() => ({}));
+      console.warn('Lỗi gọi Serverless Function:', errRes.error || response.statusText);
+      if (errRes.error && typeof window !== 'undefined') {
+        alert(errRes.error);
+      }
     }
   } catch (error: any) {
     console.warn('Không thể kết nối Serverless Function API, sử dụng dữ liệu dự phòng... Lỗi:', error?.message || error);
