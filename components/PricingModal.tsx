@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users } from 'lucide-react';
+import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users, Building2 } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { getDeviceId } from '../utils';
 
@@ -13,7 +13,7 @@ interface PricingModalProps {
 export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, userEmail, onSuccessUpgrade }) => {
   const [giftcode, setGiftcode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'COUNT_50' | 'PRO_YEAR' | 'TEAM'>('PRO_YEAR');
+  const [selectedPlan, setSelectedPlan] = useState<'COUNT_50' | 'PRO_YEAR' | 'TEAM' | 'SCHOOL'>('PRO_YEAR');
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   if (!isOpen) return null;
@@ -29,6 +29,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     COUNT_50: { amount: 50000, codePrefix: '50L' },
     PRO_YEAR: { amount: 299000, codePrefix: 'PRO' },
     TEAM: { amount: 699000, codePrefix: 'TO' },
+    SCHOOL: { amount: 1999000, codePrefix: 'TRUONG' },
   };
 
   const currentAmount = planDetails[selectedPlan].amount;
@@ -118,7 +119,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 max-h-[90vh] overflow-y-auto">
         
         {/* Nút đóng */}
         <button 
@@ -171,29 +172,29 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
           </form>
         </div>
 
-        {/* Danh sách 3 gói cước */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-6">
+        {/* Danh sách 4 gói cước */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {/* Gói 1: Gói lượt */}
           <div 
             onClick={() => setSelectedPlan('COUNT_50')}
-            className={`border-2 rounded-xl p-4 cursor-pointer transition relative flex flex-col justify-between ${
+            className={`border-2 rounded-xl p-3.5 cursor-pointer transition relative flex flex-col justify-between ${
               selectedPlan === 'COUNT_50' 
                 ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-sm' 
                 : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300'
             }`}
           >
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-xs text-indigo-900 dark:text-indigo-300">Gói 50 Lượt</span>
-                <span className="text-[10px] bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-1.5 py-0.5 rounded font-medium">Tiết kiệm</span>
+                <span className="text-[10px] bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-1.5 py-0.2 rounded font-medium">Lượt</span>
               </div>
-              <div className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 mb-2">
+              <div className="text-lg font-extrabold text-indigo-600 dark:text-indigo-400 mb-2">
                 50.000đ
               </div>
-              <ul className="text-[11px] space-y-1.5 text-slate-600 dark:text-slate-300">
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> 50 lượt tích hợp NLS & AI</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Không giới hạn thời gian</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Giữ nguyên MathType</li>
+              <ul className="text-[10.5px] space-y-1.5 text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> 50 lượt NLS & AI</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Không hạn thời gian</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Giữ chuẩn MathType</li>
               </ul>
             </div>
           </div>
@@ -201,58 +202,83 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
           {/* Gói 2: PRO Cá Nhân */}
           <div 
             onClick={() => setSelectedPlan('PRO_YEAR')}
-            className={`border-2 rounded-xl p-4 cursor-pointer transition relative flex flex-col justify-between ${
+            className={`border-2 rounded-xl p-3.5 cursor-pointer transition relative flex flex-col justify-between ${
               selectedPlan === 'PRO_YEAR' 
                 ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 shadow-md ring-1 ring-amber-400' 
                 : 'border-slate-200 dark:border-slate-800 hover:border-amber-300'
             }`}
           >
-            <div className="absolute -top-2.5 right-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow">
+            <div className="absolute -top-2 right-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow">
               KHUYÊN DÙNG
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-xs text-amber-900 dark:text-amber-300">PRO Cá Nhân</span>
                 <Crown className="w-3.5 h-3.5 text-amber-500" />
               </div>
-              <div className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mb-2">
+              <div className="text-lg font-extrabold text-amber-600 dark:text-amber-400 mb-2">
                 299.000đ <span className="text-[10px] font-normal text-slate-400">/năm</span>
               </div>
-              <ul className="text-[11px] space-y-1.5 text-slate-600 dark:text-slate-300">
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Không giới hạn lượt dùng</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Khóa 1 máy tính cá nhân</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Cập nhật Khung AI 2026</li>
+              <ul className="text-[10.5px] space-y-1.5 text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Không giới hạn lượt</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Khóa 1 máy cá nhân</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Cập nhật Khung AI</li>
               </ul>
             </div>
           </div>
 
-          {/* Gói 3: Gói Tổ / Trường */}
+          {/* Gói 3: Gói Tổ */}
           <div 
             onClick={() => setSelectedPlan('TEAM')}
-            className={`border-2 rounded-xl p-4 cursor-pointer transition relative flex flex-col justify-between ${
+            className={`border-2 rounded-xl p-3.5 cursor-pointer transition relative flex flex-col justify-between ${
               selectedPlan === 'TEAM' 
                 ? 'border-purple-600 bg-purple-50/60 dark:bg-purple-950/40 shadow-sm' 
                 : 'border-slate-200 dark:border-slate-800 hover:border-purple-300'
             }`}
           >
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-xs text-purple-900 dark:text-purple-300">Tổ Chuyên Môn</span>
                 <Users className="w-3.5 h-3.5 text-purple-500" />
               </div>
-              <div className="text-xl font-extrabold text-purple-600 dark:text-purple-400 mb-2">
+              <div className="text-lg font-extrabold text-purple-600 dark:text-purple-400 mb-2">
                 699.000đ <span className="text-[10px] font-normal text-slate-400">/năm</span>
               </div>
-              <ul className="text-[11px] space-y-1.5 text-slate-600 dark:text-slate-300">
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Gói 5 - 10 Giáo viên</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Cấp mã riêng cho từng GV</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> Hỗ trợ mẫu giáo án tổ</li>
+              <ul className="text-[10.5px] space-y-1.5 text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Gói 5 - 10 Giáo viên</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Mã riêng từng máy</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Tiết kiệm hơn 70%</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Gói 4: Gói Toàn Trường */}
+          <div 
+            onClick={() => setSelectedPlan('SCHOOL')}
+            className={`border-2 rounded-xl p-3.5 cursor-pointer transition relative flex flex-col justify-between ${
+              selectedPlan === 'SCHOOL' 
+                ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 shadow-sm' 
+                : 'border-slate-200 dark:border-slate-800 hover:border-blue-300'
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-xs text-blue-900 dark:text-blue-300">Toàn Trường</span>
+                <Building2 className="w-3.5 h-3.5 text-blue-500" />
+              </div>
+              <div className="text-lg font-extrabold text-blue-600 dark:text-blue-400 mb-2">
+                1.999.000đ <span className="text-[10px] font-normal text-slate-400">/năm</span>
+              </div>
+              <ul className="text-[10.5px] space-y-1.5 text-slate-600 dark:text-slate-300">
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Cả trường (40-80+ GV)</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Cấp danh sách mã GV</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Xuất hợp đồng / hóa đơn</li>
               </ul>
             </div>
           </div>
         </div>
 
-        {/* Mã QR VietQR Chuyển khoản (Tự cập nhật theo gói đang chọn) */}
+        {/* Mã QR VietQR Chuyển khoản */}
         <div className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 border border-slate-200 dark:border-slate-700">
           <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-200 flex-shrink-0">
             <img 
