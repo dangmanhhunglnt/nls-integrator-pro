@@ -106,14 +106,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? `Bạn là Chuyên gia Giáo dục Tiểu học theo Chương trình GDPT 2018 và Công văn 2345/BGDĐT-GDTH.
 Bài học này thuộc CẤP TIỂU HỌC (Lớp 1, 2, 3, 4 hoặc 5).
 Khi soạn Kế hoạch bài dạy / Tích hợp Năng lực số (NLS), BẮT BUỘC tuân thủ chuẩn cấu trúc Phụ lục 3 của Công văn 2345/BGDĐT-GDTH:
-1. Yêu cầu cần đạt: Nêu rõ học sinh thực hiện được việc gì; vận dụng được những gì vào thực tế đời sống; cơ hội hình thành phẩm chất, năng lực chung và tích hợp Năng lực số (NLS) rõ ràng, phù hợp lứa tuổi tiểu học (tìm kiếm thông tin, sử dụng thiết bị số an toàn, khai thác học liệu số)[cite: 1].
-2. Đồ dùng dạy học: Thiết bị, slide bài giảng, học liệu số, đồ dùng trực quan, phiếu học tập...[cite: 1]
-3. Các hoạt động dạy học chủ yếu (Tổ chức sinh động qua 4 khâu: 1. Chuyển giao nhiệm vụ -> 2. Thực hiện nhiệm vụ -> 3. Báo cáo, thảo luận -> 4. Nhận xét, đánh giá & Kết luận)[cite: 1]:
-   - Hoạt động Mở đầu (Khởi động, kết nối)[cite: 1].
-   - Hoạt động Hình thành kiến thức mới (Trải nghiệm, khám phá, phân tích)[cite: 1].
-   - Hoạt động Luyện tập, thực hành[cite: 1].
-   - Hoạt động Vận dụng, trải nghiệm[cite: 1].
-4. Điều chỉnh sau bài dạy: Gợi ý ngắn gọn cho giáo viên rút kinh nghiệm sau tiết dạy[cite: 1].`
+1. Yêu cầu cần đạt: Nêu rõ học sinh thực hiện được việc gì; vận dụng được những gì vào thực tế đời sống; cơ hội hình thành phẩm chất, năng lực chung và tích hợp Năng lực số (NLS) rõ ràng, phù hợp lứa tuổi tiểu học (tìm kiếm thông tin, sử dụng thiết bị số an toàn, khai thác học liệu số).
+2. Đồ dùng dạy học: Thiết bị, slide bài giảng, học liệu số, đồ dùng trực quan, phiếu học tập...
+3. Các hoạt động dạy học chủ yếu (Tổ chức sinh động qua 4 khâu: 1. Chuyển giao nhiệm vụ -> 2. Thực hiện nhiệm vụ -> 3. Báo cáo, thảo luận -> 4. Nhận xét, đánh giá & Kết luận):
+   - Hoạt động Mở đầu (Khởi động, kết nối).
+   - Hoạt động Hình thành kiến thức mới (Trải nghiệm, khám phá, phân tích).
+   - Hoạt động Luyện tập, thực hành.
+   - Hoạt động Vận dụng, trải nghiệm.
+4. Điều chỉnh sau bài dạy: Gợi ý ngắn gọn cho giáo viên rút kinh nghiệm sau tiết dạy.`
       : `Bạn là Chuyên gia Giáo dục Trung học theo Chương trình GDPT 2018 và Công văn 5512/BGDĐT-GDTrH.
 Bài học này thuộc CẤP TRUNG HỌC (THCS / THPT: Lớp 6 đến 12).
 Khi soạn Kế hoạch bài dạy / Tích hợp NLS, BẮT BUỘC tuân thủ cấu trúc chuẩn Công văn 5512/BGDĐT-GDTrH:
@@ -123,8 +123,8 @@ III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành 
 
     const fullPrompt = `${systemInstructionText}\n\n[YÊU CẦU: Trả về kết quả định dạng JSON thuần túy]\n\n${prompt}`;
 
-    // Gọi trực tiếp Google AI API endpoint v1beta bằng Fetch chuẩn
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKeyToUse}`;
+    // Gọi trực tiếp Google AI Studio qua endpoint gemini-2.0-flash
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKeyToUse}`;
 
     const apiResponse = await fetch(apiUrl, {
       method: 'POST',
@@ -146,7 +146,7 @@ III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành 
     const data = await apiResponse.json();
     let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Làm sạch khối markdown JSON nếu có
+    // Làm sạch markdown JSON nếu có
     text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
 
     // ==========================================
