@@ -104,9 +104,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       lowerPrompt.includes('phụ lục 3');
 
     const systemInstructionText = isPrimarySchool
-      ? `Bạn là Chuyên gia Giáo dục Tiểu học theo Chương trình GDPT 2018 và Công văn 2345/BGDĐT-GDTH.
-Bài học này thuộc CẤP TIỂU HỌC (Lớp 1, 2, 3, 4 hoặc 5).
-Khi soạn Kế hoạch bài dạy / Tích hợp Năng lực số (NLS), BẮT BUỘC tuân thủ chuẩn cấu trúc Phụ lục 3 của Công văn 2345/BGDĐT-GDTH:
+      ? `Bạn là Chuyên gia Giáo dục Tiểu học theo Chương trình GDPT 2018 và Công văn 2345/BGDĐT-GDTH[cite: 1].
+Bài học này thuộc CẤP TIỂU HỌC (Lớp 1, 2, 3, 4 hoặc 5)[cite: 1].
+Khi soạn Kế hoạch bài dạy / Tích hợp Năng lực số (NLS), BẮT BUỘC tuân thủ chuẩn cấu trúc Phụ lục 3 của Công văn 2345/BGDĐT-GDTH[cite: 1]:
 1. Yêu cầu cần đạt: Nêu rõ học sinh thực hiện được việc gì; vận dụng được những gì vào thực tế đời sống; cơ hội hình thành phẩm chất, năng lực chung và tích hợp Năng lực số (NLS) rõ ràng, phù hợp lứa tuổi tiểu học (tìm kiếm thông tin, sử dụng thiết bị số an toàn, khai thác học liệu số)[cite: 1].
 2. Đồ dùng dạy học: Thiết bị, slide bài giảng, học liệu số, đồ dùng trực quan, phiếu học tập...[cite: 1]
 3. Các hoạt động dạy học chủ yếu (Tổ chức sinh động qua 4 khâu: 1. Chuyển giao nhiệm vụ -> 2. Thực hiện nhiệm vụ -> 3. Báo cáo, thảo luận -> 4. Nhận xét, đánh giá & Kết luận)[cite: 1]:
@@ -125,20 +125,19 @@ III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành 
     // Khởi tạo Gemini với API Key phù hợp
     const genAI = new GoogleGenerativeAI(apiKeyToUse);
     
-    // Khởi tạo model với ép kiểu as any để tránh lỗi TypeScript definition
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-      } as any
-    } as any);
+    // Gọi model chuẩn gemini-1.5-flash không dùng cấu hình ép kiểu phức tạp
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    // Ghép hướng dẫn nghiệp vụ vào prompt để đảm bảo mô hình phản hồi chính xác
-    const fullPrompt = `[CHỈ DẪN HỆ THỐNG / QUY CHUẨN CÔNG VĂN]:\n${systemInstructionText}\n\n[NỘI DUNG YÊU CẦU]:\n${prompt}`;
+    // Ghép hướng dẫn nghiệp vụ vào prompt
+    const fullPrompt = `${systemInstructionText}\n\n[YÊU CẦU: Trả về kết quả hợp lệ dưới dạng JSON string thuần túy không có ký tự thừa bên ngoài]\n\n${prompt}`;
 
     // Gọi Gemini API tạo nội dung
     const result = await model.generateContent(fullPrompt);
-    const text = result.response.text();
+    const response = await result.response;
+    let text = response.text();
+
+    // Làm sạch markdown json bọc ngoài (nếu AI trả về ```json ... ```)
+    text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
 
     // ==========================================
     // BỔ SUNG: TRỪ LƯỢT SAU KHI SINH THÀNH CÔNG
@@ -155,8 +154,8 @@ III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành 
   } catch (error: any) {
     console.error('Lỗi API:', error);
     return res.status(500).json({ 
-      error: 'Lỗi trong quá trình xử lý AI.', 
-      details: error.message || String(error)
+      error: error.message || 'Lỗi trong quá trình xử lý AI.', 
+      details: String(error)
     });
   }
 }
