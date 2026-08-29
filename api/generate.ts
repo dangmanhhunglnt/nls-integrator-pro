@@ -123,28 +123,42 @@ III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành 
 
     const fullPrompt = `${systemInstructionText}\n\n[YÊU CẦU: Trả về kết quả định dạng JSON thuần túy]\n\n${prompt}`;
 
-    // Gọi trực tiếp Google AI Studio qua endpoint gemini-2.0-flash
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKeyToUse}`;
+    // Danh sách model ưu tiên theo phiên bản mới nhất
+    const candidateModels = ['gemini-2.5-flash', 'gemini-flash-latest'];
+    let text = '';
+    let lastError = null;
 
-    const apiResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: fullPrompt }]
-          }
-        ]
-      })
-    });
+    for (const modelName of candidateModels) {
+      try {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKeyToUse}`;
+        const apiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: fullPrompt }]
+              }
+            ]
+          })
+        });
 
-    if (!apiResponse.ok) {
-      const errorData = await apiResponse.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `Google API Error: ${apiResponse.statusText} (${apiResponse.status})`);
+        if (apiResponse.ok) {
+          const data = await apiResponse.json();
+          text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (text) break;
+        } else {
+          const errBody = await apiResponse.json().catch(() => ({}));
+          lastError = new Error(errBody.error?.message || `Lỗi ${apiResponse.status}: ${apiResponse.statusText}`);
+        }
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-    const data = await apiResponse.json();
-    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text && lastError) {
+      throw lastError;
+    }
 
     // Làm sạch markdown JSON nếu có
     text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
