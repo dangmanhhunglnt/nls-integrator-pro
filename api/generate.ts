@@ -127,7 +127,7 @@ III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành 
     
     // Nâng cấp lên model Gemini Flash thế hệ mới với ép kiểu linh hoạt
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: systemInstructionText,
       generationConfig: {
         responseMimeType: 'application/json',
