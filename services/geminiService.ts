@@ -12,9 +12,10 @@ function getEducationLevel(grade: string): 'PRIMARY' | 'SECONDARY' | 'HIGH' {
 
 /**
  * Xây dựng System Prompt chuẩn hóa bám sát:
- * 1. Thông tư 02/2025/TT-BGDĐT (Khung năng lực số cho người học).
- * 2. Quyết định 2422/QĐ-BGDĐT & Khung Giáo dục AI hoàn thiện năm 2026 (Cốt lõi 12 tiết/năm).
- * 3. Hướng dẫn triển khai thực hiện GD AI từ năm học 2026-2027 của Bộ GD&ĐT.
+ * 1. Công văn 2345/BGDĐT-GDTH (Cấp Tiểu học) & Công văn 5512/BGDĐT-GDTrH (Cấp Trung học).
+ * 2. Thông tư 02/2025/TT-BGDĐT (Khung năng lực số cho người học).
+ * 3. Quyết định 2422/QĐ-BGDĐT & Khung Giáo dục AI hoàn thiện năm 2026.
+ * 4. Hướng dẫn triển khai thực hiện GD AI từ năm học 2026-2027 của Bộ GD&ĐT.
  */
 export const buildSystemPrompt = (
   subject: string, 
@@ -27,18 +28,21 @@ export const buildSystemPrompt = (
   let pedagogyConstraint = "";
   if (eduLevel === 'PRIMARY') {
     pedagogyConstraint = `
-QUY TẮC ĐẶC BIỆT DÀNH CHO TIỂU HỌC (${grade}):
+QUY TẮC ĐẶC BIỆT DÀNH CHO TIỂU HỌC (${grade}) - THEO CÔNG VĂN 2345/BGDĐT-GDTH:
+- Tuân thủ cấu trúc Phụ lục 3 của Công văn 2345: Yêu cầu cần đạt -> Đồ dùng dạy học -> Các hoạt động dạy học chủ yếu (Mở đầu, Hình thành kiến thức, Luyện tập, Vận dụng) -> Điều chỉnh sau bài dạy.
 - TUYỆT ĐỐI KHÔNG yêu cầu HS dùng smartphone cá nhân, KHÔNG yêu cầu HS tự gõ prompt AI phức tạp hay tạo tài khoản cá nhân.
 - Thiết bị và học liệu: Máy tính của GV, Màn hình chiếu/Tivi tương tác của lớp, thẻ từ tương tác, phần mềm nhận diện tranh vẽ/âm thanh trực quan (Quick Draw, AutoDraw, ScratchJr, Quizizz/Kahoot).
 - Hoạt động của HS: Quan sát trực quan, tham gia trò chơi học tập tập thể, nhận biết ứng dụng công nghệ thông minh trong đời sống, rèn luyện tư thế ngồi và an toàn thiết bị số.`;
   } else if (eduLevel === 'SECONDARY') {
     pedagogyConstraint = `
-QUY TẮC DÀNH CHO TRUNG HỌC CƠ SỞ (${grade}):
+QUY TẮC DÀNH CHO TRUNG HỌC CƠ SỞ (${grade}) - THEO CÔNG VĂN 5512/BGDĐT-GDTrH:
+- Tuân thủ chuẩn Công văn 5512 (Mục tiêu, Thiết bị, Tiến trình 4 bước).
 - Thiết bị và học liệu: Máy tính phòng tin học / thiết bị dùng chung có kết nối mạng, nền tảng phân loại trực quan Teachable Machine, Chatbot học tập hỗ trợ (Copilot / Gemini Edu), mô phỏng PhET, Canva.
 - Hoạt động của HS: Đặt câu lệnh (prompting cơ bản) theo mẫu để tìm ý tưởng, đối chiếu câu trả lời với SGK, khai báo nguồn và giữ gìn trung thực học thuật.`;
   } else {
     pedagogyConstraint = `
-QUY TẮC DÀNH CHO TRUNG HỌC PHỔ THÔNG (${grade}):
+QUY TẮC DÀNH CHO TRUNG HỌC PHỔ THÔNG (${grade}) - THEO CÔNG VĂN 5512/BGDĐT-GDTrH:
+- Tuân thủ chuẩn Công văn 5512 (Mục tiêu, Thiết bị, Tiến trình 4 bước).
 - Thiết bị và học liệu: Thiết bị cá nhân/nhóm kết nối mạng, Trợ lý AI tạo sinh nâng cao (Gemini, ChatGPT, Claude, NotebookLM), phần mềm toán/khoa học chuyên sâu (GeoGebra 3D, Desmos, Python Colab).
 - Hoạt động của HS: Thiết kế câu lệnh có cấu trúc (Prompt Engineering), phản biện dữ liệu đầu ra để phát hiện ảo giác (hallucination) và thiên vị (bias), minh bạch đạo đức nghiên cứu.`;
   }
@@ -135,6 +139,7 @@ export async function generateCompetencyIntegration(
   const licenseCode = typeof window !== 'undefined' ? localStorage.getItem('USER_LICENSE_CODE') || '' : '';
   const deviceId = typeof window !== 'undefined' ? await getDeviceId() : '';
   const eduLevel = getEducationLevel(grade);
+  const standard = eduLevel === 'PRIMARY' ? 'CV2345' : 'CV5512';
 
   try {
     const systemPrompt = buildSystemPrompt(subject, grade, mode, level);
@@ -151,6 +156,7 @@ export async function generateCompetencyIntegration(
         userToken: userToken,
         licenseCode: licenseCode,
         deviceId: deviceId,
+        standard: standard,
       }),
     });
 
