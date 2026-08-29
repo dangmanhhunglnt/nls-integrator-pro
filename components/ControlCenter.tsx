@@ -400,7 +400,7 @@ export default function ControlCenter({
                             </div>
 
                             <h3 className="text-sm font-extrabold text-white tracking-wide mb-1">AI Đang phân tích & tích hợp...</h3>
-                            <p className="text-xs text-indigo-200/80 max-w-md font-medium">Đang quét cấu trúc bài dạy, đối chiếu chuẩn Năng lực số (TT 02/2025) & Khung AI 2026...</p>
+                            <p className="text-xs text-indigo-200/80 max-w-md font-medium">Đang quét cấu trúc bài dạy (CV 2345 / CV 5512), đối chiếu chuẩn Năng lực số (TT 02/2025) & Khung AI 2026...</p>
                             
                             <div className="w-64 h-1.5 bg-slate-800 rounded-full mt-4 overflow-hidden border border-white/10">
                                 <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
