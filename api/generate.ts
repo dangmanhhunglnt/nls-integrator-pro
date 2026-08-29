@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { prompt, customApiKey, userToken, licenseCode, deviceId } = req.body;
+    const { prompt, customApiKey, userToken, licenseCode, deviceId, standard } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt không được để trống.' });
@@ -89,22 +89,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // =========================================================================
+    // TỰ ĐỘNG NHẬN DIỆN CẤP HỌC & KHỐI LỚP (CV 2345 TIỂU HỌC VS CV 5512 TRUNG HỌC)
+    // =========================================================================
+    const lowerPrompt = String(prompt).toLowerCase();
+
+    // Regex nhận diện cấp Tiểu học (Lớp 1, 2, 3, 4, 5)
+    const isPrimarySchool = 
+      standard === 'CV2345' ||
+      /\b(lớp|khối)\s*[1-5]\b/i.test(prompt) ||
+      /\b(lớp|khối)\s*(một|hai|ba|bốn|năm)\b/i.test(prompt) ||
+      lowerPrompt.includes('tiểu học') ||
+      lowerPrompt.includes('2345') ||
+      lowerPrompt.includes('phụ lục 3');
+
+    const systemInstructionText = isPrimarySchool
+      ? `Bạn là Chuyên gia Giáo dục Tiểu học theo Chương trình GDPT 2018 và Công văn 2345/BGDĐT-GDTH.
+Bài học này thuộc CẤP TIỂU HỌC (Lớp 1, 2, 3, 4 hoặc 5).
+Khi soạn Kế hoạch bài dạy / Tích hợp Năng lực số (NLS), BẮT BUỘC tuân thủ chuẩn cấu trúc Phụ lục 3 của Công văn 2345/BGDĐT-GDTH:
+1. Yêu cầu cần đạt: Nêu rõ học sinh thực hiện được việc gì; vận dụng được những gì vào thực tế đời sống; cơ hội hình thành phẩm chất, năng lực chung và tích hợp Năng lực số (NLS) rõ ràng, phù hợp lứa tuổi tiểu học (tìm kiếm thông tin, sử dụng thiết bị số an toàn, khai thác học liệu số).
+2. Đồ dùng dạy học: Thiết bị, slide bài giảng, học liệu số, đồ dùng trực quan, phiếu học tập...
+3. Các hoạt động dạy học chủ yếu (Tổ chức sinh động qua 4 khâu: 1. Chuyển giao nhiệm vụ -> 2. Thực hiện nhiệm vụ -> 3. Báo cáo, thảo luận -> 4. Nhận xét, đánh giá & Kết luận):
+   - Hoạt động Mở đầu (Khởi động, kết nối).
+   - Hoạt động Hình thành kiến thức mới (Trải nghiệm, khám phá, phân tích).
+   - Hoạt động Luyện tập, thực hành.
+   - Hoạt động Vận dụng, trải nghiệm.
+4. Điều chỉnh sau bài dạy: Gợi ý ngắn gọn cho giáo viên rút kinh nghiệm sau tiết dạy.`
+      : `Bạn là Chuyên gia Giáo dục Trung học theo Chương trình GDPT 2018 và Công văn 5512/BGDĐT-GDTrH.
+Bài học này thuộc CẤP TRUNG HỌC (THCS / THPT: Lớp 6 đến 12).
+Khi soạn Kế hoạch bài dạy / Tích hợp Năng lực số (NLS), BẮT BUỘC tuân thủ cấu trúc chuẩn Công văn 5512/BGDĐT-GDTrH:
+I. Mục tiêu: Kiến thức, Năng lực (Năng lực đặc thù, Năng lực chung, Tích hợp NLS), Phẩm chất.
+II. Thiết bị dạy học và học liệu: Thiết bị của GV, HS, công cụ số/phần mềm.
+III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành kiến thức, Luyện tập, Vận dụng) gồm 4 phần: 1. Mục tiêu, 2. Nội dung, 3. Sản phẩm, 4. Tổ chức thực hiện (Bước 1: Chuyển giao -> Bước 2: Thực hiện -> Bước 3: Báo cáo -> Bước 4: Kết luận).`;
+
     // Khởi tạo Gemini với API Key phù hợp
     const genAI = new GoogleGenerativeAI(apiKeyToUse);
     
-    // Nâng cấp lên model Gemini Flash thế hệ mới
-    const model = genAI.getGenerativeModel(
-      { 
-        model: 'gemini-2.5-flash',
-        generationConfig: {
-          responseMimeType: 'application/json',
-        } as any,
-      },
-      { apiVersion: 'v1beta' } as any
-    );
+    // Nâng cấp lên model Gemini Flash thế hệ mới với ép kiểu linh hoạt
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      systemInstruction: systemInstructionText,
+      generationConfig: {
+        responseMimeType: 'application/json',
+      }
+    } as any);
+
+    // Ghép hướng dẫn nghiệp vụ vào prompt để đảm bảo mô hình phản hồi chính xác
+    const fullPrompt = `[CHỈ DẪN HỆ THỐNG / QUY CHUẨN CÔNG VĂN]:\n${systemInstructionText}\n\n[NỘI DUNG YÊU CẦU]:\n${prompt}`;
 
     // Gọi Gemini API tạo nội dung
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(fullPrompt);
     const text = result.response.text();
 
     // ==========================================

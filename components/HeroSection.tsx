@@ -1,4 +1,5 @@
 import { Sparkles, Zap, LayoutTemplate, ShieldCheck } from 'lucide-react';
+
 interface HeroSectionProps {
   appVersion: string;
 }
@@ -12,10 +13,10 @@ export default function HeroSection({ appVersion }: HeroSectionProps) {
 
       <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
         <div className="space-y-3 max-w-2xl">
-          {/* Badge phiên bản */}
+          {/* Badge phiên bản & đối tượng giáo viên */}
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/10 border border-indigo-400/30 rounded-full text-xs font-semibold text-indigo-300 backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-            <span>GDPT 2018 | Phiên bản {appVersion}</span>
+            <span>GDPT 2018 | Tiểu học • THCS • THPT | Phiên bản {appVersion}</span>
           </div>
 
           {/* Tiêu đề chính */}
@@ -27,7 +28,7 @@ export default function HeroSection({ appVersion }: HeroSectionProps) {
           </h2>
 
           <p className="text-gray-300 text-sm md:text-base max-w-3xl mx-auto mt-2 leading-relaxed">
-            Tự động tích hợp <span className="font-semibold text-blue-300">Năng lực số (TT 02/2025)</span> & <span className="font-semibold text-purple-300">Giáo dục AI (QĐ 2422, Khung AI 2026 & HD 2026-2027)</span> vào bài dạy. Bảo lưu 100% định dạng, bảng biểu và công thức MathType.
+            Tự động tích hợp <span className="font-semibold text-blue-300">Năng lực số (TT 02/2025)</span> & <span className="font-semibold text-purple-300">Giáo dục AI (QĐ 2422, Khung AI 2026 & HD 2026-2027)</span> vào bài dạy. Tự động nhận diện chuẩn <span className="font-semibold text-amber-300">CV 2345 (Tiểu học)</span> & <span className="font-semibold text-emerald-300">CV 5512 (Trung học)</span>. Bảo lưu 100% định dạng, bảng biểu và công thức MathType.
           </p>
         </div>
 
@@ -54,11 +55,11 @@ export default function HeroSection({ appVersion }: HeroSectionProps) {
               <LayoutTemplate className="w-4 h-4" />
             </div>
             <div className="text-xs font-bold text-white">Chuẩn Form</div>
-            <div className="text-[10px] text-slate-300 mt-0.5 font-medium">CV 5512</div>
+            <div className="text-[10px] text-slate-300 mt-0.5 font-medium">CV 2345 & 5512</div>
 
             {/* Tooltip giải thích khi Hover */}
-            <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 w-40 p-2 bg-slate-900/95 text-white text-[10px] rounded-lg border border-slate-700 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-              Giữ nguyên bảng biểu, MathType & khung Công văn 5512.
+            <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 w-48 p-2 bg-slate-900/95 text-white text-[10px] rounded-lg border border-slate-700 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+              Chuẩn CV 2345 (Tiểu học) & CV 5512 (THCS, THPT). Giữ nguyên MathType & bảng biểu.
             </div>
           </div>
 
