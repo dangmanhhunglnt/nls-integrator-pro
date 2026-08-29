@@ -117,7 +117,7 @@ Khi soạn Kế hoạch bài dạy / Tích hợp Năng lực số (NLS), BẮT B
 4. Điều chỉnh sau bài dạy: Gợi ý ngắn gọn cho giáo viên rút kinh nghiệm sau tiết dạy[cite: 1].`
       : `Bạn là Chuyên gia Giáo dục Trung học theo Chương trình GDPT 2018 và Công văn 5512/BGDĐT-GDTrH.
 Bài học này thuộc CẤP TRUNG HỌC (THCS / THPT: Lớp 6 đến 12).
-Khi soạn Kế hoạch bài dạy / Tích hợp Năng lực số (NLS), BẮT BUỘC tuân thủ cấu trúc chuẩn Công văn 5512/BGDĐT-GDTrH:
+Khi soạn Kế hoạch bài dạy / Tích hợp NLS, BẮT BUỘC tuân thủ cấu trúc chuẩn Công văn 5512/BGDĐT-GDTrH:
 I. Mục tiêu: Kiến thức, Năng lực (Năng lực đặc thù, Năng lực chung, Tích hợp NLS), Phẩm chất.
 II. Thiết bị dạy học và học liệu: Thiết bị của GV, HS, công cụ số/phần mềm.
 III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành kiến thức, Luyện tập, Vận dụng) gồm 4 phần: 1. Mục tiêu, 2. Nội dung, 3. Sản phẩm, 4. Tổ chức thực hiện (Bước 1: Chuyển giao -> Bước 2: Thực hiện -> Bước 3: Báo cáo -> Bước 4: Kết luận).`;
@@ -125,8 +125,11 @@ III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành 
     // Khởi tạo Gemini với API Key phù hợp
     const genAI = new GoogleGenerativeAI(apiKeyToUse);
     
-    // Gọi model chuẩn gemini-1.5-flash không dùng cấu hình ép kiểu phức tạp
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Khởi tạo model và ép buộc sử dụng endpoint v1beta để tránh lỗi 404
+    const model = genAI.getGenerativeModel(
+      { model: 'gemini-1.5-flash' },
+      { apiVersion: 'v1beta' } as any
+    );
 
     // Ghép hướng dẫn nghiệp vụ vào prompt
     const fullPrompt = `${systemInstructionText}\n\n[YÊU CẦU: Trả về kết quả hợp lệ dưới dạng JSON string thuần túy không có ký tự thừa bên ngoài]\n\n${prompt}`;
@@ -136,7 +139,7 @@ III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành 
     const response = await result.response;
     let text = response.text();
 
-    // Làm sạch markdown json bọc ngoài (nếu AI trả về ```json ... ```)
+    // Làm sạch markdown json bọc ngoài (nếu có)
     text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
 
     // ==========================================
