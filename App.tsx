@@ -423,7 +423,7 @@ const App: React.FC = () => {
               <span>💎</span> Bảng giá &amp; Hướng dẫn mua lượt
             </button>
             <span className="hidden md:inline text-slate-300">|</span>
-            <span>Chuẩn hóa GDPT 2018 (CV 5512, TT 02/2025/TT-BGDĐT)</span>
+            <span>Chuẩn hóa GDPT 2018 (CV 2345 (Tiểu học) & CV 5512 (Trung học), TT 02/2025)</span>
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span className="font-semibold text-slate-700">Hỗ trợ: 097 8386 357</span>
           </div>

@@ -38,7 +38,7 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
             <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
             <div>
               <p className="font-semibold text-slate-700">Tải lên Giáo án (.docx)</p>
-              <p className="text-[11px] text-slate-500">Tự động nhận diện cấu trúc Công văn 5512</p>
+              <p className="text-[11px] text-slate-500">Tự động nhận diện cấu trúc CV 2345 (Tiểu học) & CV 5512 (Trung học)</p>
             </div>
           </div>
 
