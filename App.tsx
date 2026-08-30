@@ -409,26 +409,69 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* 4. FOOTER CHÂN TRANG: Cân bằng trang, định vị thương hiệu và bản quyền */}
-      <footer className="mt-12 border-t border-slate-200 bg-white/70 backdrop-blur py-6 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div>
-            © 2026 <strong>NLS Integrator Pro</strong> • Phát triển và sở hữu bởi <strong>Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông).
-          </div>
-          <div className="flex flex-wrap items-center gap-4">
-            <button 
-              onClick={() => setIsPricingOpen(true)}
-              className="font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors cursor-pointer flex items-center gap-1 bg-indigo-50/60 px-2.5 py-1 rounded-lg"
-            >
-              <span>💎</span> Bảng giá &amp; Hướng dẫn mua lượt
-            </button>
-            <span className="hidden md:inline text-slate-300">|</span>
-            <span>Chuẩn hóa GDPT 2018 (CV 2345 (Tiểu học) & CV 5512 (Trung học), TT 02/2025)</span>
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span className="font-semibold text-slate-700">Hỗ trợ: 097 8386 357</span>
-          </div>
+      <footer className="mt-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md py-8">
+  <div className="max-w-6xl mx-auto px-4 sm:px-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center pb-6 border-b border-slate-100 dark:border-slate-800/60 text-center md:text-left">
+      
+      {/* Cột 1: Thương hiệu & Quyền tác giả */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-center md:justify-start gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="font-bold text-sm text-slate-800 dark:text-slate-100 tracking-tight">
+            NLS Integrator Pro
+          </span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+            v2.6
+          </span>
         </div>
-      </footer>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Phát triển & sở hữu bởi <span className="font-semibold text-slate-700 dark:text-slate-200">Đặng Mạnh Hùng</span> (THPT Lý Nhân Tông)
+        </p>
+      </div>
+
+      {/* Cột 2: Chuẩn pháp lý & Nút xem bảng giá */}
+      <div className="flex flex-col items-center justify-center space-y-2">
+        <button
+          type="button"
+          onClick={() => setIsPricingOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shadow-sm transition hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          💎 Bảng giá & Hướng dẫn mua lượt
+        </button>
+        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+          Chuẩn GDPT 2018 (CV 2345 Tiểu học & CV 5512 Trung học, TT 02/2025)
+        </span>
+      </div>
+
+      {/* Cột 3: Hỗ trợ kỹ thuật & Zalo */}
+      <div className="flex flex-col md:items-end items-center space-y-1.5">
+        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Hỗ trợ kỹ thuật 24/7</span>
+        <div className="flex items-center gap-2">
+          <a
+            href="https://zalo.me/0978386357"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800/60 transition"
+          >
+            💬 Zalo hỗ trợ
+          </a>
+          <a
+            href="tel:0978386357"
+            className="text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+          >
+            097 8386 357
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    {/* Dòng bản quyền cuối */}
+    <div className="pt-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
+      © 2026 NLS Integrator Pro. Nền tảng tự động hóa tích hợp Năng lực số & AI giáo dục hàng đầu.
+    </div>
+  </div>
+</footer>
 
       {/* POPUP BẢNG GIÁ & NẠP TIỀN VIETQR */}
       <PricingModal 
