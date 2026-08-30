@@ -150,76 +150,42 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     }
   };
 
-  // Kích hoạt Giftcode từ phía người dùng
+  // Kích hoạt Giftcode từ phía người dùng (Gọi qua API an toàn)
   const handleRedeemGiftcode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!giftcode.trim()) return;
+    const cleanCode = giftcode.trim().toUpperCase();
+    if (!cleanCode) return;
 
     setLoading(true);
     setMsg(null);
 
     try {
       const deviceId = await getDeviceId();
-      const cleanCode = giftcode.trim().toUpperCase();
 
-      // Kiểm tra trực tiếp trên bảng licenses của Supabase
-      const { data: license, error: licenseError } = await supabase
-        .from('licenses')
-        .select('*')
-        .eq('code', cleanCode)
-        .single();
+      // Gọi API Serverless xác thực thay vì cập nhật trực tiếp DB
+      const res = await fetch('/api/verify-license', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          licenseCode: cleanCode,
+          deviceId: deviceId,
+          userEmail: userEmail || null,
+        }),
+      });
 
-      if (licenseError || !license) {
-        setMsg({ type: 'error', text: 'Mã kích hoạt không tồn tại trên hệ thống.' });
-        setLoading(false);
+      const data = await res.json();
+
+      if (!res.ok || !data.valid) {
+        setMsg({ 
+          type: 'error', 
+          text: data.error || 'Mã kích hoạt không hợp lệ hoặc đã gắn với thiết bị khác.' 
+        });
         return;
       }
 
-      if (!license.is_active) {
-        setMsg({ type: 'error', text: 'Mã kích hoạt này đã bị khóa hoặc hết hạn.' });
-        setLoading(false);
-        return;
-      }
-
-      // Khóa thiết bị
-      if (!license.bound_device_id) {
-        await supabase
-          .from('licenses')
-          .update({ bound_device_id: deviceId })
-          .eq('code', cleanCode);
-      } else if (license.bound_device_id !== deviceId) {
-        setMsg({ type: 'error', text: 'Mã này đã được kích hoạt trên một máy tính khác.' });
-        setLoading(false);
-        return;
-      }
-
+      // Lưu trữ cấu hình bản quyền vào LocalStorage
       localStorage.setItem('USER_LICENSE_CODE', cleanCode);
-      localStorage.setItem('USER_PLAN_TYPE', license.plan_type || 'PRO');
-
-      if (userEmail) {
-        try {
-          const { data: userProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', userEmail)
-            .single();
-
-          if (license.plan_type !== 'COUNT_50') {
-            await supabase
-              .from('profiles')
-              .update({ role: 'pro', max_usage: 9999 })
-              .eq('email', userEmail);
-          } else {
-            const currentMax = userProfile?.max_usage || 3;
-            await supabase
-              .from('profiles')
-              .update({ max_usage: currentMax + (license.quota_remaining || 50) })
-              .eq('email', userEmail);
-          }
-        } catch (dbErr) {
-          console.warn("Không thể đồng bộ profile:", dbErr);
-        }
-      }
+      localStorage.setItem('USER_PLAN_TYPE', data.license?.plan_type || 'PRO');
 
       setMsg({ 
         type: 'success', 
@@ -232,7 +198,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       }, 1200);
 
     } catch (err: any) {
-      setMsg({ type: 'error', text: 'Có lỗi xảy ra: ' + err.message });
+      setMsg({ type: 'error', text: 'Có lỗi xảy ra: ' + (err.message || err) });
     } finally {
       setLoading(false);
     }
