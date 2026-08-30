@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users, Building2, Download, ShieldCheck, Lock } from 'lucide-react';
+import { X, CheckCircle, Zap, Crown, MessageCircle, Key, Loader2, Users, Building2, Download, ShieldCheck, Lock, Search, RefreshCw, Laptop } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { getDeviceId } from '../utils';
 
@@ -25,6 +25,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     groupName: '',
     quantity: 1
   });
+
+  // State quản lý danh sách và tra cứu key đã cấp
+  const [licensesList, setLicensesList] = useState<any[]>([]);
+  const [searchKey, setSearchKey] = useState('');
+  const [loadingList, setLoadingList] = useState(false);
+  const [showListTab, setShowListTab] = useState(false);
 
   if (!isOpen) return null;
 
@@ -66,6 +72,49 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       if (i === 3) result += '-';
     }
     return `${prefix}-${result}`;
+  };
+
+  // Tra cứu danh sách Key từ Supabase
+  const fetchLicensesList = async () => {
+    if (adminForm.adminKey.trim() !== 'Hung@0123') {
+      alert('Vui lòng nhập đúng Mật khẩu Admin để xem danh sách!');
+      return;
+    }
+    setLoadingList(true);
+    try {
+      const { data, error } = await supabase
+        .from('licenses')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      setLicensesList(data || []);
+      setShowListTab(true);
+    } catch (err: any) {
+      alert('Lỗi tải danh sách: ' + err.message);
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
+  // Mở khóa thiết bị cho khách đổi máy hoặc cài lại Win
+  const handleResetDevice = async (code: string) => {
+    if (!window.confirm(`Bạn có chắc muốn mở khóa thiết bị cho mã: ${code}? Mã này sẽ nhận máy mới ở lần kích hoạt tiếp theo.`)) {
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('licenses')
+        .update({ bound_device_id: null, activated_at: null })
+        .eq('code', code);
+
+      if (error) throw error;
+      alert(`Đã mở khóa thiết bị cho mã ${code}!`);
+      fetchLicensesList();
+    } catch (err: any) {
+      alert('Lỗi mở khóa máy: ' + err.message);
+    }
   };
 
   // Admin sinh mã TRỰC TIẾP và xuất file Excel / CSV (Không qua Serverless API)
@@ -143,6 +192,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       alert(`Đã tạo thành công ${outputList.length} mã và xuất file Excel!`);
       setShowAdmin(false);
       setAdminForm(prev => ({ ...prev, adminKey: '' }));
+      fetchLicensesList();
     } catch (err: any) {
       alert('Lỗi tạo mã: ' + err.message);
     } finally {
@@ -204,6 +254,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     }
   };
 
+  const filteredLicenses = licensesList.filter(item => 
+    (item.group_name || '').toLowerCase().includes(searchKey.toLowerCase()) ||
+    (item.code || '').toLowerCase().includes(searchKey.toLowerCase())
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 max-h-[90vh] overflow-y-auto">
@@ -235,18 +290,29 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
 
         {/* BẢNG QUẢN TRỊ BÍ MẬT DÀNH CHO ADMIN */}
         {showAdmin && (
-          <div className="mb-6 p-4 rounded-xl bg-slate-900 text-white border-2 border-amber-500 shadow-2xl space-y-3">
+          <div className="mb-6 p-4 rounded-xl bg-slate-900 text-white border-2 border-amber-500 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-700 pb-2">
               <span className="font-bold text-amber-400 text-xs flex items-center gap-1.5 uppercase">
-                <ShieldCheck className="w-4 h-4" /> Bảng Quản Trị: Tạo Mã Hàng Loạt & Xuất Excel
+                <ShieldCheck className="w-4 h-4" /> Bảng Quản Trị: Tạo Mã & Tra Cứu Key Đã Cấp
               </span>
-              <button 
-                type="button" 
-                onClick={() => setShowAdmin(false)} 
-                className="text-slate-400 hover:text-white text-xs font-bold px-2 py-0.5 bg-slate-800 rounded"
-              >
-                ✕ Đóng
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchLicensesList}
+                  disabled={loadingList}
+                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded flex items-center gap-1 transition"
+                >
+                  {loadingList ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  {showListTab ? 'Làm mới danh sách' : 'Xem danh sách đã cấp'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowAdmin(false)} 
+                  className="text-slate-400 hover:text-white text-xs font-bold px-2 py-0.5 bg-slate-800 rounded"
+                >
+                  ✕ Đóng
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleAdminExportExcel} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
@@ -318,6 +384,84 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                 </div>
               </div>
             </form>
+
+            {/* Bảng tra cứu key đã cấp trực tiếp */}
+            {showListTab && (
+              <div className="pt-3 border-t border-slate-700 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Tìm theo tên giáo viên, trường học hoặc mã key..."
+                      value={searchKey}
+                      onChange={e => setSearchKey(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-800 rounded border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Tổng: <strong>{filteredLicenses.length}</strong> mã
+                  </span>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto rounded border border-slate-800">
+                  <table className="w-full text-left text-[11px] text-slate-300">
+                    <thead className="bg-slate-800 text-slate-400 sticky top-0">
+                      <tr>
+                        <th className="p-2">Mã kích hoạt</th>
+                        <th className="p-2">Người nhận / Đơn vị</th>
+                        <th className="p-2">Gói</th>
+                        <th className="p-2">Thiết bị</th>
+                        <th className="p-2 text-center">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800 bg-slate-900/50">
+                      {filteredLicenses.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-4 text-slate-500">
+                            Không tìm thấy mã nào phù hợp.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredLicenses.map((item) => (
+                          <tr key={item.id || item.code} className="hover:bg-slate-800/60">
+                            <td className="p-2 font-mono font-bold text-amber-400 select-all">{item.code}</td>
+                            <td className="p-2">{item.group_name}</td>
+                            <td className="p-2">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800">
+                                {item.plan_type}
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              {item.bound_device_id ? (
+                                <span className="text-emerald-400 flex items-center gap-1 text-[10px]">
+                                  <Laptop className="w-3 h-3" /> Đã khóa máy
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 text-[10px]">Chưa gắn máy</span>
+                              )}
+                            </td>
+                            <td className="p-2 text-center">
+                              {item.bound_device_id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleResetDevice(item.code)}
+                                  className="px-2 py-0.5 rounded bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-[10px] font-semibold border border-rose-800 transition"
+                                >
+                                  Mở khóa máy
+                                </button>
+                              ) : (
+                                <span className="text-slate-600 text-[10px]">---</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
