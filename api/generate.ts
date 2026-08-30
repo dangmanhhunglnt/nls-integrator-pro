@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ==========================================
-    // KIỂM TRA BẢN QUYỀN & TRỪ LƯỢT HỆ THỐNG
+    // KIỂM TRA BẢN QUYỀN & TRỪ LƯỢT HỆ THỐNG (KHÓA CHẶT 1 MÃ / 1 THIẾT BỊ)
     // ==========================================
     let activeLicense: any = null;
 
@@ -53,14 +53,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(403).json({ error: 'Mã bản quyền này đã bị khóa hoặc ngừng hoạt động.' });
       }
 
-      // Kiểm tra khóa thiết bị
+      // 1. Kiểm tra khóa thiết bị: Nếu mã đã gắn với máy khác -> Chặn ngay
       if (license.bound_device_id && deviceId && license.bound_device_id !== deviceId) {
         return res.status(403).json({ 
-          error: 'Mã bản quyền này đã được gắn với thiết bị khác. Vui lòng liên hệ Admin để đổi thiết bị.' 
+          error: 'Mã bản quyền này đã được kích hoạt trên thiết bị khác. Mỗi mã chỉ dùng cho 1 máy duy nhất.' 
         });
       }
 
-      // Kiểm tra hạn mức lượt (nếu là gói lượt)
+      // 2. Bổ sung: Nếu mã chưa gắn thiết bị nào (lần đầu dùng) -> Tự động khóa chặt vào máy này
+      if (!license.bound_device_id && deviceId) {
+        await supabase
+          .from('licenses')
+          .update({ 
+            bound_device_id: deviceId,
+            activated_at: new Date().toISOString()
+          })
+          .eq('code', codeClean);
+      }
+
+      // 3. Kiểm tra hạn mức lượt (nếu là gói lượt)
       if (license.plan_type === 'COUNT_50' && license.quota_remaining <= 0) {
         return res.status(403).json({ 
           error: 'Bạn đã sử dụng hết 50 lượt trong gói. Vui lòng gia hạn thêm để tiếp tục.' 
