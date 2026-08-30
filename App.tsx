@@ -409,57 +409,68 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <footer className="mt-16 border-t border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md py-8">
-  <div className="max-w-6xl mx-auto px-4 sm:px-6">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center pb-6 border-b border-slate-100 dark:border-slate-800/60 text-center md:text-left">
+      <footer className="mt-20 border-t border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md pt-10 pb-8">
+  <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
+    
+    {/* Khối 3 Card chức năng */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       
-      {/* Cột 1: Thương hiệu & Quyền tác giả */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-center md:justify-start gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="font-bold text-sm text-slate-800 dark:text-slate-100 tracking-tight">
-            NLS Integrator Pro
-          </span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
-            v2.6
-          </span>
+      {/* Card 1: Bản quyền & Tác giả */}
+      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200 dark:shadow-none">
+            NLS
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sm text-slate-900 dark:text-white">NLS Integrator Pro</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">v2.6</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Trợ lý AI Tích hợp Giáo án Chuẩn GDPT 2018</p>
+          </div>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Phát triển & sở hữu bởi <span className="font-semibold text-slate-700 dark:text-slate-200">Đặng Mạnh Hùng</span> (THPT Lý Nhân Tông)
-        </p>
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-400">
+          Tác giả: <span className="font-semibold text-slate-800 dark:text-slate-200">Đặng Mạnh Hùng</span> (THPT Lý Nhân Tông)
+        </div>
       </div>
 
-      {/* Cột 2: Chuẩn pháp lý & Nút xem bảng giá */}
-      <div className="flex flex-col items-center justify-center space-y-2">
+      {/* Card 2: Chuẩn quy định & Nâng cấp */}
+      <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/70 dark:border-indigo-800/50 shadow-sm flex flex-col justify-between items-center text-center space-y-3">
         <button
           type="button"
           onClick={() => setIsPricingOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shadow-sm transition hover:scale-105 active:scale-95 cursor-pointer"
+          className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold text-xs shadow-md shadow-indigo-200 dark:shadow-none transition hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
         >
-          💎 Bảng giá & Hướng dẫn mua lượt
+          <span>💎</span> Mở khóa Gói Bản Quyền & Nạp Lượt
         </button>
-        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-          Chuẩn GDPT 2018 (CV 2345 Tiểu học & CV 5512 Trung học, TT 02/2025)
-        </span>
+        <div className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>CV 2345 (Tiểu học) &bull; CV 5512 (Trung học) &bull; TT 02/2025</span>
+        </div>
       </div>
 
-      {/* Cột 3: Hỗ trợ kỹ thuật & Zalo */}
-      <div className="flex flex-col md:items-end items-center space-y-1.5">
-        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Hỗ trợ kỹ thuật 24/7</span>
+      {/* Card 3: Hotline & Zalo hỗ trợ */}
+      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Hỗ trợ kỹ thuật</span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Trực tuyến 24/7
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           <a
             href="https://zalo.me/0978386357"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800/60 transition"
+            className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
           >
-            💬 Zalo hỗ trợ
+            <span>💬</span> Nhắn Zalo
           </a>
           <a
             href="tel:0978386357"
-            className="text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+            className="flex-1 py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition"
           >
-            097 8386 357
+            📞 097 8386 357
           </a>
         </div>
       </div>
@@ -467,9 +478,11 @@ const App: React.FC = () => {
     </div>
 
     {/* Dòng bản quyền cuối */}
-    <div className="pt-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
-      © 2026 NLS Integrator Pro. Nền tảng tự động hóa tích hợp Năng lực số & AI giáo dục hàng đầu.
+    <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left text-[11px] text-slate-400 dark:text-slate-500">
+      <span>© 2026 NLS Integrator Pro. Nền tảng tự động hóa tích hợp Năng lực số & AI giáo dục hàng đầu.</span>
+      <span className="text-[10px] bg-slate-200/60 dark:bg-slate-800/60 px-2 py-0.5 rounded text-slate-500">Bảo mật thiết bị 1:1</span>
     </div>
+
   </div>
 </footer>
 
