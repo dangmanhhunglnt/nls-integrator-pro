@@ -256,7 +256,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                 </label>
                 <input 
                   type="password" 
-                  placeholder="Nhập: hung123" 
+                  placeholder="Nhập mật khẩu Admin" 
                   value={adminForm.adminKey} 
                   onChange={e => setAdminForm({ ...adminForm, adminKey: e.target.value })}
                   required
@@ -280,7 +280,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                   <option value="COUNT_50">1. Gói 50 Lượt (50k)</option>
                   <option value="SINGLE_YEAR">2. Gói Cá Nhân 1 Năm (299k)</option>
                   <option value="TEAM">3. Gói Tổ Chuyên Môn (699k)</option>
-                  <option value="SCHOOL">4. Gói Toàn Trường (1.999k)</option>
+                  <option value="SCHOOL">4. Gói Toàn Trường (1.999k - 2.990k)</option>
                 </select>
               </div>
 
@@ -431,7 +431,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             </div>
           </div>
 
-          {/* Gói 4: Gói Toàn Trường */}
+          {/* Gói 4: Gói Toàn Trường (Cập nhật 2 mức giá trực quan) */}
           <div 
             onClick={() => setSelectedPlan('SCHOOL')}
             className={`border-2 rounded-xl p-3.5 cursor-pointer transition relative flex flex-col justify-between ${
@@ -445,13 +445,20 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                 <span className="font-bold text-xs text-blue-900 dark:text-blue-300">Toàn Trường</span>
                 <Building2 className="w-3.5 h-3.5 text-blue-500" />
               </div>
-              <div className="text-lg font-extrabold text-blue-600 dark:text-blue-400 mb-2">
-                1.999.000đ <span className="text-[10px] font-normal text-slate-400">/năm</span>
+              
+              <div className="mb-2">
+                <div className="text-base font-extrabold text-blue-600 dark:text-blue-400">
+                  1.999.000đ <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">(≤ 50 GV/năm)</span>
+                </div>
+                <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  2.990.000đ <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">(&gt; 50 - 100 GV)</span>
+                </div>
               </div>
+
               <ul className="text-[10.5px] space-y-1.5 text-slate-600 dark:text-slate-300">
-                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Cả trường (40-80+ GV)</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Cấp danh sách mã GV</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Cấp danh sách mã riêng từng GV</li>
                 <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Xuất hợp đồng / hóa đơn</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Hỗ trợ kỹ thuật 24/7</li>
               </ul>
             </div>
           </div>
