@@ -116,7 +116,24 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       alert('Lỗi mở khóa máy: ' + err.message);
     }
   };
+  // Xóa vĩnh viễn mã khỏi hệ thống
+  const handleDeleteLicense = async (code: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN mã: ${code}?`)) {
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('licenses')
+        .delete()
+        .eq('code', code);
 
+      if (error) throw error;
+      alert(`Đã xóa thành công mã ${code}!`);
+      fetchLicensesList();
+    } catch (err: any) {
+      alert('Lỗi khi xóa mã: ' + err.message);
+    }
+  };
   // Admin sinh mã TRỰC TIẾP và xuất file Excel / CSV (Không qua Serverless API)
   const handleAdminExportExcel = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,17 +459,27 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                               )}
                             </td>
                             <td className="p-2 text-center">
-                              {item.bound_device_id ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                {item.bound_device_id ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetDevice(item.code)}
+                                    className="px-2 py-0.5 rounded bg-amber-900/40 hover:bg-amber-900 text-amber-300 text-[10px] font-semibold border border-amber-800 transition"
+                                  >
+                                    Mở khóa
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-600 text-[10px]">---</span>
+                                )}
                                 <button
                                   type="button"
-                                  onClick={() => handleResetDevice(item.code)}
+                                  onClick={() => handleDeleteLicense(item.code)}
                                   className="px-2 py-0.5 rounded bg-rose-900/40 hover:bg-rose-900 text-rose-300 text-[10px] font-semibold border border-rose-800 transition"
+                                  title="Xóa mã này khỏi hệ thống"
                                 >
-                                  Mở khóa máy
+                                  Xóa
                                 </button>
-                              ) : (
-                                <span className="text-slate-600 text-[10px]">---</span>
-                              )}
+                              </div>
                             </td>
                           </tr>
                         ))
