@@ -577,7 +577,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             </div>
           </div>
 
-          {/* Gói 3: Gói Tổ */}
+        {/* Gói 3: Gói Tổ */}
           <div 
             onClick={() => setSelectedPlan('TEAM')}
             className={`border-2 rounded-xl p-3.5 cursor-pointer transition relative flex flex-col justify-between ${
@@ -592,17 +592,17 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                 <Users className="w-3.5 h-3.5 text-purple-500" />
               </div>
               <div className="text-lg font-extrabold text-purple-600 dark:text-purple-400 mb-2">
-                699.000đ <span className="text-[10px] font-normal text-slate-400">/năm</span>
+                199.000đ <span className="text-[10px] font-normal text-slate-400">/GV/năm</span>
               </div>
               <ul className="text-[10.5px] space-y-1.5 text-slate-600 dark:text-slate-300">
-                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Gói 5 - 10 Giáo viên</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Mã riêng từng máy</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Tiết kiệm hơn 70%</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Áp dụng nhóm từ 5 - 10 GV</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Cấp mã kích hoạt riêng từng máy</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Tiết kiệm 33% so với mua lẻ</li>
               </ul>
             </div>
           </div>
 
-          {/* Gói 4: Gói Toàn Trường (Cập nhật 2 mức giá trực quan) */}
+          {/* Gói 4: Gói Toàn Trường */}
           <div 
             onClick={() => setSelectedPlan('SCHOOL')}
             className={`border-2 rounded-xl p-3.5 cursor-pointer transition relative flex flex-col justify-between ${
@@ -619,17 +619,17 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
               
               <div className="mb-2">
                 <div className="text-base font-extrabold text-blue-600 dark:text-blue-400">
-                  1.999.000đ <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">(≤ 50 GV/năm)</span>
+                  179.000đ <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">/GV (11 - 50 GV)</span>
                 </div>
                 <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                  2.990.000đ <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">(&gt; 50 - 100 GV)</span>
+                  149.000đ <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">/GV (&gt; 50 GV)</span>
                 </div>
               </div>
 
               <ul className="text-[10.5px] space-y-1.5 text-slate-600 dark:text-slate-300">
-                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Cấp danh sách mã riêng từng GV</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Xuất hợp đồng / hóa đơn</li>
-                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Hỗ trợ kỹ thuật 24/7</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Danh sách mã riêng từng thầy cô</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Xuất hợp đồng, thanh lý &amp; hóa đơn</li>
+                <li className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" /> Hỗ trợ kỹ thuật trực tiếp cho trường</li>
               </ul>
             </div>
           </div>
