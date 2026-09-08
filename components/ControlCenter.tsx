@@ -37,69 +37,141 @@ export default function ControlCenter({
   const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
 
   // =========================================================================
-  // BỘ PHÂN TÍCH SƯ PHẠM THỰC CHẤT (CHUẨN BỘ GD&ĐT) CHO MỌI MÔN & MỌI CẤP
+  // MA TRẬN PHÂN LOẠI SƯ PHẠM ĐA MÔN HỌC (CHUẨN BỘ GD&ĐT CHO MỌI BÀI)
   // =========================================================================
   const pedagogicalEvaluation = useMemo(() => {
-    if (fileCount === 0 && !state.subject) {
-      return null;
-    }
+    if (fileCount === 0 && !state.subject) return null;
 
     const fileNames = state.files && state.files.length > 0 
       ? state.files.map(f => f.name.toLowerCase()).join(' ') 
       : (state.file?.name.toLowerCase() || '');
     
-    const subjectName = (state.subject || '').toLowerCase();
-    const fullSearchText = `${fileNames} ${subjectName}`;
+    const subject = (state.subject || '').toLowerCase();
+    const query = `${fileNames} ${subject}`;
 
-    // 1. Nhóm bài truyền thống / rèn kỹ năng thao tác tay / cảm thụ (KHÔNG NÊN ÉP NLS)
-    const traditionalKeywords = [
-      'luyện viết', 'chính tả', 'tập đọc', 'cảm thụ', 'đọc hiểu', 'luyện từ và câu', 'kể chuyện',
-      'cộng trừ', 'nhân chia', 'phân số', 'tính nhẩm', 'rèn kỹ năng', 'giải phương trình', 'hệ phương trình',
-      'bất đẳng thức', 'biến đổi đại số', 'thể dục', 'chạy cự li', 'nhảy cao', 'đá cầu', 'bóng chuyền', 
-      'lắp ráp mạch', 'thực hành thí nghiệm', 'pha chế dung dịch', 'vẽ tranh màu sáp'
-    ];
+    // 1. NHÓM 1: BÀI RÈN KỸ NĂNG NỀN TẢNG / THỰC HÀNH CƠ BẢN (KHÔNG NÊN ÉP NLS/AI)
+    // Áp dụng cho: Luyện tập tính toán, giải phương trình, rèn chữ, cảm thụ văn, thể dục, thao tác tay
+    const isPracticeOrDrill = 
+      query.includes('luyện tập') || 
+      query.includes('thực hành') || 
+      query.includes('rèn kỹ năng') || 
+      query.includes('ôn tập') ||
+      query.includes('cộng') || 
+      query.includes('trừ') || 
+      query.includes('nhân') || 
+      query.includes('chia') ||
+      query.includes('phân số') || 
+      query.includes('tính nhẩm') || 
+      query.includes('giải phương trình') || 
+      query.includes('bất đẳng thức') ||
+      query.includes('chính tả') || 
+      query.includes('tập đọc') || 
+      query.includes('luyện viết') || 
+      query.includes('cảm thụ') ||
+      query.includes('kể chuyện') ||
+      query.includes('thể chất') ||
+      query.includes('chạy') ||
+      query.includes('đá cầu');
 
-    // 2. Nhóm bài trực quan / dữ liệu / mô phỏng không gian (RẤT NÊN TÍCH HỢP NLS SÂU)
-    const highDigitalKeywords = [
-      'không gian', 'hình chóp', 'lăng trụ', 'mặt cầu', 'vectơ', 'tọa độ không gian',
-      'đồ thị', 'khảo sát hàm số', 'hàm số bậc', 'lượng giác',
-      'thống kê', 'xác suất', 'bảng số liệu', 'biểu đồ', 'mẫu số liệu',
-      'mô phỏng', 'chuyển động', 'cấu tạo nguyên tử', 'quang hợp', 'hệ tuần hoàn', 'vũ trụ',
-      'bản đồ', 'địa hình', 'văn minh', 'tin học', 'thuật toán', 'lập trình'
-    ];
+    // 2. NHÓM 2: BÀI TRỰC QUAN HÓA / KHÔNG GIAN 3D / ĐỒ THỊ ĐỘNG (CẦN NLS MÔ PHỎNG SÂU)
+    // Áp dụng cho: Hình học không gian, hàm số, lượng giác, chuyển động vật lý, thiên văn
+    const isSpatialOrSimulation = 
+      query.includes('không gian') || 
+      query.includes('hình học') || 
+      query.includes('hình chóp') || 
+      query.includes('lăng trụ') || 
+      query.includes('mặt cầu') || 
+      query.includes('vectơ') || 
+      query.includes('đồ thị') || 
+      query.includes('hàm số') || 
+      query.includes('lượng giác') ||
+      query.includes('chuyển động') || 
+      query.includes('mô phỏng') || 
+      query.includes('vũ trụ') || 
+      query.includes('quang hợp') ||
+      query.includes('nguyên tử');
 
-    const isHighDigital = highDigitalKeywords.some(kw => fullSearchText.includes(kw));
-    const isTraditional = traditionalKeywords.some(kw => fullSearchText.includes(kw)) || 
-                          subjectName.includes('thể chất') || 
-                          (subjectName.includes('tiếng việt') && !isHighDigital);
+    // 3. NHÓM 3: BÀI XỬ LÝ SỐ LIỆU / DỮ LIỆU LỚN / TIN HỌC (CẦN BẢNG TÍNH & AI)
+    // Áp dụng cho: Thống kê, xác suất, kinh tế pháp luật, tin học, địa lý tự nhiên
+    const isDataOrAI = 
+      query.includes('thống kê') || 
+      query.includes('xác suất') || 
+      query.includes('mẫu số liệu') || 
+      query.includes('biểu đồ') || 
+      query.includes('dữ liệu') || 
+      query.includes('tin học') || 
+      query.includes('thuật toán') || 
+      query.includes('lập trình') ||
+      query.includes('kinh tế');
 
-    if (isHighDigital) {
+    // 4. NHÓM 4: BÀI XÃ HỘI / TỰ NHIÊN / NGÔN NGỮ (CẦN HỌC LIỆU SỐ & TRA CỨU)
+    // Áp dụng cho: Lịch sử, địa lý, tiếng Anh, tự nhiên xã hội
+    const isSocialOrLanguage = 
+      query.includes('lịch sử') || 
+      query.includes('địa lí') || 
+      query.includes('tiếng anh') || 
+      query.includes('tự nhiên và xã hội') || 
+      query.includes('văn minh') || 
+      query.includes('khoa học');
+
+    // --- XẾP LOẠI ƯU TIÊN ---
+
+    // Trường hợp 1: Bài thuần rèn kỹ năng (kể cả có yếu tố khác, vẫn ưu tiên giữ truyền thống)
+    if (isPracticeOrDrill && !isSpatialOrSimulation && !isDataOrAI) {
       return {
-        type: 'RECOMMEND_DEEP_NLS',
-        title: 'BÀI HỌC CÓ TÍNH TRỰC QUAN CAO - KHUYẾN NGHỊ TÍCH HỢP NLS SÂU',
-        desc: 'Nội dung chứa mô hình không gian, đồ thị, số liệu thống kê hoặc mô phỏng. Việc ứng dụng công cụ số (GeoGebra 3D, Excel, PhET...) giúp học sinh hiểu bản chất sâu sắc hơn.',
-        badgeColor: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300',
-        icon: <Cpu className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+        status: 'KHÔNG NÊN GƯỢNG ÉP NĂNG LỰC SỐ / AI',
+        badgeColor: 'bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200',
+        icon: <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />,
+        tool: 'Bảng phấn, Giấy vở, Phiếu in, Thao tác trực tiếp trên đồ dùng thật',
+        action: 'Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu. Không đưa công nghệ vào để tránh làm phân tán học sinh.',
+        recommendedLevel: 'STANDARD'
       };
     }
 
-    if (isTraditional) {
+    // Trường hợp 2: Không gian / Mô phỏng
+    if (isSpatialOrSimulation) {
       return {
-        type: 'RECOMMEND_TRADITIONAL',
-        title: 'BÀI RÈN KỸ NĂNG NỀN TẢNG - KHÔNG GƯỢNG ÉP NĂNG LỰC SỐ',
-        desc: 'Theo định hướng của Bộ GD&ĐT: Bài học tập trung rèn kỹ năng viết/tính toán/cảm thụ truyền thống trên bảng phấn & giấy vở. AI sẽ giữ phương pháp dạy học cốt lõi, không đưa công nghệ vào một cách hình thức.',
-        badgeColor: 'bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300',
-        icon: <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+        status: 'BẮT BUỘC TÍCH HỢP NĂNG LỰC SỐ (MÔ PHỎNG TRỰC QUAN)',
+        badgeColor: 'bg-blue-50 border-blue-300 text-blue-900 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-200',
+        icon: <Cpu className="w-5 h-5 text-blue-600 shrink-0" />,
+        tool: 'GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học động',
+        action: 'Chèn vào Hoạt động Khám phá & Hình thành kiến thức: Cho học sinh quan sát xoay góc nhìn 3D, thay đổi tham số để tự phát hiện quy luật.',
+        recommendedLevel: 'INTENSIVE'
       };
     }
 
-    // Mặc định: Mức độ tích hợp cân bằng linh hoạt
+    // Trường hợp 3: Thống kê / Dữ liệu / AI
+    if (isDataOrAI) {
+      return {
+        status: 'TÍCH HỢP NĂNG LỰC SỐ & TRỢ LÝ AI (XỬ LÝ DỮ LIỆU)',
+        badgeColor: 'bg-purple-50 border-purple-300 text-purple-900 dark:bg-purple-950/40 dark:border-purple-800 dark:text-purple-200',
+        icon: <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />,
+        tool: 'Bảng tính Excel/Google Sheets, Công cụ phân tích dữ liệu AI',
+        action: 'Chèn vào Hoạt động Luyện tập & Vận dụng: Nhập bảng dữ liệu thực tế, dùng hàm tính các số đặc trưng và biểu diễn bằng biểu đồ trực tuyến.',
+        recommendedLevel: 'INTENSIVE'
+      };
+    }
+
+    // Trường hợp 4: Lịch sử, Địa lý, Tiếng Anh
+    if (isSocialOrLanguage) {
+      return {
+        status: 'TÍCH HỢP HỌC LIỆU SỐ & NỀN TẢNG TƯƠNG TÁC',
+        badgeColor: 'bg-cyan-50 border-cyan-300 text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-800 dark:text-cyan-200',
+        icon: <BookOpen className="w-5 h-5 text-cyan-600 shrink-0" />,
+        tool: 'Bản đồ số (Google Earth), Video tư liệu lịch sử, Ứng dụng phát âm AI',
+        action: 'Chèn vào Hoạt động Mở đầu & Khám phá: Khai thác tư liệu hình ảnh, lược đồ tương tác số.',
+        recommendedLevel: 'STANDARD'
+      };
+    }
+
+    // Mặc định cho các bài lý thuyết chung khác
     return {
-      type: 'RECOMMEND_BALANCED',
-      title: 'TÍCH HỢP NLS MỨC ĐỘ HỖ TRỢ (THỰC CHẤT)',
-      desc: 'Bài học phù hợp khai thác học liệu số, trình chiếu tương tác nhẹ hoặc phiếu học tập số; bảo đảm không làm loãng trọng tâm kiến thức của bài.',
-      badgeColor: 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300',
-      icon: <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+      status: 'TÍCH HỢP MỨC HỖ TRỢ TRÌNH CHIẾU THỰC CHẤT',
+      badgeColor: 'bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200',
+      icon: <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />,
+      tool: 'Slide trình chiếu bài giảng, Phiếu học tập số (Quizizz / Google Form)',
+      action: 'Chèn câu hỏi tương tác mở đầu hoặc củng cố cuối bài.',
+      recommendedLevel: 'STANDARD'
     };
   }, [state.files, state.file, state.subject, fileCount]);
 
@@ -452,40 +524,44 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* BỔ SUNG: BẢNG NHẬN DIỆN & ĐÁNH GIÁ SƯ PHẠM TRỰC QUAN (CHUẨN BỘ GD&ĐT) */}
+            {/* BẢNG ĐÁNH GIÁ SƯ PHẠM TỰ ĐỘNG THEO MÔN & BÀI */}
             {pedagogicalEvaluation && (
                 <div className={`col-span-1 md:col-span-2 rounded-2xl p-4 border transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
                     <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-2.5">
+                        <div className="flex items-start gap-2.5 flex-1">
                             <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
-                            <div>
-                                <h4 className="text-xs font-black tracking-wide flex items-center gap-1.5">
-                                    {pedagogicalEvaluation.title}
+                            <div className="flex-1 space-y-1.5">
+                                <h4 className="text-xs font-black tracking-wide uppercase">
+                                    {pedagogicalEvaluation.status}
                                 </h4>
-                                <p className="text-[11px] mt-1 leading-relaxed opacity-90 font-medium">
-                                    {pedagogicalEvaluation.desc}
-                                </p>
+                                
+                                <div className="text-[11px] grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 border-t border-black/5 dark:border-white/5">
+                                    <div>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
+                                        <span className="font-semibold text-indigo-700 dark:text-indigo-300">{pedagogicalEvaluation.tool}</span>
+                                    </div>
+                                    <div>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200">📍 Khuyến nghị triển khai: </span> 
+                                        <span className="text-slate-700 dark:text-slate-300">{pedagogicalEvaluation.action}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Tùy chọn gạt cho phép ép chèn nếu giáo viên đi thao giảng */}
-                        {pedagogicalEvaluation.type === 'RECOMMEND_TRADITIONAL' && (
-                            <label className="flex items-center gap-2 cursor-pointer shrink-0 bg-white/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 hover:bg-white transition-all shadow-xs">
+                        {/* Nút gạt dành cho tiết thao giảng / thi GV giỏi khi gặp bài truyền thống */}
+                        {pedagogicalEvaluation.recommendedLevel === 'STANDARD' && (
+                            <label className="flex items-center gap-2 cursor-pointer shrink-0 bg-white/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-white transition-all shadow-xs">
                                 <input 
                                     type="checkbox" 
                                     checked={forceIntensiveNLS} 
                                     onChange={(e) => {
                                         setForceIntensiveNLS(e.target.checked);
-                                        if (e.target.checked) {
-                                            setLevel('INTENSIVE');
-                                        } else {
-                                            setLevel('STANDARD');
-                                        }
+                                        setLevel(e.target.checked ? 'INTENSIVE' : 'STANDARD');
                                     }}
                                     className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                                 />
-                                <span className="text-[10px] font-bold text-amber-900 dark:text-amber-200">
-                                    Vẫn muốn tích hợp NLS sâu (Thao giảng / Thi GV Giỏi)
+                                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
+                                    Chèn NLS sâu (Thao giảng / Thi GV Giỏi)
                                 </span>
                             </label>
                         )}
