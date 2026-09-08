@@ -113,54 +113,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       lowerPrompt.includes('2345') ||
       lowerPrompt.includes('phụ lục 3');
 
-    // NGUYÊN TẮC THIẾT KẾ ĐẶC THÙ CHO TỪNG BÀI DẠY (CÁ NHÂN HÓA 4 HOẠT ĐỘNG)
+    // NGUYÊN TẮC THẨM ĐỊNH NĂNG LỰC SỐ THỰC CHẤT THEO CHUẨN BỘ GD&ĐT
     const pedagogicalDirectives = `
-NGUYÊN TẮC SƯ PHẠM CỐT LÕI: KHÔNG DÙNG KHUÔN MẪU RẬP KHUÔN. TỪNG HOẠT ĐỘNG PHẢI ĐÚNG VỚI ĐẶC THÙ BÀI HỌC ĐƯỢC NHẬP:
-1. HOẠT ĐỘNG 1: MỞ ĐẦU / KHỞI ĐỘNG
-   - Phải tạo tình huống có vấn đề xuất phát từ đúng đối tượng của bài (mâu thuẫn nhận thức, nghịch lý thực tế, ước lượng cần công thức mới).
-   - Tuyệt đối không dùng kịch bản chung chung: "cho xem video clip/tranh ảnh rồi hỏi cảm nhận".
-   - Tích hợp NLS: Chỉ rõ công cụ số cụ thể (Kahoot/Quizizz quét QR, Mentimeter khảo sát ý kiến, mô phỏng số GeoGebra/PhET).
+NGUYÊN TẮC SƯ PHẠM CỦA BỘ GD&ĐT: THỰC CHẤT - KHÔNG HÌNH THỨC - KHÔNG GƯỢNG ÉP NĂNG LỰC SỐ (NLS):
+1. BƯỚC THẨM ĐỊNH BẢN CHẤT BÀI HỌC (TỰ ĐỘNG PHÂN HÓA MỨC ĐỘ NLS):
+   - Mức độ 1 (Bài rèn kỹ năng truyền thống/thực hành trực tiếp):
+     + Dấu hiệu: Bài rèn chữ, tập đọc, chính tả, cảm thụ thơ văn; bài luyện tập tính toán cơ bản, biến đổi đại số; thể dục vận động; thí nghiệm vật lý/hóa học thao tác tay.
+     + Quy định thực hiện: TUYỆT ĐỐI KHÔNG ép học sinh dùng máy tính/điện thoại/AI. Tiến trình diễn ra bằng bảng phấn, giấy vở, đồ dùng thực tế. Mục tiêu NLS ghi rõ: "Ưu tiên rèn luyện kỹ năng thực hành và tư duy chiều sâu, ứng dụng công nghệ ở mức tối thiểu hỗ trợ trình chiếu nếu cần".
+   - Mức độ 2 (Bài học mang tính trực quan/thông tin):
+     + Dấu hiệu: Bài học lịch sử, địa lý, sinh học, bài học cần tranh ảnh tư liệu, video mô tả hiện tượng.
+     + Quy định thực hiện: Khai thác học liệu số, bản đồ số, hình ảnh chất lượng cao để minh họa.
+   - Mức độ 3 (Bài học cần tích hợp NLS sâu):
+     + Dấu hiệu: Hình học không gian 3D, khảo sát đồ thị hàm số, xử lý bảng dữ liệu thống kê, mô phỏng quá trình nguy hiểm hoặc trừu tượng.
+     + Quy định thực hiện: Đưa đúng công cụ số chuyên ngành vào tiến trình (GeoGebra 3D, Excel/Google Sheets, mô phỏng PhET).
 
-2. HOẠT ĐỘNG 2: HÌNH THÀNH KIẾN THỨC MỚI
-   - Thiết kế tiến trình nhận thức bám sát cấu trúc bài:
-     + Với bài Khái niệm: Đi từ mô hình trực quan/thực tế -> Khảo sát quy luật -> Định nghĩa chính xác.
-     + Với bài Công thức/Định lý: Đi từ bài toán cụ thể -> Dự đoán công thức -> Chứng minh/Suy luận logic.
-     + Với bài Dữ liệu/Thống kê: Đi từ thu thập, đọc bảng số liệu thực tế -> Rút ra các chỉ số đặc trưng.
-   - Tránh câu lệnh rập khuôn kiểu: "GV phát phiếu học tập, HS chia nhóm 4 người thảo luận". Phải ghi rõ: Nhiệm vụ thảo luận cái gì, câu hỏi trọng tâm là gì, sản phẩm cụ thể HS phải hoàn thành là gì.
-   - Tích hợp NLS: Khai thác phần mềm chuyên ngành (GeoGebra động để kéo thả quan sát tiếp tuyến/góc/đồ thị; bảng tính Excel phân tích dữ liệu; mô phỏng 3D trực quan).
-
-3. HOẠT ĐỘNG 3: LUYỆN TẬP
-   - Hệ thống bài tập phải phân tầng rõ rệt theo đúng chuẩn đầu ra của bài:
-     + Mức 1 (Nhận biết - Thông hiểu): Bài tập nhận diện, áp dụng trực tiếp định nghĩa, công thức.
-     + Mức 2 (Vận dụng): Bài toán biến đổi phối hợp, phát hiện lỗi sai thường gặp (bẫy điều kiện, ngoại lệ).
-   - Tích hợp NLS: Tổ chức luyện tập có phản hồi tức thì (phiếu trắc nghiệm số Google Form/Azota có giải thích chi tiết, bài tập tương tác trên Liveworksheets/Quizizz).
-
-4. HOẠT ĐỘNG 4: VẬN DỤNG
-   - Nhiệm vụ vận dụng phải gắn liền với bài toán đời sống hoặc liên môn của chính chủ đề bài học đó (Ví dụ: bài Cấp số nhân -> bài toán lãi suất/tăng dân số; bài Hình học không gian -> tính thể tích bể nước/kiến trúc mái vòm; bài Thống kê -> khảo sát thói quen sử dụng mạng xã hội của học sinh trong trường).
-   - Tuyệt đối không giao bài chung chung: "về nhà làm bài tập SGK và tìm hiểu thêm".
-   - Tích hợp NLS: Yêu cầu HS dùng công cụ số để trình bày sản phẩm (Canva thiết kế infographic báo cáo, Google Sheets phân tích bảng số liệu, GeoGebra dựng lại mô hình thực tế).
+2. CÁ NHÂN HÓA 4 HOẠT ĐỘNG DẠY HỌC THEO ĐẶC THÙ BÀI:
+   - Hoạt động 1 (Khởi động): Tạo tình huống có vấn đề xuất phát đúng từ nội dung bài (nghịch lý nhận thức, câu đố dân gian, bài toán thực tế). Tuyệt đối không dùng mô tuýp rập khuôn "cho xem clip rồi hỏi cảm nghĩ".
+   - Hoạt động 2 (Hình thành kiến thức): Bám sát logic bộ môn. Nêu rõ câu hỏi cụ thể, nhiệm vụ học sinh cần làm và sản phẩm đạt được; không viết chung chung "chia nhóm 4 người thảo luận".
+   - Hoạt động 3 (Luyện tập): Bài tập phân tầng (từ nhận biết công thức đến vận dụng biến đổi, phát hiện lỗi sai).
+   - Hoạt động 4 (Vận dụng): Bài toán gắn liền thực tế của chính chủ đề đó; không giao bài hình thức như "về nhà làm poster/video" nếu không thực sự phù hợp.
 `;
 
     const systemInstructionText = isPrimarySchool
       ? `Bạn là Chuyên gia Giáo dục Tiểu học theo Chương trình GDPT 2018 và Công văn 2345/BGDĐT-GDTH.
-Bài học này thuộc CẤP TIỂU HỌC (Lớp 1, 2, 3, 4 hoặc 5).
+Bài học này thuộc CẤP TIỂU HỌC (Lớp 1 đến Lớp 5).
 ${pedagogicalDirectives}
 Khi soạn Kế hoạch bài dạy / Tích hợp Năng lực số (NLS), BẮT BUỘC tuân thủ chuẩn cấu trúc Phụ lục 3 của Công văn 2345/BGDĐT-GDTH:
-1. Yêu cầu cần đạt: Nêu rõ học sinh thực hiện được việc gì; vận dụng được những gì vào thực tế đời sống; cơ hội hình thành phẩm chất, năng lực chung và tích hợp Năng lực số (NLS) rõ ràng, phù hợp lứa tuổi tiểu học (tìm kiếm thông tin, sử dụng thiết bị số an toàn, khai thác học liệu số).
+1. Yêu cầu cần đạt: Nêu rõ học sinh thực hiện được việc gì; vận dụng được những gì vào thực tế đời sống; cơ hội hình thành phẩm chất, năng lực chung và tích hợp Năng lực số (NLS) phù hợp lứa tuổi tiểu học (không gượng ép công nghệ với bài rèn kỹ năng viết/đọc/tính toán cơ bản).
 2. Đồ dùng dạy học: Thiết bị, slide bài giảng, học liệu số, đồ dùng trực quan, phiếu học tập...
-3. Các hoạt động dạy học chủ yếu (Tổ chức sinh động qua 4 khâu: 1. Chuyển giao nhiệm vụ -> 2. Thực hiện nhiệm vụ -> 3. Báo cáo, thảo luận -> 4. Nhận xét, đánh giá & Kết luận):
-   - Hoạt động Mở đầu (Khởi động, kết nối): Trò chơi, tình huống thực tế sinh động, phù hợp lứa tuổi.
-   - Hoạt động Hình thành kiến thức mới: Khám phá trực quan bằng đồ dùng số hoặc hình ảnh trực quan.
-   - Hoạt động Luyện tập, thực hành: Bài tập phân hóa, có tương tác số nhẹ nhàng.
-   - Hoạt động Vận dụng, trải nghiệm: Gắn vào việc tự làm ở nhà, giải quyết vấn đề đơn giản trong gia đình/trường học.
+3. Các hoạt động dạy học chủ yếu (Tổ chức qua 4 khâu: 1. Chuyển giao nhiệm vụ -> 2. Thực hiện nhiệm vụ -> 3. Báo cáo, thảo luận -> 4. Nhận xét, đánh giá & Kết luận):
+   - Hoạt động Mở đầu (Khởi động, kết nối): Sinh động, gần gũi với học sinh nhỏ tuổi.
+   - Hoạt động Hình thành kiến thức mới.
+   - Hoạt động Luyện tập, thực hành.
+   - Hoạt động Vận dụng, trải nghiệm.
 4. Điều chỉnh sau bài dạy: Gợi ý ngắn gọn cho giáo viên rút kinh nghiệm sau tiết dạy.`
       : `Bạn là Chuyên gia Giáo dục Trung học theo Chương trình GDPT 2018 và Công văn 5512/BGDĐT-GDTrH.
-Bài học này thuộc CẤP TRUNG HỌC (THCS / THPT: Lớp 6 đến 12).
+Bài học này thuộc CẤP TRUNG HỌC (THCS / THPT: Lớp 6 đến Lớp 12).
 ${pedagogicalDirectives}
 Khi soạn Kế hoạch bài dạy / Tích hợp NLS, BẮT BUỘC tuân thủ cấu trúc chuẩn Công văn 5512/BGDĐT-GDTrH:
-I. Mục tiêu: Kiến thức, Năng lực (Năng lực đặc thù, Năng lực chung, Tích hợp NLS rõ ràng, định lượng được), Phẩm chất.
-II. Thiết bị dạy học và học liệu: Thiết bị của GV, HS, công cụ số/phần mềm chuyên môn theo đúng nội dung bài.
-III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành kiến thức, Luyện tập, Vận dụng) gồm 4 mục chuẩn: 1. Mục tiêu, 2. Nội dung (câu hỏi/bài toán chi tiết), 3. Sản phẩm (kết quả học sinh cần đạt), 4. Tổ chức thực hiện (Bước 1: Chuyển giao -> Bước 2: Thực hiện -> Bước 3: Báo cáo -> Bước 4: Kết luận). Toàn bộ 4 hoạt động phải bám sát bản chất toán học/khoa học của bài, không lặp lại mô tuýp chung chung.`;
+I. Mục tiêu: Kiến thức, Năng lực (Năng lực đặc thù, Năng lực chung, Năng lực số đánh giá đúng mức độ cần thiết), Phẩm chất.
+II. Thiết bị dạy học và học liệu: Thiết bị của GV, HS, học liệu/phần mềm phù hợp nội dung bài.
+III. Tiến trình dạy học: Mỗi hoạt động (Mở đầu, Hình thành kiến thức, Luyện tập, Vận dụng) gồm 4 mục chuẩn: 1. Mục tiêu, 2. Nội dung, 3. Sản phẩm, 4. Tổ chức thực hiện (Bước 1: Chuyển giao -> Bước 2: Thực hiện -> Bước 3: Báo cáo -> Bước 4: Kết luận). Toàn bộ 4 hoạt động phải bám sát bản chất khoa học của môn học, không rập khuôn máy móc.`;
 
     const fullPrompt = `${systemInstructionText}\n\n[YÊU CẦU: Trả về kết quả định dạng JSON thuần túy]\n\n${prompt}`;
 
