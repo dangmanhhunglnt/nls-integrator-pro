@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, {useMemo } from 'react';
 import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, CheckCircle, ShieldAlert, Cpu } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
@@ -27,8 +27,7 @@ export default function ControlCenter({
 }: ControlCenterProps) {
 
   // Tùy chọn ép chèn NLS dành cho giáo viên đi thao giảng / thi giáo viên giỏi
-  const [forceIntensiveNLS, setForceIntensiveNLS] = useState(false);
-
+  
   const handleSelectMode = (selectedMode: IntegrationMode) => {
     setMode(selectedMode);
     setState(prev => ({ ...prev, mode: selectedMode }));
@@ -174,6 +173,14 @@ export default function ControlCenter({
       recommendedLevel: 'STANDARD'
     };
   }, [state.files, state.file, state.subject, fileCount]);
+
+  // TỰ ĐỘNG ĐỒNG BỘ: Cập nhật mức độ tích hợp phía trên theo đánh giá của bài học
+  React.useEffect(() => {
+    if (pedagogicalEvaluation?.recommendedLevel) {
+      setLevel(pedagogicalEvaluation.recommendedLevel as IntegrationLevel);
+    }
+  }, [pedagogicalEvaluation, setLevel]);
+  ;
 
   return (
     <>
@@ -524,47 +531,27 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* BẢNG ĐÁNH GIÁ SƯ PHẠM TỰ ĐỘNG THEO MÔN & BÀI */}
+            {/* BẢNG ĐÁNH GIÁ SƯ PHẠM TỰ ĐỘNG THEO MÔN & BÀI (KHÔNG CÒN NÚT BẤM TRÙNG LẶP) */}
             {pedagogicalEvaluation && (
                 <div className={`col-span-1 md:col-span-2 rounded-2xl p-4 border transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-2.5 flex-1">
-                            <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
-                            <div className="flex-1 space-y-1.5">
-                                <h4 className="text-xs font-black tracking-wide uppercase">
-                                    {pedagogicalEvaluation.status}
-                                </h4>
-                                
-                                <div className="text-[11px] grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 border-t border-black/5 dark:border-white/5">
-                                    <div>
-                                        <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
-                                        <span className="font-semibold text-indigo-700 dark:text-indigo-300">{pedagogicalEvaluation.tool}</span>
-                                    </div>
-                                    <div>
-                                        <span className="font-bold text-slate-800 dark:text-slate-200">📍 Khuyến nghị triển khai: </span> 
-                                        <span className="text-slate-700 dark:text-slate-300">{pedagogicalEvaluation.action}</span>
-                                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
+                        <div className="flex-1 space-y-1.5">
+                            <h4 className="text-xs font-black tracking-wide uppercase">
+                                {pedagogicalEvaluation.status}
+                            </h4>
+                            
+                            <div className="text-[11px] grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 border-t border-black/5 dark:border-white/5">
+                                <div>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
+                                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">{pedagogicalEvaluation.tool}</span>
+                                </div>
+                                <div>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">📍 Khuyến nghị triển khai: </span> 
+                                    <span className="text-slate-700 dark:text-slate-300">{pedagogicalEvaluation.action}</span>
                                 </div>
                             </div>
                         </div>
-
-                        {/* Nút gạt dành cho tiết thao giảng / thi GV giỏi khi gặp bài truyền thống */}
-                        {pedagogicalEvaluation.recommendedLevel === 'STANDARD' && (
-                            <label className="flex items-center gap-2 cursor-pointer shrink-0 bg-white/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-white transition-all shadow-xs">
-                                <input 
-                                    type="checkbox" 
-                                    checked={forceIntensiveNLS} 
-                                    onChange={(e) => {
-                                        setForceIntensiveNLS(e.target.checked);
-                                        setLevel(e.target.checked ? 'INTENSIVE' : 'STANDARD');
-                                    }}
-                                    className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                                />
-                                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
-                                    Chèn NLS sâu (Thao giảng / Thi GV Giỏi)
-                                </span>
-                            </label>
-                        )}
                     </div>
                 </div>
             )}
