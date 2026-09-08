@@ -1,5 +1,5 @@
-import React from 'react';
-import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, CheckCircle, ShieldAlert, Cpu } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
@@ -26,12 +26,82 @@ export default function ControlCenter({
   state, setState, mode, setMode, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
+  // Tùy chọn ép chèn NLS dành cho giáo viên đi thao giảng / thi giáo viên giỏi
+  const [forceIntensiveNLS, setForceIntensiveNLS] = useState(false);
+
   const handleSelectMode = (selectedMode: IntegrationMode) => {
     setMode(selectedMode);
     setState(prev => ({ ...prev, mode: selectedMode }));
   };
 
   const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
+
+  // =========================================================================
+  // BỘ PHÂN TÍCH SƯ PHẠM THỰC CHẤT (CHUẨN BỘ GD&ĐT) CHO MỌI MÔN & MỌI CẤP
+  // =========================================================================
+  const pedagogicalEvaluation = useMemo(() => {
+    if (fileCount === 0 && !state.subject) {
+      return null;
+    }
+
+    const fileNames = state.files && state.files.length > 0 
+      ? state.files.map(f => f.name.toLowerCase()).join(' ') 
+      : (state.file?.name.toLowerCase() || '');
+    
+    const subjectName = (state.subject || '').toLowerCase();
+    const fullSearchText = `${fileNames} ${subjectName}`;
+
+    // 1. Nhóm bài truyền thống / rèn kỹ năng thao tác tay / cảm thụ (KHÔNG NÊN ÉP NLS)
+    const traditionalKeywords = [
+      'luyện viết', 'chính tả', 'tập đọc', 'cảm thụ', 'đọc hiểu', 'luyện từ và câu', 'kể chuyện',
+      'cộng trừ', 'nhân chia', 'phân số', 'tính nhẩm', 'rèn kỹ năng', 'giải phương trình', 'hệ phương trình',
+      'bất đẳng thức', 'biến đổi đại số', 'thể dục', 'chạy cự li', 'nhảy cao', 'đá cầu', 'bóng chuyền', 
+      'lắp ráp mạch', 'thực hành thí nghiệm', 'pha chế dung dịch', 'vẽ tranh màu sáp'
+    ];
+
+    // 2. Nhóm bài trực quan / dữ liệu / mô phỏng không gian (RẤT NÊN TÍCH HỢP NLS SÂU)
+    const highDigitalKeywords = [
+      'không gian', 'hình chóp', 'lăng trụ', 'mặt cầu', 'vectơ', 'tọa độ không gian',
+      'đồ thị', 'khảo sát hàm số', 'hàm số bậc', 'lượng giác',
+      'thống kê', 'xác suất', 'bảng số liệu', 'biểu đồ', 'mẫu số liệu',
+      'mô phỏng', 'chuyển động', 'cấu tạo nguyên tử', 'quang hợp', 'hệ tuần hoàn', 'vũ trụ',
+      'bản đồ', 'địa hình', 'văn minh', 'tin học', 'thuật toán', 'lập trình'
+    ];
+
+    const isHighDigital = highDigitalKeywords.some(kw => fullSearchText.includes(kw));
+    const isTraditional = traditionalKeywords.some(kw => fullSearchText.includes(kw)) || 
+                          subjectName.includes('thể chất') || 
+                          (subjectName.includes('tiếng việt') && !isHighDigital);
+
+    if (isHighDigital) {
+      return {
+        type: 'RECOMMEND_DEEP_NLS',
+        title: 'BÀI HỌC CÓ TÍNH TRỰC QUAN CAO - KHUYẾN NGHỊ TÍCH HỢP NLS SÂU',
+        desc: 'Nội dung chứa mô hình không gian, đồ thị, số liệu thống kê hoặc mô phỏng. Việc ứng dụng công cụ số (GeoGebra 3D, Excel, PhET...) giúp học sinh hiểu bản chất sâu sắc hơn.',
+        badgeColor: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300',
+        icon: <Cpu className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+      };
+    }
+
+    if (isTraditional) {
+      return {
+        type: 'RECOMMEND_TRADITIONAL',
+        title: 'BÀI RÈN KỸ NĂNG NỀN TẢNG - KHÔNG GƯỢNG ÉP NĂNG LỰC SỐ',
+        desc: 'Theo định hướng của Bộ GD&ĐT: Bài học tập trung rèn kỹ năng viết/tính toán/cảm thụ truyền thống trên bảng phấn & giấy vở. AI sẽ giữ phương pháp dạy học cốt lõi, không đưa công nghệ vào một cách hình thức.',
+        badgeColor: 'bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300',
+        icon: <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+      };
+    }
+
+    // Mặc định: Mức độ tích hợp cân bằng linh hoạt
+    return {
+      type: 'RECOMMEND_BALANCED',
+      title: 'TÍCH HỢP NLS MỨC ĐỘ HỖ TRỢ (THỰC CHẤT)',
+      desc: 'Bài học phù hợp khai thác học liệu số, trình chiếu tương tác nhẹ hoặc phiếu học tập số; bảo đảm không làm loãng trọng tâm kiến thức của bài.',
+      badgeColor: 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300',
+      icon: <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+    };
+  }, [state.files, state.file, state.subject, fileCount]);
 
   return (
     <>
@@ -381,6 +451,47 @@ export default function ControlCenter({
                     </label>
                 </div>
             </div>
+
+            {/* BỔ SUNG: BẢNG NHẬN DIỆN & ĐÁNH GIÁ SƯ PHẠM TRỰC QUAN (CHUẨN BỘ GD&ĐT) */}
+            {pedagogicalEvaluation && (
+                <div className={`col-span-1 md:col-span-2 rounded-2xl p-4 border transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5">
+                            <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
+                            <div>
+                                <h4 className="text-xs font-black tracking-wide flex items-center gap-1.5">
+                                    {pedagogicalEvaluation.title}
+                                </h4>
+                                <p className="text-[11px] mt-1 leading-relaxed opacity-90 font-medium">
+                                    {pedagogicalEvaluation.desc}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Tùy chọn gạt cho phép ép chèn nếu giáo viên đi thao giảng */}
+                        {pedagogicalEvaluation.type === 'RECOMMEND_TRADITIONAL' && (
+                            <label className="flex items-center gap-2 cursor-pointer shrink-0 bg-white/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 hover:bg-white transition-all shadow-xs">
+                                <input 
+                                    type="checkbox" 
+                                    checked={forceIntensiveNLS} 
+                                    onChange={(e) => {
+                                        setForceIntensiveNLS(e.target.checked);
+                                        if (e.target.checked) {
+                                            setLevel('INTENSIVE');
+                                        } else {
+                                            setLevel('STANDARD');
+                                        }
+                                    }}
+                                    className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span className="text-[10px] font-bold text-amber-900 dark:text-amber-200">
+                                    Vẫn muốn tích hợp NLS sâu (Thao giảng / Thi GV Giỏi)
+                                </span>
+                            </label>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Vùng hiển thị trạng thái đang xử lý hoặc nút Kích hoạt AI */}
             <div className="col-span-1 md:col-span-2 mt-2">
