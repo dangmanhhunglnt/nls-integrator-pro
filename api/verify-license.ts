@@ -1,11 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || '', 
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 1. Cấu hình Headers CORS & OPTIONS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -24,22 +19,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Hỗ trợ cả 2 cách đặt tên biến 'code' hoặc 'licenseCode', và 'userEmail' nếu có
-  const { code, licenseCode, deviceId, userEmail } = req.body;
-  const inputCode = code || licenseCode;
-
-  if (!inputCode || !deviceId) {
-    return res.status(400).json({ error: 'Thiếu mã kích hoạt hoặc định danh thiết bị.' });
-  }
-
   try {
+    // Đảm bảo khởi tạo Supabase an toàn và bắt lỗi biến môi trường thành JSON
+    const supabaseUrl = process.env.SUPABASE_URL || '';
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return res.status(500).json({ 
+        error: 'Chưa cấu hình SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY trên Vercel Environment Variables.' 
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Xử lý an toàn trường hợp req.body gửi dạng chuỗi JSON
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        body = {};
+      }
+    }
+    body = body || {};
+
+    // Hỗ trợ cả 2 cách đặt tên biến 'code' hoặc 'licenseCode', và 'userEmail' nếu có
+    const { code, licenseCode, deviceId, userEmail } = body;
+    const inputCode = code || licenseCode;
+
+    if (!inputCode || !deviceId) {
+      return res.status(400).json({ error: 'Thiếu mã kích hoạt hoặc định danh thiết bị.' });
+    }
+
     const cleanCode = String(inputCode).trim().toUpperCase();
 
     const { data: license, error } = await supabase
       .from('licenses')
       .select('*')
       .eq('code', cleanCode)
-      .single();
+      .maybeSingle();
 
     if (error || !license) {
       return res.status(404).json({ error: 'Mã kích hoạt không tồn tại trên hệ thống.' });
@@ -66,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .from('profiles')
             .select('*')
             .eq('email', userEmail)
-            .single();
+            .maybeSingle();
 
           if (license.plan_type !== 'COUNT_50') {
             await supabase
@@ -108,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .from('profiles')
             .select('*')
             .eq('email', userEmail)
-            .single();
+            .maybeSingle();
 
           if (license.plan_type !== 'COUNT_50') {
             await supabase
@@ -146,6 +164,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
   } catch (err: any) {
-    return res.status(500).json({ error: 'Lỗi hệ thống: ' + err.message });
+    return res.status(500).json({ error: 'Lỗi hệ thống: ' + (err?.message || String(err)) });
   }
 }
