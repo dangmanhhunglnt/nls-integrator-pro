@@ -8,7 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Supabase-Url, X-Supabase-Key'
   );
 
   if (req.method === 'OPTIONS') {
@@ -20,18 +20,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Đảm bảo khởi tạo Supabase an toàn và bắt lỗi biến môi trường thành JSON
-    const supabaseUrl = process.env.SUPABASE_URL || '';
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return res.status(500).json({ 
-        error: 'Chưa cấu hình SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY trên Vercel Environment Variables.' 
-      });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     // Xử lý an toàn trường hợp req.body gửi dạng chuỗi JSON
     let body = req.body;
     if (typeof body === 'string') {
@@ -42,6 +30,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
     body = body || {};
+
+    // 2. Cho phép ghi đè URL và KEY để kiểm tra trực tiếp máy chủ
+    const overrideUrl = body.supabaseUrl || (req.headers['x-supabase-url'] as string);
+    const overrideKey = body.supabaseServiceKey || (req.headers['x-supabase-key'] as string);
+
+    const supabaseUrl = overrideUrl || process.env.SUPABASE_URL || '';
+    const supabaseServiceKey =
+      overrideKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return res.status(500).json({
+        error:
+          'Chưa cấu hình SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY trên Vercel, và chưa truyền key kiểm tra.'
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // 3. Chức năng Test kết nối nhanh máy chủ
+    if (body.action === 'test_connection') {
+      const { data, error } = await supabase.from('licenses').select('count', { count: 'exact', head: true });
+      if (error) {
+        return res.status(400).json({
+          success: false,
+          error: `Kết nối Supabase thất bại: ${error.message}`
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'Kết nối Supabase thành công tuyệt đối!',
+        url: supabaseUrl
+      });
+    }
 
     // Hỗ trợ cả 2 cách đặt tên biến 'code' hoặc 'licenseCode', và 'userEmail' nếu có
     const { code, licenseCode, deviceId, userEmail } = body;
@@ -71,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!license.bound_device_id) {
       await supabase
         .from('licenses')
-        .update({ 
+        .update({
           bound_device_id: deviceId,
           activated_at: new Date().toISOString()
         })
@@ -112,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         license: {
           code: license.code,
           plan_type: license.plan_type,
-          quota_remaining: license.quota_remaining,
+          quota_remaining: license.quota_remaining
         }
       });
     }
@@ -154,13 +175,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         license: {
           code: license.code,
           plan_type: license.plan_type,
-          quota_remaining: license.quota_remaining,
+          quota_remaining: license.quota_remaining
         }
       });
     } else {
       return res.status(403).json({
         valid: false,
-        error: 'Mã này đã được kích hoạt trên một máy tính khác. Vui lòng liên hệ Admin để cấp quyền đổi máy.'
+        error:
+          'Mã này đã được kích hoạt trên một máy tính khác. Vui lòng liên hệ Admin để cấp quyền đổi máy.'
       });
     }
   } catch (err: any) {
