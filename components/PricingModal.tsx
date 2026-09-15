@@ -116,6 +116,27 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       alert('Lỗi mở khóa máy: ' + err.message);
     }
   };
+  // Kiểm tra trực tiếp key với máy chủ Vercel
+  const handleTestKeyDirect = async (code: string) => {
+    try {
+      const res = await fetch('/api/verify-license', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: code,
+          deviceId: 'ADMIN_TEST_INSPECTOR'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`✅ KEY HOẠT ĐỘNG TỐT!\n- Mã: ${code}\n- Gói: ${data.planType}\n- Hạn mức: ${data.quota} lượt\n- Máy chủ: ${data.message}`);
+      } else {
+        alert(`❌ KEY BÁO LỖI:\n- Mã: ${code}\n- Lý do: ${data.error || 'Mã không hợp lệ'}`);
+      }
+    } catch (err: any) {
+      alert('⚠️ Lỗi kết nối mạng: ' + err.message);
+    }
+  };
   // Xóa vĩnh viễn mã khỏi hệ thống
   const handleDeleteLicense = async (code: string) => {
     if (!window.confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN mã: ${code}?`)) {
@@ -471,6 +492,14 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                                 ) : (
                                   <span className="text-slate-600 text-[10px]">---</span>
                                 )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleTestKeyDirect(item.code)}
+                                  className="px-2 py-0.5 rounded bg-emerald-900/40 hover:bg-emerald-900 text-emerald-300 text-[10px] font-semibold border border-emerald-800 transition"
+                                  title="Kiểm tra key trực tiếp trên máy chủ"
+                                >
+                                  Kiểm tra
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteLicense(item.code)}
