@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
-import { PEDAGOGY_MODELS } from './utils';
+import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
 // Import Supabase Client để quản lý Auth & Đếm lượt dùng
@@ -112,7 +112,51 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
     setUser(null);
   };
+  // TỰ ĐỘNG ĐỒNG BỘ: ĐỌC BẢN QUYỀN VÀ KHÓA MÁY VÀO SUPABASE KHI MỞ TRANG
+  useEffect(() => {
+    const autoSyncLicenseAndBindDevice = async () => {
+      const savedCode = localStorage.getItem('USER_LICENSE_CODE') || localStorage.getItem('nls_license_key');
+      const savedPlan = localStorage.getItem('USER_PLAN_TYPE') || localStorage.getItem('nls_plan_type');
 
+      // Nếu máy đã lưu key hoặc gói PRO, cập nhật state sang PRO ngay
+      if (savedPlan === 'PRO' || (savedCode && savedCode.startsWith('NLS-VIP-'))) {
+        setUser(prev => prev ? ({
+          ...prev,
+          plan: 'PRO',
+          maxUsage: 9999
+        }) : prev);
+      }
+
+      if (!savedCode) return;
+
+      // Gửi deviceId lên Supabase để bảng Admin hiện "Đã khóa máy"
+      try {
+        const deviceId = await getDeviceId();
+        const cleanCode = savedCode.trim().toUpperCase();
+
+        const { data: license } = await supabase
+          .from('licenses')
+          .select('bound_device_id')
+          .eq('code', cleanCode)
+          .maybeSingle();
+
+        if (license && !license.bound_device_id) {
+          await supabase
+            .from('licenses')
+            .update({
+              bound_device_id: deviceId,
+              activated_at: new Date().toISOString()
+            })
+            .eq('code', cleanCode);
+          console.log('✅ Đã tự động ghi nhận khóa máy cho mã:', cleanCode);
+        }
+      } catch (err) {
+        console.warn('Lỗi tự động khóa máy:', err);
+      }
+    };
+
+    autoSyncLicenseAndBindDevice();
+  }, [user?.uid]);
   const [state, setState] = useState<AppState>({
     file: null, 
     files: [], // Khắc phục lỗi thiếu trường files của AppState
