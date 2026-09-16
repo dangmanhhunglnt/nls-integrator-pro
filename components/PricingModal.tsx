@@ -238,7 +238,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     }
   };
 
-  // Kích hoạt Giftcode từ phía người dùng (Gọi qua API an toàn)
+  // Kích hoạt Giftcode từ phía người dùng
   const handleRedeemGiftcode = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = giftcode.trim().toUpperCase();
@@ -250,20 +250,21 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     try {
       const deviceId = await getDeviceId();
 
-      // Gọi API Serverless xác thực thay vì cập nhật trực tiếp DB
       const res = await fetch('/api/verify-license', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          code: cleanCode,
           licenseCode: cleanCode,
           deviceId: deviceId,
-          userEmail: userEmail || null,
+          userEmail: userEmail || localStorage.getItem('user_email') || null,
         }),
       });
 
       const data = await res.json();
 
-      if (!res.ok || !data.valid) {
+      // Kiểm tra cả 2 trường success hoặc valid từ API
+      if (!res.ok || (!data.success && !data.valid)) {
         setMsg({ 
           type: 'error', 
           text: data.error || 'Mã kích hoạt không hợp lệ hoặc đã gắn với thiết bị khác.' 
@@ -271,19 +272,31 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
         return;
       }
 
-      // Lưu trữ cấu hình bản quyền vào LocalStorage
+      const activePlan = data.planType || data.license?.plan_type || 'PRO';
+      const quotaValue = String(data.quota || data.license?.quota_remaining || 9999);
+
+      // Đồng bộ toàn bộ các biến LocalStorage mà hệ thống có thể đọc
       localStorage.setItem('USER_LICENSE_CODE', cleanCode);
-      localStorage.setItem('USER_PLAN_TYPE', data.license?.plan_type || 'PRO');
+      localStorage.setItem('USER_PLAN_TYPE', activePlan);
+      localStorage.setItem('nls_license_key', cleanCode);
+      localStorage.setItem('nls_plan_type', activePlan);
+      localStorage.setItem('nls_quota_remaining', quotaValue);
 
       setMsg({ 
         type: 'success', 
-        text: 'Kích hoạt bản quyền thành công trên thiết bị này!' 
+        text: '✅ Kích hoạt thành công! Đã nâng cấp lên gói PRO.' 
       });
 
+      // Kích hoạt callback nâng cấp nếu có
+      if (onSuccessUpgrade) {
+        onSuccessUpgrade();
+      }
+
+      // Tự động đóng modal và tải lại trang để áp dụng ngay
       setTimeout(() => {
-        if (onSuccessUpgrade) onSuccessUpgrade();
         onClose();
-      }, 1200);
+        window.location.reload();
+      }, 1000);
 
     } catch (err: any) {
       setMsg({ type: 'error', text: 'Có lỗi xảy ra: ' + (err.message || err) });
