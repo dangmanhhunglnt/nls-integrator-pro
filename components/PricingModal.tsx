@@ -31,7 +31,32 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
   const [searchKey, setSearchKey] = useState('');
   const [loadingList, setLoadingList] = useState(false);
   const [showListTab, setShowListTab] = useState(false);
+  // LẮNG NGHE REALTIME: KHI CÓ GIÁO VIÊN KÍCH HOẠT, BẢNG ADMIN TỰ NHẢY TRẠNG THÁI NGAY
+  React.useEffect(() => {
+    if (!showAdmin) return;
 
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'licenses'
+        },
+        (payload) => {
+          const updatedRecord = payload.new;
+          setLicensesList(prevList => 
+            prevList.map(item => item.code === updatedRecord.code ? { ...item, ...updatedRecord } : item)
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [showAdmin]);
   if (!isOpen) return null;
 
   // Cấu hình tài khoản ngân hàng MSB
