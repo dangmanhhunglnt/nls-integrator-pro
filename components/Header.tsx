@@ -24,7 +24,19 @@ export default function Header({
   onLogout, 
   onOpenPricing 
 }: HeaderProps) {
-  const isPro = user?.plan === 'PRO' || (user as any)?.role === 'pro' || (user?.maxUsage || 0) >= 9000;
+  const hasLocalPro = 
+  typeof window !== 'undefined' && (
+    localStorage.getItem('USER_PLAN_TYPE') === 'PRO' ||
+    localStorage.getItem('nls_plan_type') === 'PRO' ||
+    Boolean(localStorage.getItem('USER_LICENSE_CODE')) ||
+    Boolean(localStorage.getItem('nls_license_key'))
+  );
+
+const isPro = 
+  hasLocalPro || 
+  user?.plan === 'PRO' || 
+  (user as any)?.role === 'pro' || 
+  (user?.maxUsage || 0) >= 9000;
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/60 shadow-sm">
