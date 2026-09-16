@@ -116,6 +116,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       alert('Lỗi mở khóa máy: ' + err.message);
     }
   };
+
   // Kiểm tra trực tiếp key với máy chủ Vercel
   const handleTestKeyDirect = async (code: string) => {
     try {
@@ -137,6 +138,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       alert('⚠️ Lỗi kết nối mạng: ' + err.message);
     }
   };
+
   // Xóa vĩnh viễn mã khỏi hệ thống
   const handleDeleteLicense = async (code: string) => {
     if (!window.confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN mã: ${code}?`)) {
@@ -155,6 +157,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
       alert('Lỗi khi xóa mã: ' + err.message);
     }
   };
+
   // Admin sinh mã TRỰC TIẾP và xuất file Excel / CSV (Không qua Serverless API)
   const handleAdminExportExcel = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,7 +241,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     }
   };
 
-  // Kích hoạt Giftcode từ phía người dùng
+  // Kích hoạt Giftcode từ phía người dùng (Bảo mật 1 key / 1 máy)
   const handleRedeemGiftcode = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = giftcode.trim().toUpperCase();
@@ -250,6 +253,33 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     try {
       const deviceId = await getDeviceId();
 
+      // 1. Kiểm tra trạng thái khóa máy trực tiếp trên Supabase
+      try {
+        const { data: licenseInDb } = await supabase
+          .from('licenses')
+          .select('*')
+          .eq('code', cleanCode)
+          .maybeSingle();
+
+        if (licenseInDb) {
+          if (!licenseInDb.is_active) {
+            setMsg({ type: 'error', text: 'Mã kích hoạt này đã bị khóa.' });
+            return;
+          }
+          // Chặn nếu mã đã được gắn trên thiết bị khác
+          if (licenseInDb.bound_device_id && licenseInDb.bound_device_id !== deviceId) {
+            setMsg({
+              type: 'error',
+              text: 'Mã này đã được kích hoạt trên một máy tính khác. Mỗi mã chỉ dùng cho 1 máy cá nhân.'
+            });
+            return;
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Kiểm tra Supabase bỏ qua, chuyển sang xác thực qua API:', checkErr);
+      }
+
+      // 2. Xác thực với máy chủ API
       const res = await fetch('/api/verify-license', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -263,7 +293,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
 
       const data = await res.json();
 
-      // Kiểm tra cả 2 trường success hoặc valid từ API
       if (!res.ok || (!data.success && !data.valid)) {
         setMsg({ 
           type: 'error', 
@@ -272,10 +301,23 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
         return;
       }
 
+      // 3. Khóa cứng thiết bị vào Supabase để bảng Admin hiển thị "Đã khóa máy"
+      try {
+        await supabase
+          .from('licenses')
+          .update({
+            bound_device_id: deviceId,
+            activated_at: new Date().toISOString()
+          })
+          .eq('code', cleanCode);
+      } catch (bindErr) {
+        console.warn('Cập nhật bound_device_id lên Supabase:', bindErr);
+      }
+
       const activePlan = data.planType || data.license?.plan_type || 'PRO';
       const quotaValue = String(data.quota || data.license?.quota_remaining || 9999);
 
-      // Đồng bộ toàn bộ các biến LocalStorage mà hệ thống có thể đọc
+      // 4. Lưu trữ trạng thái bản quyền vào LocalStorage
       localStorage.setItem('USER_LICENSE_CODE', cleanCode);
       localStorage.setItem('USER_PLAN_TYPE', activePlan);
       localStorage.setItem('nls_license_key', cleanCode);
@@ -284,15 +326,13 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
 
       setMsg({ 
         type: 'success', 
-        text: '✅ Kích hoạt thành công! Đã nâng cấp lên gói PRO.' 
+        text: '✅ Kích hoạt thành công! Đã khóa bản quyền vào thiết bị này.' 
       });
 
-      // Kích hoạt callback nâng cấp nếu có
       if (onSuccessUpgrade) {
         onSuccessUpgrade();
       }
 
-      // Tự động đóng modal và tải lại trang để áp dụng ngay
       setTimeout(() => {
         onClose();
         window.location.reload();
@@ -619,7 +659,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
             </div>
           </div>
 
-        {/* Gói 3: Gói Tổ */}
+          {/* Gói 3: Gói Tổ */}
           <div 
             onClick={() => setSelectedPlan('TEAM')}
             className={`border-2 rounded-xl p-3.5 cursor-pointer transition relative flex flex-col justify-between ${
