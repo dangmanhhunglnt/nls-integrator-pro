@@ -233,8 +233,18 @@ const App: React.FC = () => {
       return;
     }
 
-    // 2. Kiểm tra hạn mức nếu là tài khoản Free -> Tự mở modal bảng giá nạp tiền
-    if (user.plan !== 'PRO' && (user.usageCount + targetFiles.length) > user.maxUsage) {
+    // 2. Kiểm tra bản quyền PRO (từ Supabase hoặc mã đã kích hoạt trên máy)
+    const hasLocalLicense = typeof window !== 'undefined' && (
+      localStorage.getItem('USER_PLAN_TYPE') === 'PRO' ||
+      localStorage.getItem('nls_plan_type') === 'PRO' ||
+      Boolean(localStorage.getItem('USER_LICENSE_CODE')) ||
+      Boolean(localStorage.getItem('nls_license_key'))
+    );
+
+    const isAccountPro = user.plan === 'PRO' || hasLocalLicense;
+
+    // Nếu không phải PRO và hết hạn mức -> Mới hiện bảng nạp tiền
+    if (!isAccountPro && (user.usageCount + targetFiles.length) > user.maxUsage) {
       setIsPricingOpen(true);
       return;
     }
