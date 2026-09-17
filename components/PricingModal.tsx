@@ -131,7 +131,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
     try {
       const { error } = await supabase
         .from('licenses')
-        .update({ bound_device_id: null, activated_at: null })
+        .update({ bound_device_id: null })
         .eq('code', code);
 
       if (error) throw error;
@@ -326,15 +326,21 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
         return;
       }
 
-      // 3. Khóa cứng thiết bị vào Supabase để bảng Admin hiển thị "Đã khóa máy"
+      // 3. Khóa cứng thiết bị vào Supabase bằng RPC an toàn và UPDATE dự phòng
       try {
-        await supabase
-          .from('licenses')
-          .update({
-            bound_device_id: deviceId,
-            activated_at: new Date().toISOString()
-          })
-          .eq('code', cleanCode);
+        const { error: rpcErr } = await supabase.rpc('activate_license_device', {
+          p_code: cleanCode,
+          p_device_id: deviceId
+        });
+
+        if (rpcErr) {
+          await supabase
+            .from('licenses')
+            .update({
+              bound_device_id: deviceId
+            })
+            .eq('code', cleanCode);
+        }
       } catch (bindErr) {
         console.warn('Cập nhật bound_device_id lên Supabase:', bindErr);
       }
@@ -507,12 +513,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, use
                 <div className="flex items-center justify-between gap-2">
                   <div className="relative flex-1">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Tìm theo tên giáo viên, trường học hoặc mã key..."
-                      value={searchKey}
-                      onChange={e => setSearchKey(e.target.value)}
-                      className="w-full pl-8 pr-3 py-1.5 bg-slate-800 rounded border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    <input 
+                      type="text" 
+                      placeholder="Tìm theo tên giáo viên, trường học hoặc mã key..." 
+                      value={searchKey} 
+                      onChange={e => setSearchKey(e.target.value)} 
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-800 rounded border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500" 
                     />
                   </div>
                   <span className="text-[11px] text-slate-400">
