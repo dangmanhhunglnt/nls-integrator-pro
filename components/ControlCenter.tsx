@@ -626,8 +626,20 @@ export default function ControlCenter({
                                 </div>
                             </div>
 
-                            <h3 className="text-sm font-extrabold text-white tracking-wide mb-1">AI Đang phân tích & tích hợp...</h3>
-                            <p className="text-xs text-indigo-200/80 max-w-md font-medium">Đang quét cấu trúc bài dạy (CV 2345 / CV 5512), đối chiếu chuẩn Năng lực số (TT 02/2025) & Khung AI 2026...</p>
+                            <h3 className="text-sm font-extrabold text-white tracking-wide mb-1">
+                            {Boolean(stemTopic) && !mode 
+                                ? 'AI Đang xây dựng Bài học / Dự án STEM...' 
+                                : Boolean(stemTopic) && mode 
+                                ? 'AI Đang tích hợp NLS, AI & Thiết kế STEM...' 
+                                : 'AI Đang phân tích & tích hợp Năng lực số...'}
+                            </h3>
+                            <p className="text-xs text-indigo-200/80 max-w-md font-medium">
+                            {Boolean(stemTopic) && !mode 
+                                ? `Thiết kế quy trình kỹ thuật 5 bước cho chủ đề: "${stemTopic}" theo chuẩn GDPT 2018...`
+                                : Boolean(stemTopic) && mode 
+                                ? `Kết hợp chuẩn NLS (TT 02/2025), Khung AI và quy trình STEM: "${stemTopic}"...`
+                                : 'Đang quét cấu trúc bài dạy (CV 2345 / CV 5512), đối chiếu chuẩn Năng lực số (TT 02/2025) & Khung AI 2026...'}
+                            </p>
                             
                             <div className="w-64 h-1.5 bg-slate-800 rounded-full mt-4 overflow-hidden border border-white/10">
                                 <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
