@@ -25,6 +25,7 @@ export const buildSystemPrompt = (
   stemTopic: string = ''
 ): string => {
   const eduLevel = getEducationLevel(grade);
+  const isStemOnly = ((mode as string) === 'STEM' || (!mode && Boolean(stemTopic)));
 
   let pedagogyConstraint = "";
   if (eduLevel === 'PRIMARY') {
@@ -49,7 +50,13 @@ QUY TẮC DÀNH CHO TRUNG HỌC PHỔ THÔNG (${grade}) - THEO CÔNG VĂN 5512/B
   }
 
   let modeInstruction = "";
-  if (mode === 'NLS') {
+  if (isStemOnly) {
+    modeInstruction = `
+CHẾ ĐỘ TÍCH HỢP: CHUYÊN BIỆT GIÁO DỤC STEM (BÀI HỌC / DỰ ÁN STEM).
+- BỎ HOÀN TOÀN tất cả các mã Yêu cầu cần đạt Năng lực số (TT 02/2025: 1.1.TC1a, 2.1.TC1a...) và các mã Giáo dục AI (NLa, NLb, NLc, NLd).
+- TUYỆT ĐỐI KHÔNG sinh bất kỳ mã số NLS hay AI nào vào toàn bộ nội dung giáo án.
+- Tập trung 100% vào năng lực STEM: Vận dụng kiến thức khoa học/toán học giải quyết vấn đề, quy trình thiết kế kỹ thuật, chế tạo thử nghiệm mô hình thực tế.`;
+  } else if (mode === 'NLS') {
     modeInstruction = `
 CHẾ ĐỘ TÍCH HỢP: CHỈ NĂNG LỰC SỐ (Theo Thông tư 02/2025/TT-BGDĐT).
 - CHỈ TRÍCH XUẤT các mã Yêu cầu cần đạt Năng lực số (Ví dụ: 1.1.TC1a, 1.1.NC1a, 2.2.NC1a, 3.1.TC2a, 5.2.TC2a...).
@@ -73,12 +80,12 @@ CHẾ ĐỘ TÍCH HỢP: KẾT HỢP TOÀN DIỆN NĂNG LỰC SỐ (TT 02/2025/T
   if (level === 'INTENSIVE') {
     levelInstruction = `
 MỨC ĐỘ TÍCH HỢP: CHUYÊN SÂU / NÂNG CAO (DÀNH CHO THAO GIẢNG / HỘI GIẢNG / KIỂM TRA CHUYÊN ĐỀ).
-- MỤC TIÊU: Thiết kế chi tiết từ 4 đến 6 chỉ số Yêu cầu cần đạt NLS/AI bám sát trọng tâm chuyên môn của bài.
+- MỤC TIÊU: Thiết kế chi tiết từ 4 đến 6 chỉ số Yêu cầu cần đạt bám sát trọng tâm chuyên môn của bài.
 - TIẾN TRÌNH DẠY HỌC: BẮT BUỘC TÍCH HỢP VÀO TẤT CẢ CÁC HOẠT ĐỘNG TRONG GIÁO ÁN:
   + 1. Hoạt động Khởi động: Trò chơi số / video trực quan mở đầu tạo hứng thú.
-  + 2. Hoạt động Khám phá / Hình thành kiến thức: Sử dụng phần mềm mô phỏng, học liệu số tương tác hoặc công cụ AI trực quan để hình thành kiến thức.
+  + 2. Hoạt động Khám phá / Hình thành kiến thức: Sử dụng phần mềm mô phỏng, học liệu số tương tác hoặc công cụ trực quan để hình thành kiến thức.
   + 3. Hoạt động Luyện tập: Tích hợp vào các bài tập cụ thể trong giáo án (Ví dụ: bài tập kéo thả, bảng tương tác, vòng quay câu hỏi hoặc chấm trắc nghiệm trực quan).
-  + 4. Hoạt động Vận dụng: Tình huống ứng dụng công nghệ thực tế đời sống, giải quyết vấn đề sau bài học.
+  + 4. Hoạt động Vận dụng: Tình huống ứng dụng công nghệ/chế tạo thực tế đời sống, giải quyết vấn đề sau bài học.
 - BẢNG MA TRẬN TỔNG HỢP: Lập đầy đủ từ 4 đến 6 dòng chi tiết cho tất cả các hoạt động đã tích hợp.`;
   } else {
     levelInstruction = `
@@ -86,10 +93,11 @@ MỨC ĐỘ TÍCH HỢP: TIÊU CHUẨN / CƠ BẢN (DÀNH CHO DẠY HỌC LÊN L
 - MỤC TIÊU: Tinh gọn từ 2 đến 3 chỉ số Yêu cầu cần đạt cốt lõi, tập trung vào việc tiếp nhận thông tin và an toàn thiết bị.
 - TIẾN TRÌNH DẠY HỌC: CHỈ TÍCH HỢP GỌN GÀNG VÀO 2 HOẠT ĐỘNG CHÍNH:
   + 1. Hoạt động Khởi động (trò chơi số ngắn / câu đố trực quan).
-  + 2. Hoạt động Khám phá (quan sát hình ảnh, video hoặc mô hình số trực quan).
+  + 2. Hoạt động Khám phá (quan sát hình ảnh, video hoặc mô hình trực quan).
   (Phần Luyện tập và Vận dụng giữ nguyên tiến trình tự nhiên của giáo viên để đảm bảo đúng thời lượng tiết học).
 - BẢNG MA TRẬN TỔNG HỢP: Tinh gọn từ 2 đến 3 chỉ số tương ứng.`;
   }
+
   const stemDirective = stemTopic ? `
 YÊU CẦU ĐẶC BIỆT VỀ GIÁO DỤC STEM (BẮT BUỘC):
 - Bài học tích hợp chủ đề STEM: "${stemTopic}".
@@ -99,41 +107,45 @@ YÊU CẦU ĐẶC BIỆT VỀ GIÁO DỤC STEM (BẮT BUỘC):
   + Hướng dẫn thiết kế, thực hành, chế tạo mô hình thực tế.
   + Bảng tiêu chí đánh giá sản phẩm STEM (Rubric chấm điểm).
 ` : '';
-  return `
-Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 2422/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Khung GD AI 2026).
-Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, ĐẶC THÙ LỨA TUỔI HỌC SINH ${grade.toUpperCase()} VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
 
-${pedagogyConstraint}
-${modeInstruction}
-${levelInstruction}
-${stemDirective}
+  return `
+Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 2422/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Hướng dẫn GD STEM của Bộ GD&ĐT).
+Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} -${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, ĐẶC THÙ LỨA TUỔI HỌC SINH ${grade.toUpperCase()} VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
+
+${pedagogyConstraint}${modeInstruction}
+${levelInstruction}${stemDirective}
 
 QUY TẮC PHÂN TÍCH VÀ ĐẦU RA BẮT BUỘC:
 1. MỤC TIÊU VÀ HỌC LIỆU (MỤC I & II):
-   - Nêu rõ các mã NLS/AI kèm diễn giải biểu hiện cụ thể của HS bám sát bài dạy môn ${subject} - ${grade}.${stemTopic ? `- ĐẶC BIỆT (STEM): Trong mục tiêu, BẮT BUỘC bổ sung mục tiêu Năng lực STEM (Vận dụng kiến thức môn ${subject} để thiết kế, chế tạo hoặc giải quyết bài toán thực tế cho chủ đề: "${stemTopic}").` : ''}
-   - Liệt kê thiết bị và học liệu số phù hợp cấp học (Tiểu học: Tivi/màn chiếu, phần mềm mô phỏng trực quan; THCS/THPT: máy tính, chatbot AI, mô phỏng chuyên sâu). Tuyệt đối nhấn mạnh: "Không yêu cầu HS tạo tài khoản cá nhân hoặc thu thập dữ liệu cá nhân nhạy cảm".
-   ${stemTopic ? `- Thiết bị STEM: Bổ sung dụng cụ, vật liệu thực hành chế tạo/đo đạc thực tế phục vụ chủ đề "${stemTopic}".` : ''}
+${isStemOnly ? `   - CHỈ NÊU MỤC TIÊU NĂNG LỰC STEM: Vận dụng kiến thức môn ${subject} ${grade} để nghiên cứu, tính toán, vẽ bản thiết kế và chế tạo sản phẩm/giải quyết vấn đề thực tế cho chủ đề: "${stemTopic}".
+   - TUYỆT ĐỐI KHÔNG ghi mã YCĐ số (1.1, 2.1...) hay mã AI (NLa, NLc...).
+   - Liệt kê dụng cụ, vật liệu mô hình, thước đo, thiết bị thực hành phục vụ chủ đề "${stemTopic}". Lưu ý an toàn lao động và vệ sinh khi chế tạo.` : `   - Nêu rõ các mã NLS/AI kèm diễn giải biểu hiện cụ thể của HS bám sát bài dạy môn ${subject} - ${grade}.${stemTopic ? `\n   - Bổ sung mục tiêu Năng lực STEM: Vận dụng kiến thức môn ${subject} để thiết kế, chế tạo hoặc giải quyết bài toán thực tế cho chủ đề: "${stemTopic}".` : ''}
+   - Liệt kê thiết bị và học liệu số phù hợp cấp học (Tiểu học: Tivi/màn chiếu, phần mềm mô phỏng trực quan; THCS/THPT: máy tính, chatbot AI, mô phỏng chuyên sâu). Tuyệt đối nhấn mạnh: "Không yêu cầu HS tạo tài khoản cá nhân hoặc thu thập dữ liệu cá nhân nhạy cảm".${stemTopic ? `\n   - Thiết bị STEM: Bổ sung dụng cụ, vật liệu thực hành chế tạo/đo đạc thực tế phục vụ chủ đề "${stemTopic}".` : ''}`}
 
 2. ĐAN CÀI CỤ THỂ VÀO BẢNG TỔ CHỨC THỰC HỆN (MỤC III - TIẾN TRÌNH DẠY HỌC):
    - Đọc kỹ và TRÍCH XUẤT NGUYÊN VĂN TÊN TIÊU ĐỀ HOẠT ĐỘNG từ file gốc vào trường "activity_name" (Ví dụ: "1. Khởi động", "2. Khám phá", "3. Luyện tập", "4. Vận dụng" hoặc "Hoạt động 1: ...").
-   - MÔ TẢ THAO TÁC CỤ THỂ theo đúng tâm lý và lứa tuổi ${grade}.${stemTopic ? `- QUY TRÌNH STEM (BẮT BUỘC): Tại Hoạt động Luyện tập hoặc Vận dụng thực tế, enhanced_content PHẢI mô tả chi tiết quy trình thiết kế kỹ thuật của chủ đề "${stemTopic}":
+   - MÔ TẢ THAO TÁC CỤ THỂ theo đúng tâm lý và lứa tuổi ${grade}.${stemTopic ? `\n   - QUY TRÌNH STEM (BẮT BUỘC): Tại Hoạt động Luyện tập hoặc Vận dụng thực tế, enhanced_content PHẢI mô tả chi tiết quy trình thiết kế kỹ thuật của chủ đề "${stemTopic}":
      + Bản vẽ/Phương án thiết kế sản phẩm.
      + Các bước hướng dẫn học sinh gia công, chế tạo, đo đạc thử nghiệm mô hình thực tế.
      + Tiêu chí đánh giá sản phẩm STEM (Bảng Rubric chấm điểm nhóm).` : ''}
 
-3. BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC (Mảng summary_table):
+3. BẢNG TỔNG HỢP TRONG BÀI HỌC (Mảng summary_table):
    - Sinh đầy đủ mảng "summary_table" bao gồm đúng 5 trường (stt, code, component, expression, activity) tương ứng các hoạt động đã được tích hợp để tự động tạo bảng ở cuối file Word.
-   ${stemTopic ? `- Nếu có tích hợp STEM, thêm 1 dòng vào bảng với mã: "STEM-EDU", thành phần: "Giáo dục STEM", biểu hiện: "Vận dụng kiến thức thực hiện chủ đề ${stemTopic}", ghi rõ tên hoạt động vận dụng STEM.` : ''}
+${isStemOnly ? `   - Với chế độ STEM thuần túy: Điền code: "STEM", component: "Giáo dục STEM", expression: "Vận dụng kiến thức bài học hoàn thiện sản phẩm ${stemTopic}", activity: Tên hoạt động vận dụng thực tế.` : `   - Nếu có tích hợp STEM, thêm 1 dòng vào bảng với mã: "STEM-EDU", thành phần: "Giáo dục STEM", biểu hiện: "Vận dụng kiến thức thực hiện chủ đề ${stemTopic}", ghi rõ tên hoạt động vận dụng STEM.`}
 
 ĐỊNH DẠNG ĐẦU RA (Yêu cầu trả về JSON thuần túy, tuyệt đối không bọc thẻ markdown \`\`\`json):
 {
-  "objectives_addition": "* [Tích hợp ${mode ? mode : 'Giáo dục STEM'} - Mức độ ${level === 'INTENSIVE' ? 'Chuyên sâu' : 'Tiêu chuẩn'} Môn ${subject} - ${grade}]:\\n[Chi tiết từng mã YCĐ kèm biểu hiện cụ thể của HS ${grade} môn ${subject}${stemTopic ? `\\n- Năng lực STEM: Học sinh vận dụng kiến thức bài học nghiên cứu, thiết kế và chế tạo sản phẩm cho chủ đề "${stemTopic}".` : ''}]",
-  "materials_addition": "* Thiết bị dạy học, Học liệu số & Dụng cụ STEM môn ${subject} (${grade}):\\n- [Thiết bị, phần mềm trực quan, công cụ số/AI phù hợp lứa tuổi ${grade}${stemTopic ? `\\n- Dụng cụ, vật liệu thực hành chế tạo/đo đạc cho chủ đề STEM: ${stemTopic}` : ''}]\\n- Lưu ý an toàn: Không yêu cầu HS tạo tài khoản cá nhân, bảo vệ an toàn mắt và dữ liệu số.",
+  "objectives_addition": "${isStemOnly 
+    ? `* [Tích hợp Giáo dục STEM - Môn ${subject} -${grade}]:\\n- Năng lực STEM (Toán học & Kỹ thuật): Học sinh vận dụng kiến thức bài học để nghiên cứu, tính toán, lên bản vẽ thiết kế và thực hành chế tạo sản phẩm phục vụ chủ đề: "${stemTopic}".\\n- Năng lực giải quyết vấn đề thực tiễn: Xác định được các thông số kỹ thuật, thử nghiệm thực địa và hoàn thiện mô hình đáp ứng các tiêu chuẩn đặt ra.` 
+    : `* [Tích hợp ${mode ? mode : 'Năng lực số & AI'} - Mức độ ${level === 'INTENSIVE' ? 'Chuyên sâu' : 'Tiêu chuẩn'} Môn ${subject} -${grade}]:\\n[Chi tiết từng mã YCĐ kèm biểu hiện cụ thể của HS ${grade} môn ${subject}${stemTopic ? `\\n- Năng lực STEM: Học sinh vận dụng kiến thức bài học nghiên cứu, thiết kế và chế tạo sản phẩm cho chủ đề "${stemTopic}".` : ''}]`}",
+  "materials_addition": "${isStemOnly 
+    ? `* Thiết bị, Dụng cụ và Vật liệu thực hành STEM môn ${subject} (${grade}):\\n- Dụng cụ đo đạc, kéo cắt, thước dây, vật liệu tái chế/vật liệu mô hình phục vụ chế tạo chủ đề: ${stemTopic}.\\n- Phiếu hướng dẫn thực hành và Bảng tiêu chí đánh giá sản phẩm (Rubric).\\n- Lưu ý an toàn: Đảm bảo an toàn lao động và giữ gìn vệ sinh lớp học khi thực hành.` 
+    : `* Thiết bị dạy học, Học liệu số & Dụng cụ STEM môn ${subject} (${grade}):\\n- [Thiết bị, phần mềm trực quan, công cụ số/AI phù hợp lứa tuổi ${grade}${stemTopic ? `\\n- Dụng cụ, vật liệu thực hành chế tạo/đo đạc cho chủ đề STEM: ${stemTopic}` : ''}]\\n- Lưu ý an toàn: Không yêu cầu HS tạo tài khoản cá nhân, bảo vệ an toàn mắt và dữ liệu số.`}",
   "activities_enhancement": [
     {
       "activity_name": "[Trích xuất chính xác tên Hoạt động 1 trong file gốc]",
       "location": "Hoạt động 1 > Tổ chức thực hiện > HS thực hiện nhiệm vụ",
-      "enhanced_content": "- Công cụ: [Tên công cụ phù hợp ${grade}]\\n- GV (Chuyển giao): [Hướng dẫn giao nhiệm vụ]\\n- HS (Thực hiện): [Thao tác cụ thể phù hợp ${grade}]"
+      "enhanced_content": "${isStemOnly ? `- GV: Đặt vấn đề thực tiễn dẫn dắt vào bài toán cần chế tạo/nghiên cứu chủ đề "${stemTopic}".\\n- HS: Tiếp nhận nhiệm vụ, thảo luận các kiến thức nền cần sử dụng.` : `- Công cụ: [Tên công cụ phù hợp ${grade}]\\n- GV (Chuyển giao): [Hướng dẫn giao nhiệm vụ]\\n- HS (Thực hiện): [Thao tác cụ thể phù hợp ${grade}]`}"
     },
     {
       "activity_name": "[Trích xuất chính xác tên Hoạt động Vận dụng / Luyện tập trong file gốc]",
@@ -142,7 +154,7 @@ QUY TẮC PHÂN TÍCH VÀ ĐẦU RA BẮT BUỘC:
     }
   ],
   "summary_table": [
-    {"stt": "1", "code": "[Mã YCĐ]", "component": "[Thành phần]", "expression": "[Biểu hiện cụ thể của HS ${grade}]", "activity": "Hoạt động 1"},
+    {"stt": "1", "code": "${isStemOnly ? 'STEM-01' : '[Mã YCĐ]'}", "component": "${isStemOnly ? 'Thiết kế kỹ thuật' : '[Thành phần]'}", "expression": "${isStemOnly ? `Nghiên cứu và lập bản vẽ thiết kế sản phẩm ${stemTopic}` : `[Biểu hiện cụ thể của HS ${grade}]`}", "activity": "Hoạt động 1"},
     {"stt": "2", "code": "${stemTopic ? 'STEM-EDU' : '[Mã YCĐ]'}", "component": "${stemTopic ? 'Giáo dục STEM' : '[Thành phần]'}", "expression": "${stemTopic ? `Vận dụng giải quyết và chế tạo sản phẩm chủ đề ${stemTopic}` : '[Biểu hiện cụ thể]'}", "activity": "Hoạt động Vận dụng"}
   ]
 }
@@ -164,9 +176,11 @@ export async function generateCompetencyIntegration(
   const deviceId = typeof window !== 'undefined' ? await getDeviceId() : '';
   const eduLevel = getEducationLevel(grade);
   const standard = eduLevel === 'PRIMARY' ? 'CV2345' : 'CV5512';
+  const isStemOnly = ((mode as string) === 'STEM' || (!mode && Boolean(stemTopic)));
 
   try {
-    const systemPrompt = buildSystemPrompt(subject, grade, mode, level);
+    // Truyền đầy đủ cả 5 tham số bao gồm stemTopic
+    const systemPrompt = buildSystemPrompt(subject, grade, mode, level, stemTopic);
     const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}${stemTopic ? `\n\n- CHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${stemTopic}". Hãy xây dựng quy trình thiết kế kỹ thuật và tiêu chí đánh giá sản phẩm STEM cụ thể cho bài này.` : ''}`;
 
     const response = await fetch('/api/generate', {
@@ -201,6 +215,37 @@ export async function generateCompetencyIntegration(
     }
   } catch (error: any) {
     console.warn('Không thể kết nối Serverless Function API, sử dụng dữ liệu dự phòng... Lỗi:', error?.message || error);
+  }
+
+  // ==========================================
+  // DỮ LIỆU DỰ PHÒNG: NẾU LÀ CHẾ ĐỘ CHỈ STEM
+  // ==========================================
+  if (isStemOnly) {
+    return {
+      objectives_addition: `* [Tích hợp Giáo dục STEM - Môn ${subject} - ${grade}]:
+- Năng lực STEM (Toán học & Kỹ thuật): Vận dụng kiến thức bài học để nghiên cứu, tính toán, vẽ bản thiết kế và chế tạo sản phẩm phục vụ chủ đề: "${stemTopic || 'Mô hình STEM thực hành'}".
+- Năng lực giải quyết vấn đề thực tiễn: Xác định được các thông số kỹ thuật, tiến hành đo đạc thực tế và hoàn thiện sản phẩm đáp ứng tiêu chuẩn đặt ra.`,
+      materials_addition: `* Dụng cụ, Thiết bị thực hành và Vật liệu chế tạo STEM (${stemTopic || 'Mô hình thực hành'}):
+- Thước dây, thước đo góc, vật liệu tái chế/mô hình, kéo, băng dính.
+- Phiếu hướng dẫn thực hành và Bảng Rubric đánh giá sản phẩm nhóm.
+- Lưu ý an toàn: Đảm bảo an toàn và vệ sinh lớp học khi thực hành chế tạo.`,
+      activities_enhancement: [
+        {
+          activity_name: "Hoạt động 1: Mở đầu",
+          location: "Mở đầu > Hoạt động của học sinh",
+          enhanced_content: `- GV: Giao nhiệm vụ tìm hiểu bài toán thực tiễn cần thiết kế/chế tạo sản phẩm: "${stemTopic}".\n- HS: Thảo luận nhóm, xác định các kiến thức môn ${subject} cần vận dụng.`
+        } as any,
+        {
+          activity_name: "Hoạt động 4: Vận dụng",
+          location: "Vận dụng > Hoạt động của học sinh",
+          enhanced_content: `🚀 QUY TRÌNH THỰC HIỆN DỰ ÁN STEM: "${stemTopic}"\n- Bước 1 (Giao nhiệm vụ & Nêu tiêu chí): GV hướng dẫn yêu cầu kỹ thuật của sản phẩm.\n- Bước 2 (Thiết kế & Lập sơ đồ): HS vận dụng kiến thức bài học vẽ bản thiết kế chi tiết.\n- Bước 3 (Chế tạo & Đo đạc thử nghiệm): Các nhóm thực hành lắp ráp mô hình và ghi nhận số liệu.\n- Bước 4 (Báo cáo & Đánh giá): Trưng bày sản phẩm, đối chiếu Bảng Rubric chấm điểm nhóm.`
+        } as any
+      ],
+      summary_table: [
+        { stt: "1", code: "STEM-01", component: "Nghiên cứu & Thiết kế", expression: `Học sinh vận dụng kiến thức lập bản vẽ thiết kế chủ đề ${stemTopic}.`, activity: "Hoạt động 1" },
+        { stt: "2", code: "STEM-02", component: "Chế tạo & Đánh giá", expression: `Học sinh chế tạo, thử nghiệm và hoàn thiện sản phẩm theo bảng Rubric.`, activity: "Hoạt động Vận dụng" }
+      ] as any
+    };
   }
 
   // ==========================================
@@ -554,7 +599,7 @@ NLb.B2: HS khai báo minh bạch khi sử dụng AI trong bài báo cáo.`,
       ],
       summary_table: [
         { stt: "1", code: "NLa.A3", component: "Nhận thức về AI", expression: `HS nhận thức vai trò trợ lý học tập của AI trong môn ${subject}.`, activity: "Hoạt động 1" },
-        { stt: "2", code: "NLc.C2", component: "Ứng dụng AI", expression: `HS gõ câu lệnh hỏi AI và đối chiếu kết quả với SGK.`, activity: "Hoạt động 2" },
+        { stt: "2", code: "NLc.C2", component: "Ứng dụng AI", expression: `HS gõ câu lệnh hỏi AI và đối chiếu SGK.`, activity: "Hoạt động 2" },
         { stt: "3", code: "NLb.B2", component: "Minh bạch AI", expression: `HS khai báo khi sử dụng AI trong bài làm.`, activity: "Hoạt động 2" }
       ] as any
     };
