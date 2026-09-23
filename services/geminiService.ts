@@ -22,7 +22,8 @@ export const buildSystemPrompt = (
   grade: string,
   mode: IntegrationMode,
   level: IntegrationLevel = 'STANDARD',
-  stemTopic: string = ''
+  stemTopic: string = '',
+  targetLessons: string = ''
 ): string => {
   const eduLevel = getEducationLevel(grade);
   
@@ -115,7 +116,9 @@ YÊU CẦU ĐẶC BIỆT VỀ GIÁO DỤC STEM (BẮT BUỘC):
   + Hướng dẫn thiết kế, thực hành, chế tạo mô hình thực tế.
   + Bảng tiêu chí đánh giá sản phẩm STEM (Rubric chấm điểm nhóm): TUYỆT ĐỐI KHÔNG dùng bảng kẻ vạch gạch nối (|---|---|) vì sẽ làm vỡ định dạng Word. BẮT BUỘC trình bày dạng danh sách gạch đầu dòng rõ ràng theo từng mức độ Đạt - Khá - Tốt kèm điểm số.
 ` : '';
-
+  const lessonScopeDirective = targetLessons && targetLessons.trim()
+    ? `\n- LƯU Ý PHẠM VI TIẾT: Người dạy chỉ yêu cầu chèn NLS/AI/STEM vào các tiết: "${targetLessons}". Các tiết còn lại giữ nguyên toàn bộ tiến trình dạy học gốc, không tự ý chèn thêm.`
+    : '';
   return `
 Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 2422/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Hướng dẫn GD STEM của Bộ GD&ĐT).
 Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, ĐẶC THÙ LỨA TUỔI HỌC SINH ${grade.toUpperCase()} VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
@@ -124,6 +127,7 @@ ${pedagogyConstraint}
 ${modeInstruction}
 ${levelInstruction}
 ${stemDirective}
+${lessonScopeDirective}
 
 QUY TẮC PHÂN TÍCH VÀ ĐẦU RA BẮT BUỘC:
 1. MỤC TIÊU VÀ HỌC LIỆU (MỤC I & II):

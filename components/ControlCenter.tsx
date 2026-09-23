@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, Lightbulb } from 'lucide-react';
+import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, Lightbulb, BookmarkCheck } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
@@ -11,6 +11,8 @@ interface ControlCenterProps {
   setMode: React.Dispatch<React.SetStateAction<IntegrationMode>>;
   stemTopic?: string;
   setStemTopic?: (topic: string) => void;
+  targetLessons?: string;
+  setTargetLessons?: (lessons: string) => void;
   level: IntegrationLevel;
   setLevel: React.Dispatch<React.SetStateAction<IntegrationLevel>>;
   outputFormat: OutputFormat;
@@ -25,7 +27,7 @@ interface ControlCenterProps {
 }
 
 export default function ControlCenter({
-  state, setState, mode, setMode, stemTopic = '', setStemTopic, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
+  state, setState, mode, setMode, stemTopic = '', setStemTopic, targetLessons = '', setTargetLessons, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
   // State độc lập quản lý trạng thái bật/tắt nút STEM (không phụ thuộc vào độ dài chuỗi stemTopic)
@@ -400,17 +402,41 @@ export default function ControlCenter({
                     </div>
                 </div>
 
-                <div className="space-y-1.5 pt-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Chiến lược</label>
-                    <div className="relative group">
-                      <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={pedagogy} onChange={(e) => setPedagogy(e.target.value)}>
-                          {Object.entries(PEDAGOGY_MODELS).map(([key, value]) => (
-                              <option key={key} value={key}>{value.name}</option>
-                          ))}
-                      </select>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                {/* BỔ SUNG: CỤM CHIẾN LƯỢC & PHẠM VI TIẾT ÁP DỤNG (2 CỘT CÂN ĐỐI) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Chiến lược trích xuất</label>
+                        <div className="relative group">
+                          <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={pedagogy} onChange={(e) => setPedagogy(e.target.value)}>
+                              {Object.entries(PEDAGOGY_MODELS).map(([key, value]) => (
+                                  <option key={key} value={key}>{value.name}</option>
+                              ))}
+                          </select>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                        </div>
+                        <p className="text-[10px] text-slate-400 italic pl-1 flex items-center gap-1.5 mt-1">
+                          <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> {PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.desc}
+                        </p>
                     </div>
-                    <p className="text-[10px] text-slate-400 italic pl-1 flex items-center gap-1.5 mt-1"><Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> {PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.desc}</p>
+
+                    <div className="space-y-1.5">
+                        <div className="flex items-center justify-between ml-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                            <BookmarkCheck className="w-3 h-3 text-indigo-500" /> Tiết áp dụng tích hợp
+                          </label>
+                          <span className="text-[9px] text-slate-400 font-normal">Trống = Áp dụng toàn bài</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={targetLessons}
+                          onChange={(e) => setTargetLessons && setTargetLessons(e.target.value)}
+                          placeholder="VD: Tiết 2, Tiết 39, hoặc Chỉ tiết thực hành..."
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 placeholder:font-normal"
+                        />
+                        <p className="text-[10px] text-slate-400 italic pl-1 flex items-center gap-1 mt-1">
+                          <span>💡</span> AI chỉ chèn NLS/AI/STEM vào đúng tiết được chỉ định, các tiết khác giữ nguyên.
+                        </p>
+                    </div>
                 </div>
             </div>
 
