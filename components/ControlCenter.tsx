@@ -134,8 +134,12 @@ export default function ControlCenter({
                             : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-100/80'
                         }`}
                     >
-                        <span className={`absolute -top-2 right-3 px-2 py-0.5 text-white font-black text-[9px] rounded-full shadow-xs ${isStemActive ? 'bg-emerald-600' : 'bg-slate-400'}`}>
-                          {isStemActive ? 'ĐÃ BẬT' : 'TẮT'}
+                        <span className={`absolute -top-2 right-3 px-2 py-0.5 text-[9px] font-bold rounded-full shadow-xs ${
+                            isStemActive 
+                                ? 'bg-emerald-600 text-white' 
+                                : 'bg-indigo-600 text-white animate-pulse'
+                            }`}>
+                            {isStemActive ? 'ĐÃ BẬT' : 'MỚI'}
                         </span>
                         <span className="flex items-center gap-1.5">
                           {isStemActive ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span>🚀</span>}

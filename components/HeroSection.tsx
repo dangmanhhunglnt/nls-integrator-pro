@@ -28,7 +28,7 @@ export default function HeroSection({ appVersion }: HeroSectionProps) {
           </h2>
 
           <p className="text-gray-300 text-sm md:text-base max-w-3xl mx-auto mt-2 leading-relaxed">
-            Tự động tích hợp <span className="font-semibold text-blue-300">Năng lực số (TT 02/2025)</span> & <span className="font-semibold text-purple-300">Giáo dục AI (QĐ 2422, Khung AI 2026 & HD 2026-2027)</span> vào bài dạy. Tự động nhận diện chuẩn <span className="font-semibold text-amber-300">CV 2345 (Tiểu học)</span> & <span className="font-semibold text-emerald-300">CV 5512 (Trung học)</span>. Bảo lưu 100% định dạng, bảng biểu và công thức MathType.
+            Tự động tích hợp Năng lực số (TT 02/2025), Giáo dục AI &amp; Giáo dục STEM (CV 3089 / 909) vào bài dạy. Tự động nhận diện chuẩn CV 2345 (Tiểu học) &amp; CV 5512 (Trung học). Bảo lưu 100% định dạng, bảng biểu và công thức MathType.
           </p>
         </div>
 

@@ -690,7 +690,7 @@ const App: React.FC = () => {
                     <div className="text-[11px] text-slate-500 space-y-1.5 leading-relaxed">
                       <div className="flex items-start gap-2">
                         <span className="font-bold text-indigo-600">1.</span>
-                        <span><strong>Mục tiêu:</strong> Bổ sung chuẩn đầu ra NLS (TT 02/2025) hoặc Năng lực STEM vào mục II.</span>
+                        <span><strong>Mục tiêu:</strong> Bổ sung chuẩn đầu ra NLS (TT 02/2025), Giáo dục AI hoặc Năng lực STEM vào mục II.</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <span className="font-bold text-indigo-600">2.</span>
