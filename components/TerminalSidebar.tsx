@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Cpu, ShieldCheck, Sparkles } from 'lucide-react';
+import { Cpu, Sparkles } from 'lucide-react';
+
 interface TerminalSidebarProps {
   logs: string[];
   isProcessing: boolean;
@@ -16,7 +17,7 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
 
   return (
     <div className="w-full space-y-4">
-      {/* 1. KHỐI TRÊN CÙNG: QUY TRÌNH CHUẨN HÓA & TIÊU CHUẨN PHÁP LÝ (TĂNG TÍNH THẨM MỸ) */}
+      {/* 1. KHỐI TRÊN CÙNG: QUY TRÌNH CHUẨN HÓA & TIÊU CHUẨN PHÁP LÝ */}
       <div className="bg-white/90 backdrop-blur-md rounded-2xl p-5 shadow-sm border border-slate-200/80">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
@@ -30,7 +31,7 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
             <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">1</span>
             <div>
               <p className="font-semibold text-slate-700">Chọn cấu hình</p>
-              <p className="text-[11px] text-slate-500">Môn học, Khối lớp &amp; Chế độ NLS/AI</p>
+              <p className="text-[11px] text-slate-500">Môn học, Khối lớp &amp; Chế độ (NLS / AI / STEM)</p>
             </div>
           </div>
 
@@ -38,7 +39,7 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
             <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
             <div>
               <p className="font-semibold text-slate-700">Tải lên Giáo án (.docx)</p>
-              <p className="text-[11px] text-slate-500">Tự động nhận diện cấu trúc CV 2345 (Tiểu học) & CV 5512 (Trung học)</p>
+              <p className="text-[11px] text-slate-500">Tự động nhận diện cấu trúc CV 2345 (Tiểu học) &amp; CV 5512 (Trung học)</p>
             </div>
           </div>
 
@@ -51,13 +52,22 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] text-emerald-700 bg-emerald-50/60 p-2.5 rounded-xl">
-          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Chuẩn hóa <strong>TT 02/2025</strong> &amp; <strong>QĐ 2422</strong> của Bộ GD&amp;ĐT</span>
+        {/* Căn cứ pháp lý chuyên biệt từng mảng */}
+        <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[10px]">
+          <span className="font-bold text-slate-400 uppercase text-[9px] mr-0.5">Căn cứ:</span>
+          <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold border border-blue-200/60">
+            NLS: TT 02/2025
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-bold border border-purple-200/60">
+            AI: Khung Bộ GD&amp;ĐT
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-200/60">
+            STEM: CV 3089 / 909
+          </span>
         </div>
       </div>
 
-      {/* 2. KHỐI GIỮA: SYSTEM CORE TERMINAL (THU GỌN VỪA VẶN ĐỂ THEO DÕI LOGS) */}
+      {/* 2. KHỐI GIỮA: SYSTEM CORE TERMINAL (THEO DÕI LOGS) */}
       <div className="bg-[#0f172a] rounded-2xl p-4 shadow-lg border border-slate-800 flex flex-col h-[200px] relative overflow-hidden group">
         <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-75"></div>
         
