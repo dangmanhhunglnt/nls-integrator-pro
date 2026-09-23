@@ -29,9 +29,11 @@ export default function ControlCenter({
 }: ControlCenterProps) {
 
   const handleSelectMode = (selectedMode: IntegrationMode) => {
-    setMode(selectedMode);
-    setState(prev => ({ ...prev, mode: selectedMode }));
-  };
+  // Nếu đang chọn chính nút đó thì bấm lần nữa sẽ bỏ chọn (tắt NLS/AI để chỉ làm STEM)
+  const newMode = mode === selectedMode ? ('' as any) : selectedMode;
+  setMode(newMode);
+  setState(prev => ({ ...prev, mode: newMode }));
+};
 
   const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
 
