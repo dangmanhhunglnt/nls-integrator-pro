@@ -1,5 +1,5 @@
-import React, {useMemo } from 'react';
-import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, CheckCircle, ShieldAlert, Cpu } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, CheckCircle, ShieldAlert, Cpu, Lightbulb } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
@@ -9,6 +9,8 @@ interface ControlCenterProps {
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   mode: IntegrationMode;
   setMode: React.Dispatch<React.SetStateAction<IntegrationMode>>;
+  stemTopic?: string;
+  setStemTopic?: (topic: string) => void;
   level: IntegrationLevel;
   setLevel: React.Dispatch<React.SetStateAction<IntegrationLevel>>;
   outputFormat: OutputFormat;
@@ -23,7 +25,7 @@ interface ControlCenterProps {
 }
 
 export default function ControlCenter({
-  state, setState, mode, setMode, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
+  state, setState, mode, setMode, stemTopic = '', setStemTopic, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
   // Tùy chọn ép chèn NLS dành cho giáo viên đi thao giảng / thi giáo viên giỏi
@@ -180,7 +182,6 @@ export default function ControlCenter({
       setLevel(pedagogicalEvaluation.recommendedLevel as IntegrationLevel);
     }
   }, [pedagogicalEvaluation, setLevel]);
-  ;
 
   return (
     <>
@@ -199,7 +200,8 @@ export default function ControlCenter({
                     </div>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 4 Nút chế độ tích hợp */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <button 
                         type="button"
                         onClick={() => handleSelectMode('NLS_AI')} 
@@ -239,7 +241,57 @@ export default function ControlCenter({
                         <span>Giáo dục AI</span>
                         <span className="text-[9px] font-normal text-slate-500">Theo Khung giáo dục AI</span>
                     </button>
+
+                    <button 
+                        type="button"
+                        onClick={() => handleSelectMode((mode === 'STEM' as any ? 'NLS_AI' : 'STEM') as IntegrationMode)} 
+                        className={`p-3.5 rounded-xl text-left border text-xs font-bold transition-all flex flex-col gap-1 cursor-pointer justify-between ${
+                            (mode as any) === 'STEM' || Boolean(stemTopic)
+                            ? 'bg-emerald-50/90 border-emerald-500 text-emerald-800 shadow-md ring-2 ring-emerald-500/20' 
+                            : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-100/80'
+                        }`}
+                    >
+                        <span className="flex items-center gap-1">🚀 Giáo dục STEM</span>
+                        <span className="text-[9px] font-normal text-slate-500">Quy trình thiết kế kỹ thuật</span>
+                    </button>
                 </div>
+
+                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM (TỰ NHẬP HOẶC CHỌN GỢI Ý) */}
+                {((mode as any) === 'STEM' || Boolean(stemTopic)) && setStemTopic && (
+                    <div className="p-3.5 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 rounded-xl border border-emerald-200 space-y-2.5 animate-fade-in-up">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                                <Lightbulb className="w-3.5 h-3.5 text-emerald-600" /> Chủ đề STEM bài học:
+                            </label>
+                            <span className="text-[10px] text-emerald-700 italic">Nhập chủ đề hoặc bấm chọn gợi ý bên dưới</span>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="VD: Thiết kế giác kế đo góc/chiều cao, Mô hình tháp đa diện, Dự án lãi suất tiết kiệm..."
+                            value={stemTopic}
+                            onChange={(e) => setStemTopic(e.target.value)}
+                            className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-emerald-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                        />
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            <span className="text-[10px] font-bold text-emerald-800">Gợi ý nhanh:</span>
+                            {[
+                                'Thiết kế giác kế đo khoảng cách thực địa',
+                                'Chế tạo mô hình hình học không gian 3D',
+                                'Dự án phân tích dữ liệu & biểu đồ tài chính',
+                                'Mô hình chuyển động và quỹ đạo vật lý'
+                            ].map((topic, idx) => (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => setStemTopic(topic)}
+                                    className="px-2 py-0.5 rounded-full text-[10px] bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white transition cursor-pointer shadow-2xs"
+                                >
+                                    + {topic}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* BỔ SUNG: 3 CỤM TÙY CHỌN (MỨC ĐỘ, KIỂU XUẤT, MÀU CHỮ CHÈN) */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">

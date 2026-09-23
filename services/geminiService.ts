@@ -140,7 +140,8 @@ export async function generateCompetencyIntegration(
   grade: GradeType | string = 'Toàn cấp',
   mode: IntegrationMode = 'NLS_AI',
   apiKey: string = '',
-  level: IntegrationLevel = 'STANDARD'
+  level: IntegrationLevel = 'STANDARD',
+  stemTopic: string = ''
 ): Promise<GeneratedNLSContent> {
   const customApiKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('CUSTOM_GEMINI_KEY') || '' : '');
   const userToken = typeof window !== 'undefined' ? localStorage.getItem('USER_TOKEN') || 'user_logged_in' : '';
@@ -151,7 +152,7 @@ export async function generateCompetencyIntegration(
 
   try {
     const systemPrompt = buildSystemPrompt(subject, grade, mode, level);
-    const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}`;
+    const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}${stemTopic ? `\n\n- CHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${stemTopic}". Hãy xây dựng quy trình thiết kế kỹ thuật và tiêu chí đánh giá sản phẩm STEM cụ thể cho bài này.` : ''}`;
 
     const response = await fetch('/api/generate', {
       method: 'POST',
@@ -166,6 +167,7 @@ export async function generateCompetencyIntegration(
         deviceId: deviceId,
         standard: standard,
         level: level,
+        stemTopic: stemTopic,
       }),
     });
 

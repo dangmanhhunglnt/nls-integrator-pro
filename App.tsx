@@ -26,6 +26,7 @@ const App: React.FC = () => {
 
   const [pedagogy, setPedagogy] = useState<string>('DEFAULT');
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
+  const [stemTopic, setStemTopic] = useState<string>(''); // Bổ sung state lưu chủ đề STEM
   const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
   const [highlightColor, setHighlightColor] = useState<HighlightColor>('FF0000');
@@ -258,6 +259,7 @@ const App: React.FC = () => {
     const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
     addLog(`⚙️ Chiến lược: ${modelName}`);
     addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
+    addLog(`🎯 Chế độ: ${mode}${stemTopic ? ` (STEM: ${stemTopic})` : ''}`);
     addLog(`🎯 Mức độ: ${level === 'INTENSIVE' ? 'Chuyên sâu (Thao giảng)' : 'Tiêu chuẩn (Lên lớp)'}`);
     addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
@@ -275,7 +277,8 @@ const App: React.FC = () => {
           state.grade,
           mode,
           userApiKey,
-          level
+          level,
+          stemTopic // Truyền thêm chủ đề STEM vào service
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
@@ -323,7 +326,8 @@ const App: React.FC = () => {
           state.grade,
           mode,
           userApiKey,
-          level
+          level,
+          stemTopic // Truyền thêm chủ đề STEM vào service
         );
 
         let finalBlob: Blob;
@@ -441,6 +445,8 @@ const App: React.FC = () => {
                 setState={setState}
                 mode={mode}
                 setMode={setMode}
+                stemTopic={stemTopic}
+                setStemTopic={setStemTopic}
                 level={level}
                 setLevel={setLevel}
                 outputFormat={outputFormat}
