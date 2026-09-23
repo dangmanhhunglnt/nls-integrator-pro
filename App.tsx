@@ -113,6 +113,7 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
     setUser(null);
   };
+
   // TỰ ĐỘNG ĐỒNG BỘ: ĐỌC BẢN QUYỀN VÀ KHÓA MÁY VÀO SUPABASE KHI MỞ TRANG
   useEffect(() => {
     const autoSyncLicenseAndBindDevice = async () => {
@@ -158,9 +159,10 @@ const App: React.FC = () => {
 
     autoSyncLicenseAndBindDevice();
   }, [user?.uid]);
+
   const [state, setState] = useState<AppState>({
     file: null, 
-    files: [], // Khắc phục lỗi thiếu trường files của AppState
+    files: [], 
     subject: '' as SubjectType, 
     grade: '' as GradeType, 
     isProcessing: false, 
@@ -227,6 +229,13 @@ const App: React.FC = () => {
       return; 
     }
 
+    // Chế độ thực tế: nếu tắt các nút NLS và có stemTopic thì chạy 'STEM'
+    const effectiveMode: string = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
+    if (!mode && !stemTopic) {
+      alert("Vui lòng chọn ít nhất một chế độ tích hợp (NLS, AI hoặc STEM)!");
+      return;
+    }
+
     // 1. Kiểm tra tài khoản
     if (!user) {
       alert("Vui lòng Đăng nhập tài khoản Google để tiếp tục!");
@@ -259,7 +268,7 @@ const App: React.FC = () => {
     const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
     addLog(`⚙️ Chiến lược: ${modelName}`);
     addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
-    addLog(`🎯 Chế độ: ${mode}${stemTopic ? ` (STEM: ${stemTopic})` : ''}`);
+    addLog(`🎯 Chế độ: ${effectiveMode === 'STEM' ? 'Chỉ Giáo dục STEM' : effectiveMode}${stemTopic ? ` (STEM: ${stemTopic})` : ''}`);
     addLog(`🎯 Mức độ: ${level === 'INTENSIVE' ? 'Chuyên sâu (Thao giảng)' : 'Tiêu chuẩn (Lên lớp)'}`);
     addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
@@ -275,10 +284,10 @@ const App: React.FC = () => {
           textContext,
           state.subject,
           state.grade,
-          mode,
+          effectiveMode as any,
           userApiKey,
           level,
-          stemTopic // Truyền thêm chủ đề STEM vào service
+          stemTopic
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
@@ -324,21 +333,21 @@ const App: React.FC = () => {
           fileText,
           state.subject,
           state.grade,
-          mode,
+          effectiveMode as any,
           userApiKey,
           level,
-          stemTopic // Truyền thêm chủ đề STEM vào service
+          stemTopic
         );
 
         let finalBlob: Blob;
         let outName: string;
 
         if (outputFormat === 'APPENDIX_ONLY') {
-          finalBlob = await createAppendixDocx(itemContent, state.subject, state.grade, mode);
-          outName = `[Phụ lục NLS-AI] ${fileItem.name}`;
+          finalBlob = await createAppendixDocx(itemContent, state.subject, state.grade, effectiveMode as any);
+          outName = effectiveMode === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`;
         } else {
-          finalBlob = await injectContentIntoDocx(fileItem, itemContent, mode, addLog, highlightColor);
-          outName = `[NLS-PRO] ${fileItem.name}`;
+          finalBlob = await injectContentIntoDocx(fileItem, itemContent, effectiveMode as any, addLog, highlightColor);
+          outName = effectiveMode === 'STEM' ? `[STEM-PRO] ${fileItem.name}` : `[NLS-PRO] ${fileItem.name}`;
         }
 
         outputBlobs.push({ name: outName, blob: finalBlob });
@@ -348,7 +357,7 @@ const App: React.FC = () => {
       // Đóng gói thành 1 file ZIP duy nhất
       addLog(`📦 Đang nén ${outputBlobs.length} file vào tệp ZIP...`);
       const zipBlob = await createZipFromBlobs(outputBlobs);
-      const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_tich_hop_${state.subject}_${state.grade}.zip`;
+      const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_${effectiveMode === 'STEM' ? 'STEM' : 'tich_hop'}_${state.subject}_${state.grade}.zip`;
 
       if (user.plan !== 'PRO') {
         const nextUsage = (user.usageCount || 0) + targetFiles.length;
@@ -383,6 +392,7 @@ const App: React.FC = () => {
   // 4. Hàm đóng gói và xuất bản file Word (Chèn trực tiếp hoặc Xuất phụ lục riêng)
   const handleFinalizeAndDownload = async (finalContent: GeneratedNLSContent) => {
     if (!state.file) return;
+    const effectiveMode: string = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
     setState(prev => ({ 
       ...prev, 
       isProcessing: true, 
@@ -393,11 +403,11 @@ const App: React.FC = () => {
       let outputFileName: string;
 
       if (outputFormat === 'APPENDIX_ONLY') {
-        newBlob = await createAppendixDocx(finalContent, state.subject, state.grade, mode);
-        outputFileName = `[Phụ lục NLS-AI] ${state.file.name}`;
+        newBlob = await createAppendixDocx(finalContent, state.subject, state.grade, effectiveMode as any);
+        outputFileName = effectiveMode === 'STEM' ? `[Phụ lục STEM] ${state.file.name}` : `[Phụ lục NLS-AI] ${state.file.name}`;
       } else {
-        newBlob = await injectContentIntoDocx(state.file, finalContent, mode, addLog, highlightColor);
-        outputFileName = `[NLS-PRO] ${state.file.name}`;
+        newBlob = await injectContentIntoDocx(state.file, finalContent, effectiveMode as any, addLog, highlightColor);
+        outputFileName = effectiveMode === 'STEM' ? `[STEM-PRO] ${state.file.name}` : `[NLS-PRO] ${state.file.name}`;
       }
 
       setState(prev => ({ 
@@ -435,7 +445,7 @@ const App: React.FC = () => {
           {/* 2. HERO SECTION COMPONENT */}
           <HeroSection appVersion={APP_VERSION} />
 
-          {/* 3. MAIN WORKSPACE GRID: Cân bằng tỷ lệ 7/5 giúp 2 cột đều và đẹp hơn */}
+          {/* 3. MAIN WORKSPACE GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             
             {/* LEFT: CONTROL CENTER COMPONENT */}
@@ -461,7 +471,7 @@ const App: React.FC = () => {
               />
             </div>
             
-            {/* RIGHT: TERMINAL & AUTHOR SIDEBAR COMPONENT (Bám dính mượt mà) */}
+            {/* RIGHT: TERMINAL & AUTHOR SIDEBAR COMPONENT */}
             <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
                <TerminalSidebar logs={state.logs} isProcessing={state.isProcessing} />
             </div>
@@ -470,81 +480,80 @@ const App: React.FC = () => {
       </div>
 
       <footer className="mt-20 border-t border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md pt-10 pb-8">
-  <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
-    
-    {/* Khối 3 Card chức năng */}
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      
-      {/* Card 1: Bản quyền & Tác giả */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200 dark:shadow-none">
-            NLS
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm text-slate-900 dark:text-white">NLS Integrator Pro</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">v2.6</span>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            {/* Card 1: Bản quyền & Tác giả */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200 dark:shadow-none">
+                  NLS
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">NLS Integrator Pro</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">v2.6</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Trợ lý AI Tích hợp Giáo án Chuẩn GDPT 2018</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-400">
+                Tác giả: <span className="font-semibold text-slate-800 dark:text-slate-200">Đặng Mạnh Hùng</span> (THPT Lý Nhân Tông)
+              </div>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Trợ lý AI Tích hợp Giáo án Chuẩn GDPT 2018</p>
+
+            {/* Card 2: Chuẩn quy định & Nâng cấp */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/70 dark:border-indigo-800/50 shadow-sm flex flex-col justify-between items-center text-center space-y-3">
+              <button
+                type="button"
+                onClick={() => setIsPricingOpen(true)}
+                className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold text-xs shadow-md shadow-indigo-200 dark:shadow-none transition hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>💎</span> Mở khóa Gói Bản Quyền & Nạp Lượt
+              </button>
+              <div className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>CV 2345 (Tiểu học) &bull; CV 5512 (Trung học) &bull; TT 02/2025</span>
+              </div>
+            </div>
+
+            {/* Card 3: Hotline & Zalo hỗ trợ */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Hỗ trợ kỹ thuật</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Trực tuyến 24/7
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://zalo.me/0978386357"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
+                >
+                  <span>💬</span> Nhắn Zalo
+                </a>
+                <a
+                  href="tel:0978386357"
+                  className="flex-1 py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition"
+                >
+                  📞 097 8386 357
+                </a>
+              </div>
+            </div>
+
           </div>
-        </div>
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-400">
-          Tác giả: <span className="font-semibold text-slate-800 dark:text-slate-200">Đặng Mạnh Hùng</span> (THPT Lý Nhân Tông)
-        </div>
-      </div>
 
-      {/* Card 2: Chuẩn quy định & Nâng cấp */}
-      <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/70 dark:border-indigo-800/50 shadow-sm flex flex-col justify-between items-center text-center space-y-3">
-        <button
-          type="button"
-          onClick={() => setIsPricingOpen(true)}
-          className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold text-xs shadow-md shadow-indigo-200 dark:shadow-none transition hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
-        >
-          <span>💎</span> Mở khóa Gói Bản Quyền & Nạp Lượt
-        </button>
-        <div className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>CV 2345 (Tiểu học) &bull; CV 5512 (Trung học) &bull; TT 02/2025</span>
+          {/* Dòng bản quyền cuối */}
+          <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left text-[11px] text-slate-400 dark:text-slate-500">
+            <span>© 2026 NLS Integrator Pro. Nền tảng tự động hóa tích hợp Năng lực số & AI giáo dục hàng đầu.</span>
+            <span className="text-[10px] bg-slate-200/60 dark:bg-slate-800/60 px-2 py-0.5 rounded text-slate-500">Bảo mật thiết bị 1:1</span>
+          </div>
+
         </div>
-      </div>
-
-      {/* Card 3: Hotline & Zalo hỗ trợ */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Hỗ trợ kỹ thuật</span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Trực tuyến 24/7
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href="https://zalo.me/0978386357"
-            target="_blank"
-            rel="noreferrer"
-            className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
-          >
-            <span>💬</span> Nhắn Zalo
-          </a>
-          <a
-            href="tel:0978386357"
-            className="flex-1 py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition"
-          >
-            📞 097 8386 357
-          </a>
-        </div>
-      </div>
-
-    </div>
-
-    {/* Dòng bản quyền cuối */}
-    <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left text-[11px] text-slate-400 dark:text-slate-500">
-      <span>© 2026 NLS Integrator Pro. Nền tảng tự động hóa tích hợp Năng lực số & AI giáo dục hàng đầu.</span>
-      <span className="text-[10px] bg-slate-200/60 dark:bg-slate-800/60 px-2 py-0.5 rounded text-slate-500">Bảo mật thiết bị 1:1</span>
-    </div>
-
-  </div>
-</footer>
+      </footer>
 
       {/* POPUP BẢNG GIÁ & NẠP TIỀN VIETQR */}
       <PricingModal 
