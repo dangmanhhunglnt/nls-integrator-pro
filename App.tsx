@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
-import { PEDAGOGY_MODELS, getDeviceId } from './utils';
+import { PEDAGOGY_MODELS, getDeviceId, detectLessonsFromText } from './utils';
 import packageJson from './package.json';
 
 // Import icons cho cột bên phải
@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
   const [stemTopic, setStemTopic] = useState<string>(''); // Bổ sung state lưu chủ đề STEM
   const [targetLessons, setTargetLessons] = useState<string>(''); // Bổ sung state phạm vi tiết áp dụng
+  const [detectedLessons, setDetectedLessons] = useState<string[]>([]); // Bổ sung state danh sách tiết tự động nhận diện từ file
   const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
   const [highlightColor, setHighlightColor] = useState<HighlightColor>('FF0000');
@@ -201,7 +202,7 @@ const App: React.FC = () => {
     
   const handleEditKey = () => setIsKeySaved(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []).filter(f => f.name.endsWith('.docx'));
     if (selectedFiles.length > 0) {
       setState(prev => ({ 
@@ -215,6 +216,22 @@ const App: React.FC = () => {
           ? [`📂 Đã nạp hàng loạt ${selectedFiles.length} file giáo án.`] 
           : [`📂 Đã nạp file: ${selectedFiles[0].name}`] 
       }));
+
+      // BỔ SUNG: Tự động trích xuất văn bản từ file đầu tiên để quét nhận diện các tiết
+      try {
+        const textContext = await extractTextFromDocx(selectedFiles[0]);
+        const lessons = detectLessonsFromText(textContext);
+        setDetectedLessons(lessons);
+        setTargetLessons(''); // Mặc định là toàn bộ bài học
+
+        if (lessons.length > 0) {
+          addLog(`💡 Nhận diện bài dạy có ${lessons.length} tiết: ${lessons.join(', ')}.`);
+        }
+      } catch (err) {
+        console.warn("Không thể quét tiết tự động từ file:", err);
+        setDetectedLessons([]);
+      }
+
     } else { 
       alert("Chỉ hỗ trợ định dạng Word (.docx)!"); 
     }
@@ -435,7 +452,7 @@ const App: React.FC = () => {
             .upsert({ 
               id: user.uid, 
               email: user.email, 
-              full_name: user.displayName,
+              full_name: user.displayName, 
               usage_count: nextUsage,
               max_usage: user.maxUsage,
               role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
@@ -471,7 +488,8 @@ const App: React.FC = () => {
           effectiveMode as any,
           userApiKey,
           level,
-          stemTopic
+          stemTopic,
+          targetLessons
         );
 
         let finalBlob: Blob;
@@ -501,7 +519,7 @@ const App: React.FC = () => {
           .upsert({ 
             id: user.uid, 
             email: user.email, 
-            full_name: user.displayName,
+            full_name: user.displayName, 
             usage_count: nextUsage,
             max_usage: user.maxUsage,
             role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
@@ -511,10 +529,10 @@ const App: React.FC = () => {
       }
 
       addLog(`✨ Đã đóng gói thành công tệp ZIP!`);
-      setState(prev => ({
-        ...prev,
-        isProcessing: false,
-        step: 'done',
+      setState(prev => ({ 
+        ...prev, 
+        isProcessing: false, 
+        step: 'done', 
         result: { fileName: zipFileName, blob: zipBlob }
       }));
 
@@ -594,6 +612,7 @@ const App: React.FC = () => {
                 setStemTopic={setStemTopic}
                 targetLessons={targetLessons}
                 setTargetLessons={setTargetLessons}
+                detectedLessons={detectedLessons}
                 level={level}
                 setLevel={setLevel}
                 outputFormat={outputFormat}

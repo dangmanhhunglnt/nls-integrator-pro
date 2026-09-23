@@ -13,6 +13,7 @@ interface ControlCenterProps {
   setStemTopic?: (topic: string) => void;
   targetLessons?: string;
   setTargetLessons?: (lessons: string) => void;
+  detectedLessons?: string[];
   level: IntegrationLevel;
   setLevel: React.Dispatch<React.SetStateAction<IntegrationLevel>>;
   outputFormat: OutputFormat;
@@ -27,10 +28,10 @@ interface ControlCenterProps {
 }
 
 export default function ControlCenter({
-  state, setState, mode, setMode, stemTopic = '', setStemTopic, targetLessons = '', setTargetLessons, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
+  state, setState, mode, setMode, stemTopic = '', setStemTopic, targetLessons = '', setTargetLessons, detectedLessons = [], level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
-  // State độc lập quản lý trạng thái bật/tắt nút STEM (không phụ thuộc vào độ dài chuỗi stemTopic)
+  // State độc lập quản lý trạng thái bật/tắt nút STEM
   const [isStemActive, setIsStemActive] = useState<boolean>(Boolean(stemTopic));
 
   // Tự động đồng bộ trạng thái khi prop stemTopic từ component cha thay đổi
@@ -41,7 +42,6 @@ export default function ControlCenter({
   }, [stemTopic]);
 
   const handleSelectMode = (selectedMode: IntegrationMode) => {
-    // Nếu đang chọn chính nút đó thì bấm lần nữa sẽ bỏ chọn (tắt NLS/AI để chỉ làm STEM)
     const newMode = mode === selectedMode ? ('' as any) : selectedMode;
     setMode(newMode);
     setState(prev => ({ ...prev, mode: newMode }));
@@ -66,7 +66,7 @@ export default function ControlCenter({
                     </div>
                 </div>
                 
-                {/* 4 Nút chế độ tích hợp: Cho phép bật song song cả NLS, AI và STEM */}
+                {/* 4 Nút chế độ tích hợp */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <button 
                         type="button"
@@ -151,7 +151,7 @@ export default function ControlCenter({
                     </button>
                 </div>
 
-                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM (HIỂN THỊ KHI BẬT NÚT STEM) */}
+                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM */}
                 {isStemActive && setStemTopic && (
                     <div className="p-3.5 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 rounded-xl border border-emerald-200 space-y-2.5 animate-fade-in-up">
                         <div className="flex items-center justify-between">
@@ -402,112 +402,166 @@ export default function ControlCenter({
                     </div>
                 </div>
 
-                {/* BỔ SUNG: CỤM CHIẾN LƯỢC & PHẠM VI TIẾT ÁP DỤNG (2 CỘT CÂN ĐỐI) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Chiến lược trích xuất</label>
-                        <div className="relative group">
-                          <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={pedagogy} onChange={(e) => setPedagogy(e.target.value)}>
-                              {Object.entries(PEDAGOGY_MODELS).map(([key, value]) => (
-                                  <option key={key} value={key}>{value.name}</option>
-                              ))}
-                          </select>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
-                        </div>
-                        <p className="text-[10px] text-slate-400 italic pl-1 flex items-center gap-1.5 mt-1">
-                          <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> {PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.desc}
-                        </p>
+                {/* CHIẾN LƯỢC TRÍCH XUẤT (TRỞ LẠI FULL DÒNG GỌN GÀNG, KHÔNG BỊ CHẬT) */}
+                <div className="space-y-1.5 pt-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Chiến lược trích xuất</label>
+                    <div className="relative group">
+                      <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={pedagogy} onChange={(e) => setPedagogy(e.target.value)}>
+                          {Object.entries(PEDAGOGY_MODELS).map(([key, value]) => (
+                              <option key={key} value={key}>{value.name}</option>
+                          ))}
+                      </select>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
                     </div>
-
-                    <div className="space-y-1.5">
-                        <div className="flex items-center justify-between ml-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                            <BookmarkCheck className="w-3 h-3 text-indigo-500" /> Tiết áp dụng tích hợp
-                          </label>
-                          <span className="text-[9px] text-slate-400 font-normal">Trống = Áp dụng toàn bài</span>
-                        </div>
-                        <input
-                          type="text"
-                          value={targetLessons}
-                          onChange={(e) => setTargetLessons && setTargetLessons(e.target.value)}
-                          placeholder="VD: Tiết 2, Tiết 39, hoặc Chỉ tiết thực hành..."
-                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 placeholder:font-normal"
-                        />
-                        <p className="text-[10px] text-slate-400 italic pl-1 flex items-center gap-1 mt-1">
-                          <span>💡</span> AI chỉ chèn NLS/AI/STEM vào đúng tiết được chỉ định, các tiết khác giữ nguyên.
-                        </p>
-                    </div>
+                    <p className="text-[10px] text-slate-400 italic pl-1 flex items-center gap-1.5 mt-1">
+                      <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> {PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.desc}
+                    </p>
                 </div>
             </div>
 
             {/* Card 3: Tài liệu đầu vào */}
-            <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
-                        * File Giáo án (.docx) {fileCount > 1 && <span className="text-indigo-600 font-extrabold">(Đã chọn {fileCount} file)</span>}
-                    </label>
-                    <label className={`relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-4 group ${
-                      fileCount > 0 
-                      ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
-                      : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
-                    }`}>
-                        <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
-                            {fileCount > 0 ? (
-                                <div className="flex items-center gap-3 w-full px-2">
-                                    <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-                                        {fileCount > 1 ? <Files className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-                                    </div>
-                                    <div className="min-w-0 flex-1 text-left">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
-                                            {fileCount > 1 ? `Đã nạp ${fileCount} file` : 'Đã nạp 1 file'}
-                                          </span>
+            <div className="col-span-1 md:col-span-2 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
+                            * File Giáo án (.docx) {fileCount > 1 && <span className="text-indigo-600 font-extrabold">(Đã chọn {fileCount} file)</span>}
+                        </label>
+                        <label className={`relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-4 group ${
+                          fileCount > 0 
+                          ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
+                          : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
+                        }`}>
+                            <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
+                                {fileCount > 0 ? (
+                                    <div className="flex items-center gap-3 w-full px-2">
+                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+                                            {fileCount > 1 ? <Files className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                                         </div>
-                                        <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
-                                          {fileCount > 1 ? state.files.map(f => f.name).join(', ') : state.file?.name}
-                                        </p>
+                                        <div className="min-w-0 flex-1 text-left">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
+                                                {fileCount > 1 ? `Đã nạp ${fileCount} file` : 'Đã nạp 1 file'}
+                                              </span>
+                                            </div>
+                                            <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
+                                              {fileCount > 1 ? state.files.map(f => f.name).join(', ') : state.file?.name}
+                                            </p>
+                                        </div>
+                                        <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 shrink-0 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                                          <RefreshCw className="w-3 h-3" /> Đổi
+                                        </span>
                                     </div>
-                                    <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 shrink-0 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                                      <RefreshCw className="w-3 h-3" /> Đổi
-                                    </span>
+                                ) : (
+                                    <>
+                                        <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                            <FileUp className="w-4 h-4" />
+                                        </div>
+                                        <p className="font-bold text-slate-700 text-xs">Tải lên Giáo án (.docx)</p>
+                                        <span className="text-[10px] text-slate-400 mt-0.5">Chọn 1 hoặc giữ Ctrl chọn nhiều file cùng lúc</span>
+                                    </>
+                                )}
+                            </div>
+                            <input type="file" accept=".docx" multiple className="hidden" onChange={handleFileChange} />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
+                            File Phân phối chương trình (Tùy chọn)
+                        </label>
+                        <label className="relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 transition-all cursor-pointer overflow-hidden p-4 group bg-white shadow-xs">
+                            <div className="flex flex-col items-center justify-center text-center z-10 transition-transform duration-300 group-hover:scale-105">
+                                <div className="w-9 h-9 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <FileUp className="w-4 h-4" />
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                        <FileUp className="w-4 h-4" />
-                                    </div>
-                                    <p className="font-bold text-slate-700 text-xs">Tải lên Giáo án (.docx)</p>
-                                    <span className="text-[10px] text-slate-400 mt-0.5">Chọn 1 hoặc giữ Ctrl chọn nhiều file cùng lúc</span>
-                                </>
-                            )}
-                        </div>
-                        <input type="file" accept=".docx" multiple className="hidden" onChange={handleFileChange} />
-                    </label>
+                                <p className="font-bold text-slate-700 text-xs">Tải lên PPCT</p>
+                                <span className="text-[10px] text-slate-400 mt-0.5">Hỗ trợ định dạng .docx, .pdf</span>
+                            </div>
+                            <input type="file" accept=".docx,.pdf" className="hidden" onChange={(e) => {
+                                const ppctFile = e.target.files?.[0];
+                                if (ppctFile) {
+                                    console.log("Đã chọn file PPCT:", ppctFile.name);
+                                }
+                            }} />
+                        </label>
+                    </div>
                 </div>
 
-                <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
-                        File Phân phối chương trình (Tùy chọn)
-                    </label>
-                    <label className="relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 transition-all cursor-pointer overflow-hidden p-4 group bg-white shadow-xs">
-                        <div className="flex flex-col items-center justify-center text-center z-10 transition-transform duration-300 group-hover:scale-105">
-                            <div className="w-9 h-9 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                <FileUp className="w-4 h-4" />
+                {/* KHỐI CHỌN TIẾT TỰ ĐỘNG THÔNG MINH (CHỈ HIỆN KHI ĐÃ NẠP FILE GIÁO ÁN) */}
+                {fileCount > 0 && (
+                    <div className="p-3.5 bg-gradient-to-r from-indigo-50/60 to-purple-50/40 rounded-2xl border border-indigo-100/80 space-y-2.5 animate-fade-in-up">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                                <BookmarkCheck className="w-4 h-4 text-indigo-600" />
+                                <span>Phạm vi tiết áp dụng:</span>
                             </div>
-                            <p className="font-bold text-slate-700 text-xs">Tải lên PPCT</p>
-                            <span className="text-[10px] text-slate-400 mt-0.5">Hỗ trợ định dạng .docx, .pdf</span>
+                            <span className="text-[10px] text-slate-500 font-medium">
+                                {detectedLessons.length > 0 
+                                  ? `Đã nhận diện ${detectedLessons.length} tiết trong bài` 
+                                  : 'Bấm chọn hoặc nhập tiết mong muốn'}
+                            </span>
                         </div>
-                        <input type="file" accept=".docx,.pdf" className="hidden" onChange={(e) => {
-                            const ppctFile = e.target.files?.[0];
-                            if (ppctFile) {
-                                console.log("Đã chọn file PPCT:", ppctFile.name);
-                            }
-                        }} />
-                    </label>
-                </div>
+
+                        {/* Dải nút bấm (Chips) chọn tiết trực quan */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Nút 1: Toàn bài */}
+                            <button
+                                type="button"
+                                onClick={() => setTargetLessons && setTargetLessons('')}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
+                                    !targetLessons
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100/80 hover:text-slate-800'
+                                }`}
+                            >
+                                {!targetLessons && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                                🌟 Toàn bộ bài học
+                            </button>
+
+                            {/* Các nút tiết được AI/Regex nhận diện từ bài dạy */}
+                            {detectedLessons.map((lesson) => {
+                                const isSelected = targetLessons === lesson;
+                                return (
+                                    <button
+                                        key={lesson}
+                                        type="button"
+                                        onClick={() => setTargetLessons && setTargetLessons(isSelected ? '' : lesson)}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
+                                            isSelected
+                                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-200'
+                                            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-white'
+                                        }`}
+                                    >
+                                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                                        {lesson}
+                                    </button>
+                                );
+                            })}
+
+                            {/* Ô nhập phụ trợ nếu bài nhiều tiết tùy biến hoặc không có tiêu đề rõ ràng */}
+                            <input
+                                type="text"
+                                value={targetLessons}
+                                onChange={(e) => setTargetLessons && setTargetLessons(e.target.value)}
+                                placeholder="Hoặc gõ chỉ định: Tiết 2, Tiết 39..."
+                                className="px-3 py-1.5 text-xs bg-white rounded-xl border border-slate-200 text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 min-w-[210px] flex-1"
+                            />
+                        </div>
+
+                        {targetLessons ? (
+                            <p className="text-[11px] text-emerald-700 font-medium pl-1 flex items-center gap-1">
+                                <span>🎯</span> AI sẽ <b>chỉ tích hợp NLS/AI/STEM vào {targetLessons}</b>. Các tiết khác giữ nguyên 100% tiến trình dạy học.
+                            </p>
+                        ) : (
+                            <p className="text-[11px] text-slate-400 italic pl-1">
+                                (Đang để mặc định: Phân bổ và tích hợp hài hòa vào các hoạt động có điều kiện số trong toàn bài).
+                            </p>
+                        )}
+                    </div>
+                )}
             </div>
 
-            {/* Nút Kích hoạt AI: Gọn gàng, kết thúc cột trái một cách mạch lạc */}
+            {/* Nút Kích hoạt AI */}
             <div className="col-span-1 md:col-span-2 mt-2">
                 <button 
                   disabled={fileCount === 0 || state.isProcessing} 

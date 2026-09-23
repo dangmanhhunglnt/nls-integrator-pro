@@ -139,7 +139,7 @@ export function getRecommendedToolsForGrade(grade: string): string {
     tools = DIGITAL_TOOL_REPOSITORY.GENERAL_HIGH;
   }
 
-  return tools.map(t => `- ${t.name}: ${t.usageDescription}`).join('\n');
+  return tools.map(t => `- ${t.name}:${t.usageDescription}`).join('\n');
 }
 
 // 1. CHIẾN LƯỢC NLS THEO MÔN HỌC (CHUẨN BỘ GD&ĐT GDPT 2018)
@@ -294,4 +294,45 @@ export async function getDeviceId(): Promise<string> {
     }
     return fallbackId;
   }
+}
+
+// ==========================================
+// BỔ SUNG: HÀM QUÉT NHẬN DIỆN DANH SÁCH TIẾT TỰ ĐỘNG TỪ VĂN BẢN GIÁO ÁN (.DOCX)
+// ==========================================
+export function detectLessonsFromText(text: string): string[] {
+  if (!text) return [];
+  const foundLessons = new Set<string>();
+
+  // 1. Quét các dạng khai báo thời lượng/PPCT ở phần đầu giáo án:
+  // Ví dụ: "Thời lượng: 3 tiết (tiết 38, 39, 40)", "Tiết theo PPCT: 38, 39", "Số tiết: 2 (Tiết 1, 2)"
+  const ppctRegex = /(?:tiết\s+theo\s+ppct|tiết\s+ppct|thời\s+lượng[^\n\r:]{0,50}?|số\s+tiết[^\n\r:]{0,20}?)\s*[:\-]?\s*([0-9\s,\-–—vàđến]+)/gi;
+  let match;
+  while ((match = ppctRegex.exec(text)) !== null) {
+    const rawNumbers = match[1].match(/\b\d+\b/g);
+    if (rawNumbers && rawNumbers.length > 0 && rawNumbers.length <= 12) {
+      rawNumbers.forEach(n => {
+        const num = parseInt(n, 10);
+        if (num > 0 && num <= 200) {
+          foundLessons.add(`Tiết ${num}`);
+        }
+      });
+    }
+  }
+
+  // 2. Quét tiêu đề mục phân chia theo tiết trong nội dung tiến trình dạy học:
+  // Ví dụ: "TIẾT 1:", "Tiết 2.", "TIẾT 39 -", "Tiết 1. Mở đầu", "BÀI 17 (Tiết 39)"
+  const headerRegex = /(?:^|[\r\n\t.;])\s*(?:BÀI\s+\d+[^:\n\r]*?)?[-–—:(]?\s*(?:TIẾT|Tiết)\s+(\d+)\b/gi;
+  while ((match = headerRegex.exec(text)) !== null) {
+    const num = parseInt(match[1], 10);
+    if (num > 0 && num <= 200) {
+      foundLessons.add(`Tiết ${num}`);
+    }
+  }
+
+  // Sắp xếp tăng dần theo số thứ tự tiết
+  return Array.from(foundLessons).sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
+    const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
+    return numA - numB;
+  });
 }
