@@ -113,7 +113,7 @@ YÊU CẦU ĐẶC BIỆT VỀ GIÁO DỤC STEM (BẮT BUỘC):
 - Trong mục III. Tiến trình dạy học: Tại Hoạt động Vận dụng / Luyện tập, PHẢI xây dựng quy trình STEM cụ thể:
   + Xác định vấn đề & tiêu chí sản phẩm STEM (${cleanStem}).
   + Hướng dẫn thiết kế, thực hành, chế tạo mô hình thực tế.
-  + Bảng tiêu chí đánh giá sản phẩm STEM (Rubric chấm điểm).
+  + Bảng tiêu chí đánh giá sản phẩm STEM (Rubric chấm điểm nhóm): TUYỆT ĐỐI KHÔNG dùng bảng kẻ vạch gạch nối (|---|---|) vì sẽ làm vỡ định dạng Word. BẮT BUỘC trình bày dạng danh sách gạch đầu dòng rõ ràng theo từng mức độ Đạt - Khá - Tốt kèm điểm số.
 ` : '';
 
   return `
@@ -164,7 +164,7 @@ ${isStemOnly ? `   - Với chế độ STEM thuần túy: Điền code: "STEM", 
     {
       "activity_name": "[Trích xuất chính xác tên Hoạt động Vận dụng / Luyện tập trong file gốc]",
       "location": "Hoạt động Vận dụng > Tổ chức thực hiện > HS thực hiện nhiệm vụ",
-      "enhanced_content": "${hasStem ? `🚀 TÍCH HỢP CHỦ ĐỀ STEM: "${cleanStem}"\\n- Bước 1 (Giao nhiệm vụ & Tiêu chí): GV đưa ra bài toán thực tiễn và yêu cầu sản phẩm.\\n- Bước 2 (Nghiên cứu kiến thức nền & Thiết kế): HS vận dụng kiến thức bài học vẽ bản thiết kế/lập sơ đồ đo đạc.\\n- Bước 3 (Chế tạo & Thử nghiệm): Các nhóm lắp ráp, thực hành đo thực địa, ghi nhận số liệu.\\n- Bước 4 (Báo cáo & Đánh giá): Trưng bày sản phẩm, đối chiếu bảng tiêu chí Rubric đánh giá chéo giữa các nhóm.` : '- Công cụ: [Tên công cụ]\\n- GV (Chuyển giao): [Hướng dẫn]\\n- HS (Thực hiện): [Thao tác]'}"
+      "enhanced_content": "${hasStem ? `🚀 TÍCH HỢP CHỦ ĐỀ STEM: "${cleanStem}"\\n- Bước 1 (Giao nhiệm vụ & Tiêu chí): GV đưa ra bài toán thực tiễn và yêu cầu sản phẩm.\\n- Bước 2 (Nghiên cứu kiến thức nền & Thiết kế): HS vận dụng kiến thức bài học vẽ bản thiết kế/lập sơ đồ đo đạc.\\n- Bước 3 (Chế tạo & Thử nghiệm): Các nhóm lắp ráp, thực hành đo thực địa, ghi nhận số liệu.\\n- - Bước 4 (Báo cáo & Đánh giá): Trưng bày sản phẩm, đối chiếu bảng tiêu chí Rubric đánh giá chéo giữa các nhóm (nêu rõ các mức Đạt, Khá, Tốt bằng gạch đầu dòng, không vẽ khung bảng gạch nối).` : '- Công cụ: [Tên công cụ]\\n- GV (Chuyển giao): [Hướng dẫn]\\n- HS (Thực hiện): [Thao tác]'}"
     }
   ],
   "summary_table": [

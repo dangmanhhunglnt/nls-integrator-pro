@@ -39,9 +39,11 @@ export const injectContentIntoDocx = async (
         
         let docXml = docFile.asText();
         
-        // Nhãn tiêu đề động theo 3 chế độ
+        // Nhãn tiêu đề động theo chế độ (STEM, NLS, AI hoặc kết hợp)
         let label = "Tích hợp NLS & AI";
-        if (mode === 'NLS') {
+        if ((mode as string) === 'STEM') {
+          label = "Giáo dục STEM";
+        } else if (mode === 'NLS') {
           label = "Tích hợp NLS";
         } else if (mode === 'NAI') {
           label = "Tích hợp AI";
