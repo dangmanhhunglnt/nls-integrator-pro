@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
+
+// Import icons cho cột bên phải
+import { Sparkles, ShieldAlert, Cpu, BookOpen, CheckCircle } from 'lucide-react';
 
 // Import Supabase Client để quản lý Auth & Đếm lượt dùng
 import { supabase } from './config/supabaseClient';
@@ -219,6 +222,136 @@ const App: React.FC = () => {
   const addLog = (msg: string) => { 
     setState(prev => ({ ...prev, logs: [...prev.logs, msg] })); 
   };
+
+  // TÍNH TOÁN MA TRẬN PHÂN LOẠI SƯ PHẠM (HIỂN THỊ CỘT PHẢI)
+  const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
+
+  const pedagogicalEvaluation = useMemo(() => {
+    if (fileCount === 0 && !state.subject) return null;
+
+    const fileNames = state.files && state.files.length > 0 
+      ? state.files.map(f => f.name.toLowerCase()).join(' ') 
+      : (state.file?.name.toLowerCase() || '');
+    
+    const subject = (state.subject || '').toLowerCase();
+    const query = `${fileNames} ${subject}`;
+
+    const isPracticeOrDrill = 
+      query.includes('luyện tập') || 
+      query.includes('thực hành') || 
+      query.includes('rèn kỹ năng') || 
+      query.includes('ôn tập') ||
+      query.includes('cộng') || 
+      query.includes('trừ') || 
+      query.includes('nhân') || 
+      query.includes('chia') ||
+      query.includes('phân số') || 
+      query.includes('tính nhẩm') || 
+      query.includes('giải phương trình') || 
+      query.includes('bất đẳng thức') ||
+      query.includes('chính tả') || 
+      query.includes('tập đọc') || 
+      query.includes('luyện viết') || 
+      query.includes('cảm thụ') ||
+      query.includes('kể chuyện') ||
+      query.includes('thể chất') ||
+      query.includes('chạy') ||
+      query.includes('đá cầu');
+
+    const isSpatialOrSimulation = 
+      query.includes('không gian') || 
+      query.includes('hình học') || 
+      query.includes('hình chóp') || 
+      query.includes('lăng trụ') || 
+      query.includes('mặt cầu') || 
+      query.includes('vectơ') || 
+      query.includes('đồ thị') || 
+      query.includes('hàm số') || 
+      query.includes('lượng giác') ||
+      query.includes('chuyển động') || 
+      query.includes('mô phỏng') || 
+      query.includes('vũ trụ') || 
+      query.includes('quang hợp') ||
+      query.includes('nguyên tử');
+
+    const isDataOrAI = 
+      query.includes('thống kê') || 
+      query.includes('xác suất') || 
+      query.includes('mẫu số liệu') || 
+      query.includes('biểu đồ') || 
+      query.includes('dữ liệu') || 
+      query.includes('tin học') || 
+      query.includes('thuật toán') || 
+      query.includes('lập trình') ||
+      query.includes('kinh tế');
+
+    const isSocialOrLanguage = 
+      query.includes('lịch sử') || 
+      query.includes('địa lí') || 
+      query.includes('tiếng anh') || 
+      query.includes('tự nhiên và xã hội') || 
+      query.includes('văn minh') || 
+      query.includes('khoa học');
+
+    if (isPracticeOrDrill && !isSpatialOrSimulation && !isDataOrAI) {
+      return {
+        status: 'KHÔNG NÊN GƯỢNG ÉP NĂNG LỰC SỐ / AI',
+        badgeColor: 'bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200',
+        icon: <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />,
+        tool: 'Bảng phấn, Giấy vở, Phiếu in, Thao tác trực tiếp trên đồ dùng thật',
+        action: 'Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu. Không đưa công nghệ vào để tránh làm phân tán học sinh.',
+        recommendedLevel: 'STANDARD'
+      };
+    }
+
+    if (isSpatialOrSimulation) {
+      return {
+        status: 'BẮT BUỘC TÍCH HỢP NĂNG LỰC SỐ (MÔ PHỎNG TRỰC QUAN)',
+        badgeColor: 'bg-blue-50 border-blue-300 text-blue-900 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-200',
+        icon: <Cpu className="w-5 h-5 text-blue-600 shrink-0" />,
+        tool: 'GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học động',
+        action: 'Chèn vào Hoạt động Khám phá & Hình thành kiến thức: Cho học sinh quan sát xoay góc nhìn 3D, thay đổi tham số để tự phát hiện quy luật.',
+        recommendedLevel: 'INTENSIVE'
+      };
+    }
+
+    if (isDataOrAI) {
+      return {
+        status: 'TÍCH HỢP NĂNG LỰC SỐ & TRỢ LÝ AI (XỬ LÝ DỮ LIỆU)',
+        badgeColor: 'bg-purple-50 border-purple-300 text-purple-900 dark:bg-purple-950/40 dark:border-purple-800 dark:text-purple-200',
+        icon: <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />,
+        tool: 'Bảng tính Excel/Google Sheets, Công cụ phân tích dữ liệu AI',
+        action: 'Chèn vào Hoạt động Luyện tập & Vận dụng: Nhập bảng dữ liệu thực tế, dùng hàm tính các số đặc trưng và biểu diễn bằng biểu đồ trực tuyến.',
+        recommendedLevel: 'INTENSIVE'
+      };
+    }
+
+    if (isSocialOrLanguage) {
+      return {
+        status: 'TÍCH HỢP HỌC LIỆU SỐ & NỀN TẢNG TƯƠNG TÁC',
+        badgeColor: 'bg-cyan-50 border-cyan-300 text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-800 dark:text-cyan-200',
+        icon: <BookOpen className="w-5 h-5 text-cyan-600 shrink-0" />,
+        tool: 'Bản đồ số (Google Earth), Video tư liệu lịch sử, Ứng dụng phát âm AI',
+        action: 'Chèn vào Hoạt động Mở đầu & Khám phá: Khai thác tư liệu hình ảnh, lược đồ tương tác số.',
+        recommendedLevel: 'STANDARD'
+      };
+    }
+
+    return {
+      status: 'TÍCH HỢP MỨC HỖ TRỢ TRÌNH CHIẾU THỰC CHẤT',
+      badgeColor: 'bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200',
+      icon: <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />,
+      tool: 'Slide trình chiếu bài giảng, Phiếu học tập số (Quizizz / Google Form)',
+      action: 'Chèn câu hỏi tương tác mở đầu hoặc củng cố cuối bài.',
+      recommendedLevel: 'STANDARD'
+    };
+  }, [state.files, state.file, state.subject, fileCount]);
+
+  useEffect(() => {
+    if (pedagogicalEvaluation?.recommendedLevel) {
+      setLevel(pedagogicalEvaluation.recommendedLevel as IntegrationLevel);
+    }
+  }, [pedagogicalEvaluation]);
 
   // 3. Hàm phân tích giáo án & Hỗ trợ Xử lý hàng loạt (Batch Processing)
   const handleAnalyze = async () => {
@@ -445,11 +578,11 @@ const App: React.FC = () => {
           {/* 2. HERO SECTION COMPONENT */}
           <HeroSection appVersion={APP_VERSION} />
 
-          {/* 3. MAIN WORKSPACE GRID */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+          {/* 3. MAIN WORKSPACE GRID: CHIA TỶ LỆ CÂN ĐỐI 6 : 6 (50% - 50%) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            {/* LEFT: CONTROL CENTER COMPONENT */}
-            <div className="lg:col-span-7 space-y-6">
+            {/* LEFT COLUMN: CONTROL CENTER COMPONENT (6 PHẦN) */}
+            <div className="lg:col-span-6 space-y-6">
               <ControlCenter 
                 state={state}
                 setState={setState}
@@ -471,10 +604,109 @@ const App: React.FC = () => {
               />
             </div>
             
-            {/* RIGHT: TERMINAL & AUTHOR SIDEBAR COMPONENT */}
-            <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
-               <TerminalSidebar logs={state.logs} isProcessing={state.isProcessing} />
+            {/* RIGHT COLUMN: GIÁM SÁT SƯ PHẠM, LOADER VÀ CONSOLE LOG (6 PHẦN) */}
+            <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-20">
+              
+              {/* BẢNG ĐÁNH GIÁ SƯ PHẠM: TỰ ĐỘNG HIỆN Ở CỘT PHẢI KHI CHỌN MÔN/FILE */}
+              {pedagogicalEvaluation && (
+                <div className={`rounded-2xl p-4.5 border shadow-sm transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
+                    <div className="flex items-start gap-3">
+                        <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
+                        <div className="flex-1 space-y-2">
+                            <h4 className="text-xs font-black tracking-wide uppercase">
+                                {pedagogicalEvaluation.status}
+                            </h4>
+                            
+                            <div className="text-[11px] grid grid-cols-1 gap-1.5 pt-1.5 border-t border-black/5 dark:border-white/5">
+                                <div>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
+                                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">{pedagogicalEvaluation.tool}</span>
+                                </div>
+                                <div>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">📍 Khuyến nghị triển khai: </span> 
+                                    <span className="text-slate-700 dark:text-slate-300">{pedagogicalEvaluation.action}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              )}
+
+              {/* TRẠNG THÁI: KHI AI ĐANG CHẠY THÌ HIỆN KHỐI TÍM ĐEN CÂN ĐỐI */}
+              {state.isProcessing ? (
+                <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-2xl border border-indigo-500/30 text-center flex flex-col items-center justify-center min-h-[380px] animate-fade-in-up">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                    <div className="relative z-10 flex flex-col items-center justify-center w-full">
+                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5">
+                            <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
+                            <div className="absolute inset-0 rounded-full border-4 border-indigo-400 border-t-transparent animate-spin"></div>
+                            <div className="absolute inset-2 sm:inset-3 rounded-full border-4 border-purple-400 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300 animate-pulse" />
+                            </div>
+                        </div>
+
+                        <h3 className="text-base sm:text-lg font-black text-white tracking-wide mb-2 uppercase">
+                            {Boolean(stemTopic) && !mode 
+                                ? 'AI Đang xây dựng Bài học / Dự án STEM...' 
+                                : Boolean(stemTopic) && mode 
+                                ? 'AI Đang tích hợp NLS, AI & Thiết kế STEM...' 
+                                : 'AI Đang phân tích & tích hợp Năng lực số...'}
+                        </h3>
+                        
+                        <p className="text-xs sm:text-sm text-indigo-200/80 max-w-sm mx-auto font-medium leading-relaxed">
+                            {Boolean(stemTopic) && !mode 
+                                ? `Thiết kế quy trình kỹ thuật 5 bước cho chủ đề: "${stemTopic}" theo chuẩn GDPT 2018...`
+                                : Boolean(stemTopic) && mode 
+                                ? `Kết hợp chuẩn NLS (TT 02/2025), Khung AI và quy trình STEM: "${stemTopic}"...`
+                                : 'Đang quét cấu trúc bài dạy (CV 2345 / CV 5512), đối chiếu chuẩn Năng lực số (TT 02/2025) & Khung AI 2026...'}
+                        </p>
+                        
+                        <div className="w-56 sm:w-64 h-2 bg-slate-800 rounded-full mt-6 overflow-hidden border border-white/10 shadow-inner">
+                            <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
+                        </div>
+
+                        <span className="text-[11px] text-slate-400 font-mono mt-4 block">
+                            ⚡ Đang thực hiện kết nối máy chủ phân tích...
+                        </span>
+                    </div>
+                </div>
+              ) : (
+                <>
+                  {/* Console Log chuẩn hoá */}
+                  <TerminalSidebar logs={state.logs.length > 0 ? state.logs : [
+                    "🚀 Hệ thống sẵn sàng.",
+                    "📂 Hãy chọn môn, khối lớp và tải file giáo án (.docx) ở cột bên trái.",
+                    "🎯 Hệ thống sẽ tự động đối chiếu ma trận sư phạm và chuẩn hoá."
+                  ]} isProcessing={state.isProcessing} />
+
+                  {/* Thẻ hướng dẫn quy chuẩn sư phạm để lấp đầy cột phải */}
+                  <div className="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-xs space-y-2.5">
+                    <h4 className="font-extrabold text-xs uppercase tracking-wide text-slate-700 flex items-center gap-2">
+                      <span>📋</span> Định hướng tích hợp chuyên môn
+                    </h4>
+                    <div className="text-[11px] text-slate-500 space-y-1.5 leading-relaxed">
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-indigo-600">1.</span>
+                        <span><strong>Mục tiêu:</strong> Bổ sung chuẩn đầu ra NLS (TT 02/2025) hoặc Năng lực STEM vào mục II.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-indigo-600">2.</span>
+                        <span><strong>Học liệu số:</strong> Ưu tiên công cụ trực quan, tuyệt đối không yêu cầu HS tạo tài khoản cá nhân.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="font-bold text-indigo-600">3.</span>
+                        <span><strong>Tiến trình bài dạy:</strong> Thao tác thực chất, đúng tâm lý lứa tuổi và không làm loãng thời lượng tiết học.</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
             </div>
+
           </div>
         </main>
       </div>

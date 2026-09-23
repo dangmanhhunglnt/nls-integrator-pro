@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, CheckCircle, ShieldAlert, Cpu, Lightbulb } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, Lightbulb } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
@@ -46,136 +46,6 @@ export default function ControlCenter({
   };
 
   const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
-
-  // =========================================================================
-  // MA TRẬN PHÂN LOẠI SƯ PHẠM ĐA MÔN HỌC (CHUẨN BỘ GD&ĐT CHO MỌI BÀI)
-  // =========================================================================
-  const pedagogicalEvaluation = useMemo(() => {
-    if (fileCount === 0 && !state.subject) return null;
-
-    const fileNames = state.files && state.files.length > 0 
-      ? state.files.map(f => f.name.toLowerCase()).join(' ') 
-      : (state.file?.name.toLowerCase() || '');
-    
-    const subject = (state.subject || '').toLowerCase();
-    const query = `${fileNames} ${subject}`;
-
-    const isPracticeOrDrill = 
-      query.includes('luyện tập') || 
-      query.includes('thực hành') || 
-      query.includes('rèn kỹ năng') || 
-      query.includes('ôn tập') ||
-      query.includes('cộng') || 
-      query.includes('trừ') || 
-      query.includes('nhân') || 
-      query.includes('chia') ||
-      query.includes('phân số') || 
-      query.includes('tính nhẩm') || 
-      query.includes('giải phương trình') || 
-      query.includes('bất đẳng thức') ||
-      query.includes('chính tả') || 
-      query.includes('tập đọc') || 
-      query.includes('luyện viết') || 
-      query.includes('cảm thụ') ||
-      query.includes('kể chuyện') ||
-      query.includes('thể chất') ||
-      query.includes('chạy') ||
-      query.includes('đá cầu');
-
-    const isSpatialOrSimulation = 
-      query.includes('không gian') || 
-      query.includes('hình học') || 
-      query.includes('hình chóp') || 
-      query.includes('lăng trụ') || 
-      query.includes('mặt cầu') || 
-      query.includes('vectơ') || 
-      query.includes('đồ thị') || 
-      query.includes('hàm số') || 
-      query.includes('lượng giác') ||
-      query.includes('chuyển động') || 
-      query.includes('mô phỏng') || 
-      query.includes('vũ trụ') || 
-      query.includes('quang hợp') ||
-      query.includes('nguyên tử');
-
-    const isDataOrAI = 
-      query.includes('thống kê') || 
-      query.includes('xác suất') || 
-      query.includes('mẫu số liệu') || 
-      query.includes('biểu đồ') || 
-      query.includes('dữ liệu') || 
-      query.includes('tin học') || 
-      query.includes('thuật toán') || 
-      query.includes('lập trình') ||
-      query.includes('kinh tế');
-
-    const isSocialOrLanguage = 
-      query.includes('lịch sử') || 
-      query.includes('địa lí') || 
-      query.includes('tiếng anh') || 
-      query.includes('tự nhiên và xã hội') || 
-      query.includes('văn minh') || 
-      query.includes('khoa học');
-
-    if (isPracticeOrDrill && !isSpatialOrSimulation && !isDataOrAI) {
-      return {
-        status: 'KHÔNG NÊN GƯỢNG ÉP NĂNG LỰC SỐ / AI',
-        badgeColor: 'bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200',
-        icon: <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />,
-        tool: 'Bảng phấn, Giấy vở, Phiếu in, Thao tác trực tiếp trên đồ dùng thật',
-        action: 'Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu. Không đưa công nghệ vào để tránh làm phân tán học sinh.',
-        recommendedLevel: 'STANDARD'
-      };
-    }
-
-    if (isSpatialOrSimulation) {
-      return {
-        status: 'BẮT BUỘC TÍCH HỢP NĂNG LỰC SỐ (MÔ PHỎNG TRỰC QUAN)',
-        badgeColor: 'bg-blue-50 border-blue-300 text-blue-900 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-200',
-        icon: <Cpu className="w-5 h-5 text-blue-600 shrink-0" />,
-        tool: 'GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học động',
-        action: 'Chèn vào Hoạt động Khám phá & Hình thành kiến thức: Cho học sinh quan sát xoay góc nhìn 3D, thay đổi tham số để tự phát hiện quy luật.',
-        recommendedLevel: 'INTENSIVE'
-      };
-    }
-
-    if (isDataOrAI) {
-      return {
-        status: 'TÍCH HỢP NĂNG LỰC SỐ & TRỢ LÝ AI (XỬ LÝ DỮ LIỆU)',
-        badgeColor: 'bg-purple-50 border-purple-300 text-purple-900 dark:bg-purple-950/40 dark:border-purple-800 dark:text-purple-200',
-        icon: <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />,
-        tool: 'Bảng tính Excel/Google Sheets, Công cụ phân tích dữ liệu AI',
-        action: 'Chèn vào Hoạt động Luyện tập & Vận dụng: Nhập bảng dữ liệu thực tế, dùng hàm tính các số đặc trưng và biểu diễn bằng biểu đồ trực tuyến.',
-        recommendedLevel: 'INTENSIVE'
-      };
-    }
-
-    if (isSocialOrLanguage) {
-      return {
-        status: 'TÍCH HỢP HỌC LIỆU SỐ & NỀN TẢNG TƯƠNG TÁC',
-        badgeColor: 'bg-cyan-50 border-cyan-300 text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-800 dark:text-cyan-200',
-        icon: <BookOpen className="w-5 h-5 text-cyan-600 shrink-0" />,
-        tool: 'Bản đồ số (Google Earth), Video tư liệu lịch sử, Ứng dụng phát âm AI',
-        action: 'Chèn vào Hoạt động Mở đầu & Khám phá: Khai thác tư liệu hình ảnh, lược đồ tương tác số.',
-        recommendedLevel: 'STANDARD'
-      };
-    }
-
-    return {
-      status: 'TÍCH HỢP MỨC HỖ TRỢ TRÌNH CHIẾU THỰC CHẤT',
-      badgeColor: 'bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200',
-      icon: <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />,
-      tool: 'Slide trình chiếu bài giảng, Phiếu học tập số (Quizizz / Google Form)',
-      action: 'Chèn câu hỏi tương tác mở đầu hoặc củng cố cuối bài.',
-      recommendedLevel: 'STANDARD'
-    };
-  }, [state.files, state.file, state.subject, fileCount]);
-
-  useEffect(() => {
-    if (pedagogicalEvaluation?.recommendedLevel) {
-      setLevel(pedagogicalEvaluation.recommendedLevel as IntegrationLevel);
-    }
-  }, [pedagogicalEvaluation, setLevel]);
 
   return (
     <>
@@ -275,7 +145,7 @@ export default function ControlCenter({
                     </button>
                 </div>
 
-                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM (HIỂN THỊ KHI BẬT NÚT STEM, KỂ CẢ KHI XÓA TRẮNG Ô NHẬP) */}
+                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM (HIỂN THỊ KHI BẬT NÚT STEM) */}
                 {isStemActive && setStemTopic && (
                     <div className="p-3.5 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 rounded-xl border border-emerald-200 space-y-2.5 animate-fade-in-up">
                         <div className="flex items-center justify-between">
@@ -607,81 +477,31 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* BẢNG ĐÁNH GIÁ SƯ PHẠM */}
-            {pedagogicalEvaluation && (
-                <div className={`col-span-1 md:col-span-2 rounded-2xl p-4 border transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
-                    <div className="flex items-start gap-3">
-                        <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
-                        <div className="flex-1 space-y-1.5">
-                            <h4 className="text-xs font-black tracking-wide uppercase">
-                                {pedagogicalEvaluation.status}
-                            </h4>
-                            
-                            <div className="text-[11px] grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 border-t border-black/5 dark:border-white/5">
-                                <div>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
-                                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">{pedagogicalEvaluation.tool}</span>
-                                </div>
-                                <div>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200">📍 Khuyến nghị triển khai: </span> 
-                                    <span className="text-slate-700 dark:text-slate-300">{pedagogicalEvaluation.action}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Vùng trạng thái hoặc nút Kích hoạt AI */}
+            {/* Nút Kích hoạt AI: Gọn gàng, kết thúc cột trái một cách mạch lạc */}
             <div className="col-span-1 md:col-span-2 mt-2">
-                {state.isProcessing ? (
-                    <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-white shadow-xl border border-indigo-500/30 text-center animate-fade-in-up">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-                        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-
-                        <div className="relative z-10 flex flex-col items-center justify-center">
-                            <div className="relative w-14 h-14 mb-3">
-                                <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
-                                <div className="absolute inset-0 rounded-full border-4 border-indigo-400 border-t-transparent animate-spin"></div>
-                                <div className="absolute inset-2 rounded-full border-4 border-purple-400 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}></div>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                                </div>
-                            </div>
-
-                            <h3 className="text-sm font-extrabold text-white tracking-wide mb-1">
-                            {Boolean(stemTopic) && !mode 
-                                ? 'AI Đang xây dựng Bài học / Dự án STEM...' 
-                                : Boolean(stemTopic) && mode 
-                                ? 'AI Đang tích hợp NLS, AI & Thiết kế STEM...' 
-                                : 'AI Đang phân tích & tích hợp Năng lực số...'}
-                            </h3>
-                            <p className="text-xs text-indigo-200/80 max-w-md font-medium">
-                            {Boolean(stemTopic) && !mode 
-                                ? `Thiết kế quy trình kỹ thuật 5 bước cho chủ đề: "${stemTopic}" theo chuẩn GDPT 2018...`
-                                : Boolean(stemTopic) && mode 
-                                ? `Kết hợp chuẩn NLS (TT 02/2025), Khung AI và quy trình STEM: "${stemTopic}"...`
-                                : 'Đang quét cấu trúc bài dạy (CV 2345 / CV 5512), đối chiếu chuẩn Năng lực số (TT 02/2025) & Khung AI 2026...'}
-                            </p>
-                            
-                            <div className="w-64 h-1.5 bg-slate-800 rounded-full mt-4 overflow-hidden border border-white/10">
-                                <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <button 
-                      disabled={fileCount === 0} 
-                      onClick={handleAnalyze} 
-                      className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
-                            fileCount === 0 
-                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                            : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
-                        }`}
-                    >
-                      <Wand2 className="w-4 h-4 text-amber-300" /> {fileCount > 1 ? `Kích hoạt AI xử lý ${fileCount} giáo án` : 'Kích hoạt AI'}
-                    </button>
-                )}
+                <button 
+                  disabled={fileCount === 0 || state.isProcessing} 
+                  onClick={handleAnalyze} 
+                  className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
+                        state.isProcessing
+                        ? 'bg-slate-800 text-slate-300 cursor-wait shadow-none'
+                        : fileCount === 0 
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                        : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
+                    }`}
+                >
+                  {state.isProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" /> 
+                        Đang xử lý dữ liệu giáo án...
+                      </>
+                  ) : (
+                      <>
+                        <Wand2 className="w-4 h-4 text-amber-300" /> 
+                        {fileCount > 1 ? `Kích hoạt AI xử lý ${fileCount} giáo án` : 'Kích hoạt AI'}
+                      </>
+                  )}
+                </button>
             </div>
 
         </div>
