@@ -186,7 +186,8 @@ export async function generateCompetencyIntegration(
   mode: IntegrationMode = 'NLS_AI',
   apiKey: string = '',
   level: IntegrationLevel = 'STANDARD',
-  stemTopic: string = ''
+  stemTopic: string = '',
+  targetLessons: string = ''
 ): Promise<GeneratedNLSContent> {
   const customApiKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('CUSTOM_GEMINI_KEY') || '' : '');
   const userToken = typeof window !== 'undefined' ? localStorage.getItem('USER_TOKEN') || 'user_logged_in' : '';
@@ -203,8 +204,8 @@ export async function generateCompetencyIntegration(
 
   try {
     // Truyền đầy đủ cả 5 tham số bao gồm stemTopic sạch
-    const systemPrompt = buildSystemPrompt(subject, grade, mode, level, cleanStem);
-    const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}${hasStem ? `\n\n- CHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${cleanStem}". Hãy xây dựng quy trình thiết kế kỹ thuật và tiêu chí đánh giá sản phẩm STEM cụ thể cho bài này.` : ''}`;
+    const systemPrompt = buildSystemPrompt(subject, grade, mode, level, cleanStem, targetLessons);
+    const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}${hasStem ? `\n\n- CHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${cleanStem}".` : ''}${targetLessons ? `\n\n- PHẠM VI TIẾT ÁP DỤNG: Chỉ tích hợp vào "${targetLessons}", các tiết khác giữ nguyên.` : ''}`;
 
     const response = await fetch('/api/generate', {
       method: 'POST',
@@ -220,6 +221,7 @@ export async function generateCompetencyIntegration(
         standard: standard,
         level: level,
         stemTopic: cleanStem,
+        targetLessons: targetLessons,
       }),
     });
 

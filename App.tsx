@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [pedagogy, setPedagogy] = useState<string>('DEFAULT');
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
   const [stemTopic, setStemTopic] = useState<string>(''); // Bổ sung state lưu chủ đề STEM
+  const [targetLessons, setTargetLessons] = useState<string>(''); // Bổ sung state phạm vi tiết áp dụng
   const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
   const [highlightColor, setHighlightColor] = useState<HighlightColor>('FF0000');
@@ -420,7 +421,8 @@ const App: React.FC = () => {
           effectiveMode as any,
           userApiKey,
           level,
-          stemTopic
+          stemTopic,
+          targetLessons
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
@@ -590,6 +592,8 @@ const App: React.FC = () => {
                 setMode={setMode}
                 stemTopic={stemTopic}
                 setStemTopic={setStemTopic}
+                targetLessons={targetLessons}
+                setTargetLessons={setTargetLessons}
                 level={level}
                 setLevel={setLevel}
                 outputFormat={outputFormat}
