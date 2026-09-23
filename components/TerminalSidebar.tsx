@@ -101,24 +101,6 @@ export default function TerminalSidebar({ logs, isProcessing }: TerminalSidebarP
           {isProcessing && <div className="w-1 h-2 bg-indigo-500 animate-pulse mt-1 ml-4"></div>}
         </div>
       </div>
-
-      {/* 3. KHỐI DƯỚI CÙNG: THÔNG TIN TÁC GIẢ BÁM SÁT NGAY DƯỚI */}
-      <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-100">
-            GV
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-800">Đặng Mạnh Hùng</h4>
-            <p className="text-[10px] text-slate-500 font-medium">THPT LÝ NHÂN TÔNG</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className="inline-block px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[10px] font-bold">
-            097 8386 357
-          </span>
-        </div>
-      </div>
     </div>
   );
 }
