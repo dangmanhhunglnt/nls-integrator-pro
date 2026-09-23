@@ -28,10 +28,9 @@ export default function ControlCenter({
   state, setState, mode, setMode, stemTopic = '', setStemTopic, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
-  // State độc lập quản lý trạng thái bật/tắt nút STEM (không phụ thuộc vào độ dài chuỗi stemTopic)
+  // State độc lập quản lý trạng thái bật/tắt nút STEM
   const [isStemActive, setIsStemActive] = useState<boolean>(Boolean(stemTopic));
 
-  // Tự động đồng bộ trạng thái khi prop stemTopic từ component cha thay đổi
   useEffect(() => {
     if (Boolean(stemTopic)) {
       setIsStemActive(true);
@@ -194,7 +193,7 @@ export default function ControlCenter({
                     </div>
                 </div>
                 
-                {/* 4 Nút chế độ tích hợp: Cho phép bật song song cả NLS, AI và STEM */}
+                {/* 4 Nút chế độ tích hợp */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <button 
                         type="button"
@@ -275,7 +274,7 @@ export default function ControlCenter({
                     </button>
                 </div>
 
-                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM (HIỂN THỊ KHI BẬT NÚT STEM, KỂ CẢ KHI XÓA TRẮNG Ô NHẬP) */}
+                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM (HIỆN KHI BẬT STEM) */}
                 {isStemActive && setStemTopic && (
                     <div className="p-3.5 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 rounded-xl border border-emerald-200 space-y-2.5 animate-fade-in-up">
                         <div className="flex items-center justify-between">
@@ -632,56 +631,31 @@ export default function ControlCenter({
                 </div>
             )}
 
-            {/* Vùng trạng thái hoặc nút Kích hoạt AI */}
+            {/* Nút Kích hoạt AI (Đã chuyển khối màu tối sang cột bên phải để giữ cột trái luôn gọn gàng) */}
             <div className="col-span-1 md:col-span-2 mt-2">
-                {state.isProcessing ? (
-                    <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-white shadow-xl border border-indigo-500/30 text-center animate-fade-in-up">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-                        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-
-                        <div className="relative z-10 flex flex-col items-center justify-center">
-                            <div className="relative w-14 h-14 mb-3">
-                                <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
-                                <div className="absolute inset-0 rounded-full border-4 border-indigo-400 border-t-transparent animate-spin"></div>
-                                <div className="absolute inset-2 rounded-full border-4 border-purple-400 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}></div>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                                </div>
-                            </div>
-
-                            <h3 className="text-sm font-extrabold text-white tracking-wide mb-1">
-                            {Boolean(stemTopic) && !mode 
-                                ? 'AI Đang xây dựng Bài học / Dự án STEM...' 
-                                : Boolean(stemTopic) && mode 
-                                ? 'AI Đang tích hợp NLS, AI & Thiết kế STEM...' 
-                                : 'AI Đang phân tích & tích hợp Năng lực số...'}
-                            </h3>
-                            <p className="text-xs text-indigo-200/80 max-w-md font-medium">
-                            {Boolean(stemTopic) && !mode 
-                                ? `Thiết kế quy trình kỹ thuật 5 bước cho chủ đề: "${stemTopic}" theo chuẩn GDPT 2018...`
-                                : Boolean(stemTopic) && mode 
-                                ? `Kết hợp chuẩn NLS (TT 02/2025), Khung AI và quy trình STEM: "${stemTopic}"...`
-                                : 'Đang quét cấu trúc bài dạy (CV 2345 / CV 5512), đối chiếu chuẩn Năng lực số (TT 02/2025) & Khung AI 2026...'}
-                            </p>
-                            
-                            <div className="w-64 h-1.5 bg-slate-800 rounded-full mt-4 overflow-hidden border border-white/10">
-                                <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <button 
-                      disabled={fileCount === 0} 
-                      onClick={handleAnalyze} 
-                      className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
-                            fileCount === 0 
-                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                            : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
-                        }`}
-                    >
-                      <Wand2 className="w-4 h-4 text-amber-300" /> {fileCount > 1 ? `Kích hoạt AI xử lý ${fileCount} giáo án` : 'Kích hoạt AI'}
-                    </button>
-                )}
+                <button 
+                  disabled={fileCount === 0 || state.isProcessing} 
+                  onClick={handleAnalyze} 
+                  className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
+                        state.isProcessing
+                        ? 'bg-slate-800 text-slate-300 cursor-wait shadow-none'
+                        : fileCount === 0 
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                        : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
+                    }`}
+                >
+                  {state.isProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" /> 
+                        Đang xử lý giáo án (Theo dõi bảng bên phải)...
+                      </>
+                  ) : (
+                      <>
+                        <Wand2 className="w-4 h-4 text-amber-300" /> 
+                        {fileCount > 1 ? `Kích hoạt AI xử lý ${fileCount} giáo án` : 'Kích hoạt AI'}
+                      </>
+                  )}
+                </button>
             </div>
 
         </div>

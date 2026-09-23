@@ -5,6 +5,9 @@ import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZ
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
+// Import icons cho khối Visual Loader ở cột phải
+import { Sparkles } from 'lucide-react';
+
 // Import Supabase Client để quản lý Auth & Đếm lượt dùng
 import { supabase } from './config/supabaseClient';
 
@@ -471,10 +474,54 @@ const App: React.FC = () => {
               />
             </div>
             
-            {/* RIGHT: TERMINAL & AUTHOR SIDEBAR COMPONENT */}
+            {/* RIGHT: TERMINAL & VISUAL LOADER KHI AI ĐANG CHẠY */}
             <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-20">
-               <TerminalSidebar logs={state.logs} isProcessing={state.isProcessing} />
+              {state.isProcessing ? (
+                /* KHỐI VISUAL LOADER HIỂN THỊ CÂN XỨNG BÊN PHẢI */
+                <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-2xl border border-indigo-500/30 text-center flex flex-col items-center justify-center min-h-[420px] animate-fade-in-up">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                  <div className="relative z-10 flex flex-col items-center justify-center w-full">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5">
+                      <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
+                      <div className="absolute inset-0 rounded-full border-4 border-indigo-400 border-t-transparent animate-spin"></div>
+                      <div className="absolute inset-2 sm:inset-3 rounded-full border-4 border-purple-400 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300 animate-pulse" />
+                      </div>
+                    </div>
+
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-wide mb-2">
+                      {Boolean(stemTopic) && !mode 
+                        ? 'AI ĐANG XÂY DỰNG DỰ ÁN STEM...' 
+                        : Boolean(stemTopic) && mode 
+                        ? 'AI ĐANG TÍCH HỢP NLS, AI & STEM...' 
+                        : 'AI ĐANG PHÂN TÍCH & TÍCH HỢP NLS...'}
+                    </h3>
+                    
+                    <p className="text-xs sm:text-sm text-indigo-200/80 max-w-sm mx-auto font-medium leading-relaxed">
+                      {Boolean(stemTopic) && !mode 
+                        ? `Thiết kế quy trình kỹ thuật 5 bước cho chủ đề: "${stemTopic}" theo chuẩn GDPT 2018...`
+                        : Boolean(stemTopic) && mode 
+                        ? `Kết hợp chuẩn NLS (TT 02/2025), Khung AI và quy trình STEM: "${stemTopic}"...`
+                        : 'Đang quét cấu trúc bài dạy (CV 2345 / CV 5512), đối chiếu chuẩn Năng lực số (TT 02/2025) & Khung AI 2026...'}
+                    </p>
+                    
+                    <div className="w-56 sm:w-64 h-2 bg-slate-800 rounded-full mt-6 overflow-hidden border border-white/10 shadow-inner">
+                      <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
+                    </div>
+
+                    <span className="text-[11px] text-slate-400 font-mono mt-4 block">
+                      ⚡ Đang kết nối mô hình xử lý giáo án...
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <TerminalSidebar logs={state.logs} isProcessing={state.isProcessing} />
+              )}
             </div>
+
           </div>
         </main>
       </div>
