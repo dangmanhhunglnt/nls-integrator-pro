@@ -29,11 +29,11 @@ export default function ControlCenter({
 }: ControlCenterProps) {
 
   const handleSelectMode = (selectedMode: IntegrationMode) => {
-  // Nếu đang chọn chính nút đó thì bấm lần nữa sẽ bỏ chọn (tắt NLS/AI để chỉ làm STEM)
-  const newMode = mode === selectedMode ? ('' as any) : selectedMode;
-  setMode(newMode);
-  setState(prev => ({ ...prev, mode: newMode }));
-};
+    // Nếu đang chọn chính nút đó thì bấm lần nữa sẽ bỏ chọn (tắt NLS/AI để chỉ làm STEM)
+    const newMode = mode === selectedMode ? ('' as any) : selectedMode;
+    setMode(newMode);
+    setState(prev => ({ ...prev, mode: newMode }));
+  };
 
   const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
 
@@ -424,24 +424,21 @@ export default function ControlCenter({
                           <Layers className="w-3 h-3 text-indigo-500" /> Môn học
                         </label>
                         <div className="relative group">
-                          <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={state.subject} onChange={(e) => setState(prev => ({...prev, subject: e.target.value as SubjectType}))}>
+                          <select 
+                            className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" 
+                            value={state.subject} 
+                            onChange={(e) => {
+                              const newSub = e.target.value as SubjectType;
+                              setState(prev => ({
+                                ...prev, 
+                                subject: newSub,
+                                // Tự động reset lớp nếu môn chuyển qua lại giữa Tiểu học và Trung học
+                                grade: '' as GradeType
+                              }));
+                            }}
+                          >
                               <option value="">-- Chọn môn --</option>
                               
-                              <optgroup label="Cấp Tiểu học (Cấp 1)">
-                                  <option value="Toán">Toán (Tiểu học)</option>
-                                  <option value="Tiếng Việt">Tiếng Việt</option>
-                                  <option value="Tiếng Anh">Tiếng Anh (Tiểu học)</option>
-                                  <option value="Tự nhiên và Xã hội">Tự nhiên và Xã hội (Lớp 1, 2, 3)</option>
-                                  <option value="Khoa học">Khoa học (Lớp 4, 5)</option>
-                                  <option value="Lịch sử và Địa lí">Lịch sử và Địa lí (Lớp 4, 5)</option>
-                                  <option value="Tin học và Công nghệ">Tin học và Công nghệ (Lớp 3, 4, 5)</option>
-                                  <option value="Đạo đức">Đạo đức</option>
-                                  <option value="Âm Nhạc">Âm Nhạc (Tiểu học)</option>
-                                  <option value="Mỹ Thuật">Mĩ Thuật (Tiểu học)</option>
-                                  <option value="Giáo dục thể chất">Giáo dục thể chất (Tiểu học)</option>
-                                  <option value="Hoạt động trải nghiệm">Hoạt động trải nghiệm (Tiểu học)</option>
-                              </optgroup>
-
                               <optgroup label="Cấp THCS & THPT - Môn Bắt buộc">
                                   <option value="Toán">Toán học</option>
                                   <option value="Ngữ Văn">Ngữ Văn</option>
@@ -466,6 +463,21 @@ export default function ControlCenter({
                                   <option value="Công nghệ (Nông nghiệp)">Công nghệ (Nông nghiệp)</option>
                                   <option value="Âm Nhạc">Âm Nhạc</option>
                                   <option value="Mỹ Thuật">Mỹ Thuật</option>
+                              </optgroup>
+
+                              <optgroup label="Cấp Tiểu học (Cấp 1)">
+                                  <option value="Toán (Tiểu học)">Toán (Tiểu học)</option>
+                                  <option value="Tiếng Việt">Tiếng Việt</option>
+                                  <option value="Tiếng Anh (Tiểu học)">Tiếng Anh (Tiểu học)</option>
+                                  <option value="Tự nhiên và Xã hội">Tự nhiên và Xã hội (Lớp 1, 2, 3)</option>
+                                  <option value="Khoa học">Khoa học (Lớp 4, 5)</option>
+                                  <option value="Lịch sử và Địa lí (Tiểu học)">Lịch sử và Địa lí (Lớp 4, 5)</option>
+                                  <option value="Tin học và Công nghệ">Tin học và Công nghệ (Lớp 3, 4, 5)</option>
+                                  <option value="Đạo đức">Đạo đức</option>
+                                  <option value="Âm Nhạc (Tiểu học)">Âm Nhạc (Tiểu học)</option>
+                                  <option value="Mỹ Thuật (Tiểu học)">Mĩ Thuật (Tiểu học)</option>
+                                  <option value="Giáo dục thể chất (Tiểu học)">Giáo dục thể chất (Tiểu học)</option>
+                                  <option value="Hoạt động trải nghiệm">Hoạt động trải nghiệm (Tiểu học)</option>
                               </optgroup>
                           </select>
                           <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
