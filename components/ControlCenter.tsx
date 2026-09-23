@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, CheckCircle, ShieldAlert, Cpu, Lightbulb } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
@@ -27,6 +27,16 @@ interface ControlCenterProps {
 export default function ControlCenter({
   state, setState, mode, setMode, stemTopic = '', setStemTopic, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
+
+  // State độc lập quản lý trạng thái bật/tắt nút STEM (không phụ thuộc vào độ dài chuỗi stemTopic)
+  const [isStemActive, setIsStemActive] = useState<boolean>(Boolean(stemTopic));
+
+  // Tự động đồng bộ trạng thái khi prop stemTopic từ component cha thay đổi
+  useEffect(() => {
+    if (Boolean(stemTopic)) {
+      setIsStemActive(true);
+    }
+  }, [stemTopic]);
 
   const handleSelectMode = (selectedMode: IntegrationMode) => {
     // Nếu đang chọn chính nút đó thì bấm lần nữa sẽ bỏ chọn (tắt NLS/AI để chỉ làm STEM)
@@ -161,7 +171,7 @@ export default function ControlCenter({
     };
   }, [state.files, state.file, state.subject, fileCount]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (pedagogicalEvaluation?.recommendedLevel) {
       setLevel(pedagogicalEvaluation.recommendedLevel as IntegrationLevel);
     }
@@ -238,33 +248,35 @@ export default function ControlCenter({
                     <button 
                         type="button"
                         onClick={() => {
+                          const nextActive = !isStemActive;
+                          setIsStemActive(nextActive);
                           if (setStemTopic) {
-                            if (stemTopic) {
+                            if (!nextActive) {
                               setStemTopic('');
-                            } else {
+                            } else if (!stemTopic) {
                               setStemTopic('Thiết kế mô hình & sản phẩm học tập STEM thực tế');
                             }
                           }
                         }} 
                         className={`relative p-3.5 rounded-xl text-left border text-xs font-bold transition-all flex flex-col gap-1 cursor-pointer justify-between ${
-                            Boolean(stemTopic)
+                            isStemActive
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-md ring-2 ring-emerald-500/30' 
                             : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-100/80'
                         }`}
                     >
-                        <span className={`absolute -top-2 right-3 px-2 py-0.5 text-white font-black text-[9px] rounded-full shadow-xs ${Boolean(stemTopic) ? 'bg-emerald-600' : 'bg-slate-400'}`}>
-                          {Boolean(stemTopic) ? 'ĐÃ BẬT' : 'TẮT'}
+                        <span className={`absolute -top-2 right-3 px-2 py-0.5 text-white font-black text-[9px] rounded-full shadow-xs ${isStemActive ? 'bg-emerald-600' : 'bg-slate-400'}`}>
+                          {isStemActive ? 'ĐÃ BẬT' : 'TẮT'}
                         </span>
                         <span className="flex items-center gap-1.5">
-                          {Boolean(stemTopic) ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span>🚀</span>}
+                          {isStemActive ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <span>🚀</span>}
                           Tích hợp STEM
                         </span>
                         <span className="text-[9px] font-normal text-slate-500">Kết hợp cùng NLS / AI</span>
                     </button>
                 </div>
 
-                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM (HIỆN KHI BẬT STEM) */}
-                {Boolean(stemTopic) && setStemTopic && (
+                {/* KHUNG CẤU HÌNH CHỦ ĐỀ STEM (HIỂN THỊ KHI BẬT NÚT STEM, KỂ CẢ KHI XÓA TRẮNG Ô NHẬP) */}
+                {isStemActive && setStemTopic && (
                     <div className="p-3.5 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 rounded-xl border border-emerald-200 space-y-2.5 animate-fade-in-up">
                         <div className="flex items-center justify-between">
                             <label className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
@@ -432,7 +444,6 @@ export default function ControlCenter({
                               setState(prev => ({
                                 ...prev, 
                                 subject: newSub,
-                                // Tự động reset lớp nếu môn chuyển qua lại giữa Tiểu học và Trung học
                                 grade: '' as GradeType
                               }));
                             }}
