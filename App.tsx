@@ -725,9 +725,9 @@ const App: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-sm text-slate-900 dark:text-white">NLS Integrator Pro</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">v2.6</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-gradient-to-r from-emerald-500 to-indigo-600 text-white shadow-xs">v3.0 PRO</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Trợ lý AI Tích hợp Giáo án Chuẩn GDPT 2018</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Hệ sinh thái Tích hợp NLS, AI & Giáo dục STEM Chuẩn GDPT 2018</p>
                 </div>
               </div>
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-400">
@@ -746,7 +746,7 @@ const App: React.FC = () => {
               </button>
               <div className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span>CV 2345 (Tiểu học) &bull; CV 5512 (Trung học) &bull; TT 02/2025</span>
+                <span>CV 2345 &bull; CV 5512 &bull; TT 02/2025 &bull; CV 3089 (GD STEM)</span>
               </div>
             </div>
 
@@ -780,7 +780,7 @@ const App: React.FC = () => {
 
           {/* Dòng bản quyền cuối */}
           <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left text-[11px] text-slate-400 dark:text-slate-500">
-            <span>© 2026 NLS Integrator Pro. Nền tảng tự động hóa tích hợp Năng lực số & AI giáo dục hàng đầu.</span>
+            <span>© 2026 NLS Integrator Pro v3.0. Nền tảng tự động hóa tích hợp Năng lực số, AI & Giáo dục STEM hàng đầu.</span>
             <span className="text-[10px] bg-slate-200/60 dark:bg-slate-800/60 px-2 py-0.5 rounded text-slate-500">Bảo mật thiết bị 1:1</span>
           </div>
 
