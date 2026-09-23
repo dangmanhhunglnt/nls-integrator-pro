@@ -711,77 +711,51 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <footer className="mt-20 border-t border-slate-200/90 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md pt-10 pb-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
+      <footer className="mt-8 border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-3 text-xs text-slate-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
-            {/* Card 1: Bản quyền & Tác giả */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200 dark:shadow-none">
-                  NLS
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-sm text-slate-900 dark:text-white">NLS Integrator Pro</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-gradient-to-r from-emerald-500 to-indigo-600 text-white shadow-xs">v3.0 PRO</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Hệ sinh thái Tích hợp NLS, AI & Giáo dục STEM Chuẩn GDPT 2018</p>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-400">
-                Tác giả: <span className="font-semibold text-slate-800 dark:text-slate-200">Đặng Mạnh Hùng</span> (THPT Lý Nhân Tông)
-              </div>
+          {/* Cụm trái: Logo, Tên app, Phiên bản & Tác giả */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px] shadow-xs">
+              NLS
             </div>
-
-            {/* Card 2: Chuẩn quy định & Nâng cấp */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/70 dark:border-indigo-800/50 shadow-sm flex flex-col justify-between items-center text-center space-y-3">
-              <button
-                type="button"
-                onClick={() => setIsPricingOpen(true)}
-                className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold text-xs shadow-md shadow-indigo-200 dark:shadow-none transition hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>💎</span> Mở khóa Gói Bản Quyền & Nạp Lượt
-              </button>
-              <div className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span>CV 2345 &bull; CV 5512 &bull; TT 02/2025 &bull; CV 3089 (GD STEM)</span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-slate-800 text-xs">NLS Integrator Pro</span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-gradient-to-r from-emerald-500 to-indigo-600 text-white">v3.0 PRO</span>
+              <span className="text-slate-300 hidden sm:inline">•</span>
+              <span className="text-[11px] text-slate-500 hidden sm:inline">Tác giả: <strong className="text-slate-700">Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông)</span>
             </div>
-
-            {/* Card 3: Hotline & Zalo hỗ trợ */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Hỗ trợ kỹ thuật</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Trực tuyến 24/7
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href="https://zalo.me/0978386357"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
-                >
-                  <span>💬</span> Nhắn Zalo
-                </a>
-                <a
-                  href="tel:0978386357"
-                  className="flex-1 py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition"
-                >
-                  📞 097 8386 357
-                </a>
-              </div>
-            </div>
-
           </div>
 
-          {/* Dòng bản quyền cuối */}
-          <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left text-[11px] text-slate-400 dark:text-slate-500">
-            <span>© 2026 NLS Integrator Pro v3.0. Nền tảng tự động hóa tích hợp Năng lực số, AI & Giáo dục STEM hàng đầu.</span>
-            <span className="text-[10px] bg-slate-200/60 dark:bg-slate-800/60 px-2 py-0.5 rounded text-slate-500">Bảo mật thiết bị 1:1</span>
+          {/* Cụm giữa: Căn cứ quy định */}
+          <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>CV 2345 • CV 5512 • TT 02/2025 • CV 3089 (GD STEM)</span>
+          </div>
+
+          {/* Cụm phải: Nút Bản quyền & Liên hệ nhanh */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsPricingOpen(true)}
+              className="py-1 px-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center gap-1 transition shadow-xs cursor-pointer"
+            >
+              <span>💎</span> Mở khóa Gói PRO
+            </button>
+            <a
+              href="https://zalo.me/0978386357"
+              target="_blank"
+              rel="noreferrer"
+              className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] flex items-center gap-1 transition"
+            >
+              💬 Zalo
+            </a>
+            <a
+              href="tel:0978386357"
+              className="py-1 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] flex items-center gap-1 transition"
+            >
+              📞 097 8386 357
+            </a>
           </div>
 
         </div>
