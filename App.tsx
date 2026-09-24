@@ -371,32 +371,46 @@ const App: React.FC = () => {
     }
   }, [pedagogicalEvaluation]);
 
-  // Hàm cắt riêng nội dung của tiết được chọn để gửi cho Gemini
+  // Hàm cắt riêng nội dung của các tiết được chọn để gửi cho Gemini (Hỗ trợ chọn nhiều tiết)
   const getScopedTextForAI = (fullText: string, targetLesson: string): string => {
-    if (!targetLesson || !targetLesson.trim()) return fullText; // Không chọn -> lấy toàn bài
+    if (!targetLesson || !targetLesson.trim()) return fullText; // Mặc định: gửi toàn bộ nếu không chọn
 
-    const key = targetLesson.split('(')[0].trim();
-    if (!key) return fullText;
+    // Tách danh sách các tiết được chọn (VD: ["GT1", "H1"])
+    const keys = targetLesson
+      .split(',')
+      .map(k => k.split('(')[0].trim())
+      .filter(Boolean);
 
-    const regexStart = new RegExp(`(?:^|[\\r\\n\\t.;])\\s*${key}\\b`, 'i');
-    const startMatch = regexStart.exec(fullText);
-    if (!startMatch) return fullText;
+    if (keys.length === 0) return fullText;
 
-    const startIndex = startMatch.index;
     const nextMarkers = ['GT', 'H', 'CĐ', 'ĐS', 'HH', 'T', 'Tiết'];
-    let endIndex = fullText.length;
+    const segments: string[] = [];
 
-    for (const mark of nextMarkers) {
-      const nextRegex = new RegExp(`(?:^|[\\r\\n\\t.;])\\s*${mark}\\.?\\s*\\d+\\b`, 'gi');
-      nextRegex.lastIndex = startIndex + key.length + 20;
-      const m = nextRegex.exec(fullText);
-      if (m && m.index > startIndex && m.index < endIndex) {
-        endIndex = m.index;
+    // Cắt từng phân đoạn tương ứng với mỗi tiết được chọn
+    for (const key of keys) {
+      const regexStart = new RegExp(`(?:^|[\\r\\n\\t.;])\\s*${key}\\b`, 'i');
+      const startMatch = regexStart.exec(fullText);
+      if (!startMatch) continue;
+
+      const startIndex = startMatch.index;
+      let endIndex = fullText.length;
+
+      for (const mark of nextMarkers) {
+        const nextRegex = new RegExp(`(?:^|[\\r\\n\\t.;])\\s*${mark}\\.?\\s*\\d+\\b`, 'gi');
+        nextRegex.lastIndex = startIndex + key.length + 20;
+        const m = nextRegex.exec(fullText);
+        if (m && m.index > startIndex && m.index < endIndex) {
+          endIndex = m.index;
+        }
+      }
+
+      const seg = fullText.substring(startIndex, endIndex).trim();
+      if (seg.length > 50) {
+        segments.push(`=== NỘI DUNG ${key} ===\n${seg}`);
       }
     }
 
-    const segment = fullText.substring(startIndex, endIndex).trim();
-    return segment.length > 100 ? segment : fullText;
+    return segments.length > 0 ? segments.join('\n\n') : fullText;
   };
   // 3. Hàm phân tích giáo án & Hỗ trợ Xử lý hàng loạt (Batch Processing)
   const handleAnalyze = async () => {

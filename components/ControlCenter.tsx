@@ -520,12 +520,29 @@ export default function ControlCenter({
 
                             {/* Các nút tiết được AI/Regex nhận diện từ bài dạy */}
                             {detectedLessons.map((lesson) => {
-                                const isSelected = targetLessons === lesson;
+                                // 1. Tách chuỗi targetLessons thành mảng các tiết đang chọn
+                                const selectedList = targetLessons 
+                                    ? targetLessons.split(',').map(s => s.trim()).filter(Boolean) 
+                                    : [];
+                                const isSelected = selectedList.includes(lesson);
+
+                                // 2. Hàm click để bật/tắt (thêm hoặc gỡ tiết)
+                                const handleToggle = () => {
+                                    if (!setTargetLessons) return;
+                                    let updated: string[];
+                                    if (isSelected) {
+                                        updated = selectedList.filter(item => item !== lesson);
+                                    } else {
+                                        updated = [...selectedList, lesson];
+                                    }
+                                    setTargetLessons(updated.join(', '));
+                                };
+
                                 return (
                                     <button
                                         key={lesson}
                                         type="button"
-                                        onClick={() => setTargetLessons && setTargetLessons(isSelected ? '' : lesson)}
+                                        onClick={handleToggle}
                                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
                                             isSelected
                                             ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-200'
