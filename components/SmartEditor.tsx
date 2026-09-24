@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { GeneratedNLSContent } from '../types';
-import { CheckCircle2, Download, Copy, Check, FileText, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle2, Download, Copy, Check, FileText, Sparkles, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 interface SmartEditorProps {
   initialContent: GeneratedNLSContent;
@@ -231,15 +231,17 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
               );
             })}
 
-            {/* Khối bấm Tải về ngay ở cuối Tab */}
+            {/* Điều hướng chuyển tiếp sang bước xuất file */}
             <div className="pt-3 flex justify-end">
               <button
                 type="button"
-                onClick={handleExportWord}
-                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-200 flex items-center gap-2 cursor-pointer transition-all hover:-translate-y-0.5"
+                onClick={() => {
+                  setActiveTab('auto');
+                  handleExportWord();
+                }}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-indigo-200 flex items-center gap-2 cursor-pointer transition-all hover:-translate-y-0.5"
               >
-                <Download className="w-4 h-4" /> 
-                Xuất bản file Word với {selectedActivitiesCount} hoạt động đã chọn
+                Tiến hành xuất file Word ({selectedActivitiesCount} hoạt động) <ArrowRight className="w-4 h-4" />
               </button>
             </div>
 
