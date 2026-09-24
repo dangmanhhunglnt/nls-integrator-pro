@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, Lightbulb, BookmarkCheck } from 'lucide-react';
+import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, Lightbulb } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
@@ -11,9 +11,6 @@ interface ControlCenterProps {
   setMode: React.Dispatch<React.SetStateAction<IntegrationMode>>;
   stemTopic?: string;
   setStemTopic?: (topic: string) => void;
-  targetLessons?: string;
-  setTargetLessons?: (lessons: string) => void;
-  detectedLessons?: string[];
   level: IntegrationLevel;
   setLevel: React.Dispatch<React.SetStateAction<IntegrationLevel>>;
   outputFormat: OutputFormat;
@@ -28,7 +25,7 @@ interface ControlCenterProps {
 }
 
 export default function ControlCenter({
-  state, setState, mode, setMode, stemTopic = '', setStemTopic, targetLessons = '', setTargetLessons, detectedLessons = [], level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
+  state, setState, mode, setMode, stemTopic = '', setStemTopic, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
   // State độc lập quản lý trạng thái bật/tắt nút STEM
@@ -402,7 +399,7 @@ export default function ControlCenter({
                     </div>
                 </div>
 
-                {/* CHIẾN LƯỢC TRÍCH XUẤT (TRỞ LẠI FULL DÒNG GỌN GÀNG, KHÔNG BỊ CHẬT) */}
+                {/* CHIẾN LƯỢC TRÍCH XUẤT */}
                 <div className="space-y-1.5 pt-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Chiến lược trích xuất</label>
                     <div className="relative group">
@@ -486,96 +483,6 @@ export default function ControlCenter({
                         </label>
                     </div>
                 </div>
-
-                {/* KHỐI CHỌN TIẾT TỰ ĐỘNG THÔNG MINH (CHỈ HIỆN KHI ĐÃ NẠP FILE GIÁO ÁN) */}
-                {fileCount > 0 && (
-                    <div className="p-3.5 bg-gradient-to-r from-indigo-50/60 to-purple-50/40 rounded-2xl border border-indigo-100/80 space-y-2.5 animate-fade-in-up">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                                <BookmarkCheck className="w-4 h-4 text-indigo-600" />
-                                <span>Phạm vi tiết áp dụng:</span>
-                            </div>
-                            <span className="text-[10px] text-slate-500 font-medium">
-                                {detectedLessons.length > 0 
-                                  ? `Đã nhận diện ${detectedLessons.length} tiết trong bài` 
-                                  : 'Bấm chọn hoặc nhập tiết mong muốn'}
-                            </span>
-                        </div>
-
-                        {/* Dải nút bấm (Chips) chọn tiết trực quan */}
-                        <div className="flex flex-wrap items-center gap-2">
-                            {/* Nút 1: Toàn bài */}
-                            <button
-                                type="button"
-                                onClick={() => setTargetLessons && setTargetLessons('')}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
-                                    !targetLessons
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100/80 hover:text-slate-800'
-                                }`}
-                            >
-                                {!targetLessons && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                                🌟 Toàn bộ bài học
-                            </button>
-
-                            {/* Các nút tiết được AI/Regex nhận diện từ bài dạy */}
-                            {detectedLessons.map((lesson) => {
-                                // 1. Tách chuỗi targetLessons thành mảng các tiết đang chọn
-                                const selectedList = targetLessons 
-                                    ? targetLessons.split(',').map(s => s.trim()).filter(Boolean) 
-                                    : [];
-                                const isSelected = selectedList.includes(lesson);
-
-                                // 2. Hàm click để bật/tắt (thêm hoặc gỡ tiết)
-                                const handleToggle = () => {
-                                    if (!setTargetLessons) return;
-                                    let updated: string[];
-                                    if (isSelected) {
-                                        updated = selectedList.filter(item => item !== lesson);
-                                    } else {
-                                        updated = [...selectedList, lesson];
-                                    }
-                                    setTargetLessons(updated.join(', '));
-                                };
-
-                                return (
-                                    <button
-                                        key={lesson}
-                                        type="button"
-                                        onClick={handleToggle}
-                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1 ${
-                                            isSelected
-                                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-200'
-                                            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-white'
-                                        }`}
-                                    >
-                                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                                        {lesson}
-                                    </button>
-                                );
-                            })}
-
-                            {/* Ô nhập phụ trợ nếu bài nhiều tiết tùy biến hoặc không có tiêu đề rõ ràng */}
-                            <input
-                                type="text"
-                                value={targetLessons}
-                                onChange={(e) => setTargetLessons && setTargetLessons(e.target.value)}
-                                placeholder="Hoặc gõ chỉ định: Tiết 2, Tiết 39..."
-                                className="px-3 py-1.5 text-xs bg-white rounded-xl border border-slate-200 text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 min-w-[210px] flex-1"
-                            />
-                        </div>
-
-                        {targetLessons ? (
-                            <p className="text-[11px] text-emerald-700 font-medium pl-1 flex items-center gap-1">
-                                <span>🎯</span> AI sẽ <b>chỉ tích hợp NLS/AI/STEM vào {targetLessons}</b>. Các tiết khác giữ nguyên 100% tiến trình dạy học.
-                            </p>
-                        ) : (
-                            <p className="text-[11px] text-slate-400 italic pl-1">
-                                (Đang để mặc định: Phân bổ và tích hợp hài hòa vào các hoạt động có điều kiện số trong toàn bài).
-                            </p>
-                        )}
-                    </div>
-                )}
             </div>
 
             {/* Nút Kích hoạt AI */}

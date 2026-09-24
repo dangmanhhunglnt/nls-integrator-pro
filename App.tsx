@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
-import { PEDAGOGY_MODELS, getDeviceId, detectLessonsFromText } from './utils';
+import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
 // Import icons cho cột bên phải
@@ -30,8 +30,6 @@ const App: React.FC = () => {
   const [pedagogy, setPedagogy] = useState<string>('DEFAULT');
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
   const [stemTopic, setStemTopic] = useState<string>(''); // Bổ sung state lưu chủ đề STEM
-  const [targetLessons, setTargetLessons] = useState<string>(''); // Bổ sung state phạm vi tiết áp dụng
-  const [detectedLessons, setDetectedLessons] = useState<string[]>([]); // Bổ sung state danh sách tiết tự động nhận diện từ file
   const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
   const [highlightColor, setHighlightColor] = useState<HighlightColor>('FF0000');
@@ -216,22 +214,6 @@ const App: React.FC = () => {
           ? [`📂 Đã nạp hàng loạt ${selectedFiles.length} file giáo án.`] 
           : [`📂 Đã nạp file: ${selectedFiles[0].name}`] 
       }));
-
-      // BỔ SUNG: Tự động trích xuất văn bản từ file đầu tiên để quét nhận diện các tiết
-      try {
-        const textContext = await extractTextFromDocx(selectedFiles[0]);
-        const lessons = detectLessonsFromText(textContext);
-        setDetectedLessons(lessons);
-        setTargetLessons(''); // Mặc định là toàn bộ bài học
-
-        if (lessons.length > 0) {
-          addLog(`💡 Nhận diện bài dạy có ${lessons.length} tiết: ${lessons.join(', ')}.`);
-        }
-      } catch (err) {
-        console.warn("Không thể quét tiết tự động từ file:", err);
-        setDetectedLessons([]);
-      }
-
     } else { 
       alert("Chỉ hỗ trợ định dạng Word (.docx)!"); 
     }
@@ -371,47 +353,6 @@ const App: React.FC = () => {
     }
   }, [pedagogicalEvaluation]);
 
-  // Hàm cắt riêng nội dung của các tiết được chọn để gửi cho Gemini (Hỗ trợ chọn nhiều tiết)
-  const getScopedTextForAI = (fullText: string, targetLesson: string): string => {
-    if (!targetLesson || !targetLesson.trim()) return fullText; // Mặc định: gửi toàn bộ nếu không chọn
-
-    // Tách danh sách các tiết được chọn (VD: ["GT1", "H1"])
-    const keys = targetLesson
-      .split(',')
-      .map(k => k.split('(')[0].trim())
-      .filter(Boolean);
-
-    if (keys.length === 0) return fullText;
-
-    const nextMarkers = ['GT', 'H', 'CĐ', 'ĐS', 'HH', 'T', 'Tiết'];
-    const segments: string[] = [];
-
-    // Cắt từng phân đoạn tương ứng với mỗi tiết được chọn
-    for (const key of keys) {
-      const regexStart = new RegExp(`(?:^|[\\r\\n\\t.;])\\s*${key}\\b`, 'i');
-      const startMatch = regexStart.exec(fullText);
-      if (!startMatch) continue;
-
-      const startIndex = startMatch.index;
-      let endIndex = fullText.length;
-
-      for (const mark of nextMarkers) {
-        const nextRegex = new RegExp(`(?:^|[\\r\\n\\t.;])\\s*${mark}\\.?\\s*\\d+\\b`, 'gi');
-        nextRegex.lastIndex = startIndex + key.length + 20;
-        const m = nextRegex.exec(fullText);
-        if (m && m.index > startIndex && m.index < endIndex) {
-          endIndex = m.index;
-        }
-      }
-
-      const seg = fullText.substring(startIndex, endIndex).trim();
-      if (seg.length > 50) {
-        segments.push(`=== NỘI DUNG ${key} ===\n${seg}`);
-      }
-    }
-
-    return segments.length > 0 ? segments.join('\n\n') : fullText;
-  };
   // 3. Hàm phân tích giáo án & Hỗ trợ Xử lý hàng loạt (Batch Processing)
   const handleAnalyze = async () => {
     const targetFiles = state.files && state.files.length > 0 ? state.files : (state.file ? [state.file] : []);
@@ -466,12 +407,11 @@ const App: React.FC = () => {
 
     try {
       // TRƯỜNG HỢP 1: XỬ LÝ 1 FILE ĐƠN LẺ -> Cho phép xem lại (Smart Editor)
-        if (targetFiles.length === 1) {
-          const currentFile = targetFiles[0];
-          addLog(`🔍 Đang phân tích cấu trúc giáo án: ${currentFile.name}...`);
-          const fullText = await extractTextFromDocx(currentFile);
-          const textContext = getScopedTextForAI(fullText, targetLessons);
-              
+      if (targetFiles.length === 1) {
+        const currentFile = targetFiles[0];
+        addLog(`🔍 Đang phân tích cấu trúc giáo án: ${currentFile.name}...`);
+        const textContext = await extractTextFromDocx(currentFile);
+            
         addLog("🧠 AI đang tư duy và thiết kế nội dung...");
         const generatedContent = await generateCompetencyIntegration(
           textContext,
@@ -480,8 +420,7 @@ const App: React.FC = () => {
           effectiveMode as any,
           userApiKey,
           level,
-          stemTopic,
-          targetLessons
+          stemTopic
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
@@ -530,8 +469,7 @@ const App: React.FC = () => {
           effectiveMode as any,
           userApiKey,
           level,
-          stemTopic,
-          targetLessons
+          stemTopic
         );
 
         let finalBlob: Blob;
@@ -652,9 +590,6 @@ const App: React.FC = () => {
                 setMode={setMode}
                 stemTopic={stemTopic}
                 setStemTopic={setStemTopic}
-                targetLessons={targetLessons}
-                setTargetLessons={setTargetLessons}
-                detectedLessons={detectedLessons}
                 level={level}
                 setLevel={setLevel}
                 outputFormat={outputFormat}
