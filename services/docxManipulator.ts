@@ -17,6 +17,27 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 }
 
 /**
+ * HÀM PHỤ TRỢ: LÀM SẠCH NỘI DUNG NLS/AI CŨ VÀ CÁC THẺ RÁC TRƯỚC KHI CHÈN MỚI
+ */
+function cleanExistingNLSContent(xmlContent: string): string {
+  let cleaned = xmlContent;
+
+  // 1. Quét sạch các tag rác cụt lủn như [NLS]: Gemini, [NLS]: ..., [NLS]
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[NLS\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
+
+  // 2. Quét sạch các đoạn NLS đã từng được chèn trước đó trong các hoạt động
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|1\.1\.TC1a|5\.2\.TC2a|NLc\.C2|NLa\.A).*?<\/w:p>/gis, '');
+
+  // 3. Quét sạch mục tiêu Năng lực số (tích hợp) cũ ở Mục I
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?-\s*Năng lực số\s*\([^)]*\):.*?<\/w:p>/gis, '');
+
+  // 4. Quét sạch bảng tổng hợp NLS/AI cũ ở cuối file (nếu file đã từng chạy qua tool)
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
+
+  return cleaned;
+}
+
+/**
  * 2. HÀM TÍCH HỢP NỘI DUNG VÀO DOCUMENT.XML CỦA FILE WORD (CHÈN TRỰC TIẾP)
  */
 export const injectContentIntoDocx = async (
@@ -38,6 +59,9 @@ export const injectContentIntoDocx = async (
         if (!docFile) throw new Error("File Word không hợp lệ (thiếu document.xml)");
         
         let docXml = docFile.asText();
+
+        // BƯỚC QUAN TRỌNG: TỰ ĐỘNG DỌN SẠCH CÁC THẺ RÁC VÀ NLS CŨ TRƯỚC KHI BẮT ĐẦU CHÈN MỚI
+        docXml = cleanExistingNLSContent(docXml);
         
         // Nhãn tiêu đề động theo chế độ (STEM, NLS, AI hoặc kết hợp)
         let label = "Tích hợp NLS & AI";
@@ -157,7 +181,7 @@ export const injectContentIntoDocx = async (
               <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
           // Data Rows (Các dòng nội dung)
@@ -488,7 +512,7 @@ export const createAppendixDocx = async (
       <w:tc><w:tcPr><w:tcW w:w="1600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
       <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
       <w:tc><w:tcPr><w:tcW w:w="3600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện cụ thể của HS</w:t></w:r></w:p></w:tc>
-      <w:tc><w:tcPr><w:tcW w:w="1400" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="1400" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
     </w:tr>`;
 
   (content.summary_table || []).forEach(item => {
@@ -542,7 +566,7 @@ export const createAppendixDocx = async (
       </w:body>
     </w:document>`;
 
-  zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+  zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/vnd.openxmlformats-package.relationships+xml"/></Types>`);
   zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
   zip.file("word/document.xml", fullDocXml);
 
