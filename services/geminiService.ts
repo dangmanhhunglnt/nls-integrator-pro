@@ -22,8 +22,7 @@ export const buildSystemPrompt = (
   grade: string,
   mode: IntegrationMode,
   level: IntegrationLevel = 'STANDARD',
-  stemTopic: string = '',
-  targetLessons: string = ''
+  stemTopic: string = ''
 ): string => {
   const eduLevel = getEducationLevel(grade);
   
@@ -34,7 +33,6 @@ export const buildSystemPrompt = (
 
   const isStemOnly = hasStem && !hasDigital;
   const isCombined = hasStem && hasDigital;
-
 
   let pedagogyConstraint = "";
   if (eduLevel === 'PRIMARY') {
@@ -90,20 +88,20 @@ CHẾ ĐỘ TÍCH HỢP: KẾT HỢP TOÀN DIỆN NĂNG LỰC SỐ (TT 02/2025/T
     levelInstruction = `
 MỨC ĐỘ TÍCH HỢP: CHUYÊN SÂU / NÂNG CAO (DÀNH CHO THAO GIẢNG / HỘI GIẢNG / KIỂM TRA CHUYÊN ĐỀ).
 - MỤC TIÊU: Thiết kế chi tiết từ 4 đến 6 chỉ số Yêu cầu cần đạt bám sát trọng tâm chuyên môn của bài.
-- TIẾN TRÌNH DẠY HỌC: BẮT BUỘC TÍCH HỢP VÀO TẤT CẢ CÁC HOẠT ĐỘNG TRONG GIÁO ÁN:
+- TIẾN TRÌNH DẠY HỌC: BẢO ĐẢM TÍCH HỢP VÀO CÁC HOẠT ĐỘNG CÓ ĐIỀU KIỆN SỐ HÓA:
   + 1. Hoạt động Khởi động: Trò chơi số / video trực quan mở đầu tạo hứng thú.
   + 2. Hoạt động Khám phá / Hình thành kiến thức: Sử dụng phần mềm mô phỏng, học liệu số tương tác hoặc công cụ trực quan để hình thành kiến thức.
-  + 3. Hoạt động Luyện tập: Tích hợp vào các bài tập cụ thể trong giáo án (Ví dụ: bài tập kéo thả, bảng tương tác, vòng quay câu hỏi hoặc chấm trắc nghiệm trực quan).
+  + 3. Hoạt động Luyện tập: Chỉ tích hợp nếu là bài tập số hóa, câu hỏi tương tác hoặc xử lý dữ liệu. Nếu là rèn bài tập giải tay thuần túy thì BỎ QUA.
   + 4. Hoạt động Vận dụng: Tình huống ứng dụng công nghệ/chế tạo thực tế đời sống, giải quyết vấn đề sau bài học.
 - BẢNG MA TRẬN TỔNG HỢP: Lập đầy đủ từ 4 đến 6 dòng chi tiết cho tất cả các hoạt động đã tích hợp.`;
   } else {
     levelInstruction = `
 MỨC ĐỘ TÍCH HỢP: TIÊU CHUẨN / CƠ BẢN (DÀNH CHO DẠY HỌC LÊN LỚP HẰNG NGÀY).
 - MỤC TIÊU: Tinh gọn từ 2 đến 3 chỉ số Yêu cầu cần đạt cốt lõi, tập trung vào việc tiếp nhận thông tin và an toàn thiết bị.
-- TIẾN TRÌNH DẠY HỌC: CHỈ TÍCH HỢP GỌN GÀNG VÀO 2 HOẠT ĐỘNG CHÍNH:
+- TIẾN TRÌNH DẠY HỌC: CHỈ TÍCH HỢP GỌN GÀNG VÀO 1-2 HOẠT ĐỘNG CHÍNH CÓ ĐIỀU KIỆN SỐ HÓA THỰC CHẤT:
   + 1. Hoạt động Khởi động (trò chơi số ngắn / câu đố trực quan).
   + 2. Hoạt động Khám phá (quan sát hình ảnh, video hoặc mô hình trực quan).
-  (Phần Luyện tập và Vận dụng giữ nguyên tiến trình tự nhiên của giáo viên để đảm bảo đúng thời lượng tiết học).
+  (Phần Luyện tập và Vận dụng thuần túy giải tay giữ nguyên tiến trình tự nhiên của giáo viên để đảm bảo đúng thời lượng tiết học).
 - BẢNG MA TRẬN TỔNG HỢP: Tinh gọn từ 2 đến 3 chỉ số tương ứng.`;
   }
 
@@ -116,18 +114,22 @@ YÊU CẦU ĐẶC BIỆT VỀ GIÁO DỤC STEM (BẮT BUỘC):
   + Hướng dẫn thiết kế, thực hành, chế tạo mô hình thực tế.
   + Bảng tiêu chí đánh giá sản phẩm STEM (Rubric chấm điểm nhóm): TUYỆT ĐỐI KHÔNG dùng bảng kẻ vạch gạch nối (|---|---|) vì sẽ làm vỡ định dạng Word. BẮT BUỘC trình bày dạng danh sách gạch đầu dòng rõ ràng theo từng mức độ Đạt - Khá - Tốt kèm điểm số.
 ` : '';
-  const lessonScopeDirective = targetLessons && targetLessons.trim()
-    ? `\n- LƯU Ý PHẠM VI TIẾT: Người dạy chỉ yêu cầu chèn NLS/AI/STEM vào các tiết: "${targetLessons}". Các tiết còn lại giữ nguyên toàn bộ tiến trình dạy học gốc, không tự ý chèn thêm.`
-    : '';
+
   return `
 Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 2422/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Hướng dẫn GD STEM của Bộ GD&ĐT).
-Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, ĐẶC THÙ LỨA TUỔI HỌC SINH ${grade.toUpperCase()} VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
+Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} -${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, ĐẶC THÙ LỨA TUỔI HỌC SINH ${grade.toUpperCase()} VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
 
-${pedagogyConstraint}
-${modeInstruction}
-${levelInstruction}
-${stemDirective}
-${lessonScopeDirective}
+${pedagogyConstraint}${modeInstruction}
+${levelInstruction}${stemDirective}
+
+NGUYÊN TẮC VÀNG VỀ TỰ ĐỘNG CHỌN LỌC TIẾN TRÌNH (BẢO ĐẢM THỰC CHẤT - TRÁNH GƯỢNG ÉP):
+1. Không bắt buộc và TUYỆT ĐỐI KHÔNG gượng ép tích hợp NLS/AI vào tất cả các hoạt động trong bài học.
+2. CHỈ chọn tích hợp vào những hoạt động có "đất diễn" công nghệ thực chất:
+   - Khởi động tạo hứng thú (trắc nghiệm tương tác trực tuyến, video ngữ cảnh thực tế).
+   - Khám phá kiến thức mới (mô phỏng hình học không gian 3D, đồ thị hàm số GeoGebra/Desmos, đổi góc/tính toán với máy tính Casio, tra cứu số liệu).
+   - Vận dụng / Dự án thực tế (xử lý dữ liệu bảng tính Excel/Sheets, chế tạo sản phẩm số hoặc quy trình kỹ thuật STEM).
+3. ĐỐI VỚI CÁC HOẠT ĐỘNG LUYỆN TẬP THUẦN TÚY (rèn kỹ năng tính toán, biến đổi đại số, giải bài tập trên bảng/vở nháp tay):
+   - BỎ QUA HOÀN TOÀN, KHÔNG đưa vào mảng "activities_enhancement" để bảo toàn 100% tiến trình rèn luyện kỹ năng tự lực truyền thống của học sinh.
 
 QUY TẮC PHÂN TÍCH VÀ ĐẦU RA BẮT BUỘC:
 1. MỤC TIÊU VÀ HỌC LIỆU (MỤC I & II):
@@ -186,8 +188,7 @@ export async function generateCompetencyIntegration(
   mode: IntegrationMode = 'NLS_AI',
   apiKey: string = '',
   level: IntegrationLevel = 'STANDARD',
-  stemTopic: string = '',
-  targetLessons: string = ''
+  stemTopic: string = ''
 ): Promise<GeneratedNLSContent> {
   const customApiKey = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('CUSTOM_GEMINI_KEY') || '' : '');
   const userToken = typeof window !== 'undefined' ? localStorage.getItem('USER_TOKEN') || 'user_logged_in' : '';
@@ -203,9 +204,8 @@ export async function generateCompetencyIntegration(
   const isCombined = hasStem && hasDigital;
 
   try {
-    // Truyền đầy đủ cả 5 tham số bao gồm stemTopic sạch
-    const systemPrompt = buildSystemPrompt(subject, grade, mode, level, cleanStem, targetLessons);
-    const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}${hasStem ? `\n\n- CHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${cleanStem}".` : ''}${targetLessons ? `\n\n- PHẠM VI TIẾT ÁP DỤNG: Chỉ tích hợp vào "${targetLessons}", các tiết khác giữ nguyên.` : ''}`;
+    const systemPrompt = buildSystemPrompt(subject, grade, mode, level, cleanStem);
+    const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}${hasStem ? `\n\n- CHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${cleanStem}".` : ''}`;
 
     const response = await fetch('/api/generate', {
       method: 'POST',
@@ -221,7 +221,6 @@ export async function generateCompetencyIntegration(
         standard: standard,
         level: level,
         stemTopic: cleanStem,
-        targetLessons: targetLessons,
       }),
     });
 

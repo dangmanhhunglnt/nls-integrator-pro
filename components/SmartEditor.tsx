@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { GeneratedNLSContent } from '../types';
-import { CheckCircle2, Download, Copy, Check, FileText, Sparkles } from 'lucide-react';
+import { CheckCircle2, Download, Copy, Check, FileText, Sparkles, Eye, EyeOff } from 'lucide-react';
 
 interface SmartEditorProps {
   initialContent: GeneratedNLSContent;
@@ -11,6 +11,12 @@ interface SmartEditorProps {
 export default function SmartEditor({ initialContent, onConfirm, onCancel }: SmartEditorProps) {
   const [activeTab, setActiveTab] = useState<'manual' | 'auto'>('manual');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  // Mảng lưu trạng thái bật/tắt (true: chèn, false: bỏ qua) của từng hoạt động
+  const initialActivities = initialContent.activities_enhancement || [];
+  const [activeActivities, setActiveActivities] = useState<boolean[]>(
+    () => initialActivities.map(() => true)
+  );
 
   // Hàm chuẩn hóa tiếng Việt Unicode (NFC) để xóa hoàn toàn lỗi tách dấu tiếng Việt
   const normalizeVietnamese = (str: string): string => {
@@ -24,12 +30,39 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // Hàm bật / tắt 1 hoạt động cụ thể
+  const toggleActivity = (idx: number) => {
+    setActiveActivities(prev => {
+      const updated = [...prev];
+      updated[idx] = !updated[idx];
+      return updated;
+    });
+  };
+
+  // Tạo content đã được lọc để xuất file Word
+  const handleExportWord = () => {
+    const filteredActivities = initialActivities.filter((_, idx) => activeActivities[idx]);
+    
+    // Nếu có bảng tổng hợp thì cũng lọc tương ứng theo các hoạt động được giữ lại
+    let filteredSummaryTable = initialContent.summary_table;
+    if (Array.isArray(filteredSummaryTable)) {
+      filteredSummaryTable = filteredSummaryTable.filter((_, idx) => 
+        idx < activeActivities.length ? activeActivities[idx] : true
+      );
+    }
+
+    const finalContent: GeneratedNLSContent = {
+      ...initialContent,
+      activities_enhancement: filteredActivities,
+      summary_table: filteredSummaryTable
+    };
+
+    onConfirm(finalContent);
+  };
+
   const objectivesText = normalizeVietnamese(initialContent.objectives_addition);
-  const activities = initialContent.activities_enhancement || [];
-
-  // Tính số lượng mục thực tế: 1 mục Mục tiêu + số lượng Hoạt động thực tế
-  const totalItems = (objectivesText ? 1 : 0) + activities.length;
-
+  const selectedActivitiesCount = activeActivities.filter(Boolean).length;
+  
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-indigo-100 overflow-hidden animate-fade-in-up">
       {/* Banner tiêu đề */}
@@ -40,7 +73,9 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
           </div>
           <div>
             <h3 className="text-lg font-bold">Phân tích giáo án thành công!</h3>
-            <p className="text-indigo-200 text-xs">Đã trích xuất đầy đủ các phần NLS/AI để tích hợp vào bài dạy.</p>
+            <p className="text-indigo-200 text-xs">
+              Thầy/cô có thể chủ động <strong className="text-amber-300">bật/tắt từng hoạt động</strong> để chỉ chèn vào tiết mong muốn.
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -56,8 +91,10 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
       {/* Tabs */}
       <div className="flex border-b border-slate-200 bg-slate-50 px-6 pt-3 gap-2">
         <button onClick={() => setActiveTab('manual')} className={`pb-3 px-5 text-xs font-bold border-b-2 flex items-center gap-2 rounded-t-lg cursor-pointer ${activeTab === 'manual' ? 'border-indigo-600 text-indigo-600 bg-white shadow-sm border-x border-t border-slate-200' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-          <FileText className="w-4 h-4" /> Hướng dẫn chèn thủ công (Copy nhanh)
-          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px]">{totalItems} mục</span>
+          <FileText className="w-4 h-4" /> Danh sách &amp; Bật/Tắt Hoạt động
+          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px]">
+            Đã chọn {selectedActivitiesCount}/{initialActivities.length} HĐ
+          </span>
         </button>
         <button onClick={() => setActiveTab('auto')} className={`pb-3 px-5 text-xs font-bold border-b-2 flex items-center gap-2 rounded-t-lg cursor-pointer ${activeTab === 'auto' ? 'border-indigo-600 text-indigo-600 bg-white shadow-sm border-x border-t border-slate-200' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
           <Download className="w-4 h-4" /> Xuất file Word tự động (.docx)
@@ -70,8 +107,10 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
           <div className="space-y-5">
             <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h4 className="font-bold text-slate-800 text-xs uppercase">📍 Hướng dẫn chèn thủ công theo từng dòng/vị trí cụ thể</h4>
-                <p className="text-slate-500 text-[11px] mt-1">AI đã trích xuất tất cả các phần NLS kèm trích dẫn vị trí dòng liền trước trong giáo án gốc của thầy/cô.</p>
+                <h4 className="font-bold text-slate-800 text-xs uppercase">📍 Tùy chọn hoạt động chèn chữ đỏ vào bài dạy</h4>
+                <p className="text-slate-500 text-[11px] mt-1">
+                  Nếu bài dạy có tiết luyện tập/bài tập thuần túy viết bảng mà không muốn đưa công nghệ vào, thầy/cô hãy <strong className="text-indigo-700">gạt tắt hoạt động đó</strong>.
+                </p>
               </div>
               <button onClick={() => handleCopyText(objectivesText, 99)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer">
                 <Copy className="w-3.5 h-3.5" /> Copy tất cả hướng dẫn
@@ -81,7 +120,9 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
             {/* Mục 1: Mục tiêu */}
             <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
               <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between text-xs font-bold">
-                <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span> MỤC 1: MỤC TIÊU</span>
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400"></span> MỤC 1: MỤC TIÊU NĂNG LỰC
+                </span>
                 <button onClick={() => handleCopyText(objectivesText, 1)} className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-[10px] flex items-center gap-1.5 cursor-pointer">
                   {copiedIndex === 1 ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                   {copiedIndex === 1 ? "Đã copy!" : "Copy đoạn NLS này"}
@@ -104,39 +145,103 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
               </div>
             </div>
 
-            {/* Các Hoạt động 1, 2, 3 */}
-            {activities.map((act: any, idx: number) => {
+            {/* Các Hoạt động với nút Bật / Tắt trực quan */}
+            {initialActivities.map((act: any, idx: number) => {
               const actName = normalizeVietnamese(act.activity_name || act.activity_title || `HOẠT ĐỘNG ${idx + 1}`);
               const actContent = normalizeVietnamese(act.enhanced_content || act.content || "");
+              const isEnabled = activeActivities[idx];
+
               return (
-                <div key={idx} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                  <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between text-xs font-bold">
-                    <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-400"></span> MỤC {idx + 2}: {actName.toUpperCase()}</span>
-                    <button onClick={() => handleCopyText(actContent, idx + 2)} className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-[10px] flex items-center gap-1.5 cursor-pointer">
-                      {copiedIndex === idx + 2 ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      {copiedIndex === idx + 2 ? "Đã copy!" : "Copy đoạn NLS này"}
-                    </button>
-                  </div>
-                  <div className="p-4 space-y-3 bg-white">
-                    <div className="bg-amber-50/80 border border-amber-200/60 rounded-lg p-3 text-xs">
-                      <span className="font-bold text-amber-900">📍 VỊ TRÍ CHÈN TRONG GIÁO ÁN CỦA BẠN:</span>
-                      <p className="text-slate-700 font-medium pl-2 mt-0.5">
-                        {act.location || `Mục III. TIẾN TRÌNH DẠY HỌC > ${actName} > Vùng Tổ chức thực hiện`}
-                      </p>
+                <div 
+                  key={idx} 
+                  className={`border rounded-xl overflow-hidden shadow-sm transition-all duration-200 ${
+                    isEnabled 
+                      ? 'border-slate-200 bg-white' 
+                      : 'border-slate-200 bg-slate-50/70 opacity-60'
+                  }`}
+                >
+                  <div className={`px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs font-bold transition-colors ${
+                    isEnabled ? 'bg-slate-900 text-white' : 'bg-slate-700 text-slate-300'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${isEnabled ? 'bg-emerald-400' : 'bg-slate-400'}`}></span>
+                      <span>MỤC {idx + 2}: {actName.toUpperCase()}</span>
                     </div>
-                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-xs space-y-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">📌 NỘI DUNG NLS CẦN DÁN (CHỮ MÀU ĐỎ - TIMES NEW ROMAN):</span>
-                      <div 
-                        className="text-red-600 whitespace-pre-line leading-relaxed font-bold"
-                        style={{ fontFamily: "'Times New Roman', Times, serif" }}
+
+                    <div className="flex items-center gap-3">
+                      {/* Nút Toggle Switch Bật/Tắt hoạt động */}
+                      <button
+                        type="button"
+                        onClick={() => toggleActivity(idx)}
+                        className={`px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                          isEnabled
+                            ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                            : 'bg-slate-600 hover:bg-slate-500 text-slate-200'
+                        }`}
                       >
-                        {actContent}
+                        {isEnabled ? (
+                          <>
+                            <Eye className="w-3 h-3 text-white" />
+                            <span>✓ Chèn vào giáo án</span>
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="w-3 h-3 text-slate-300" />
+                            <span>Bỏ qua (Giữ gốc)</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Nút Copy */}
+                      <button 
+                        onClick={() => handleCopyText(actContent, idx + 2)} 
+                        disabled={!isEnabled}
+                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md text-[10px] flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {copiedIndex === idx + 2 ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedIndex === idx + 2 ? "Đã copy!" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {isEnabled ? (
+                    <div className="p-4 space-y-3 bg-white">
+                      <div className="bg-amber-50/80 border border-amber-200/60 rounded-lg p-3 text-xs">
+                        <span className="font-bold text-amber-900">📍 VỊ TRÍ CHÈN TRONG GIÁO ÁN CỦA BẠN:</span>
+                        <p className="text-slate-700 font-medium pl-2 mt-0.5">
+                          {act.location || `Mục III. TIẾN TRÌNH DẠY HỌC > ${actName} > Vùng Tổ chức thực hiện`}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-xs space-y-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">📌 NỘI DUNG NLS CẦN DÁN (CHỮ MÀU ĐỎ - TIMES NEW ROMAN):</span>
+                        <div 
+                          className="text-red-600 whitespace-pre-line leading-relaxed font-bold"
+                          style={{ fontFamily: "'Times New Roman', Times, serif" }}
+                        >
+                          {actContent}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="p-3.5 text-center text-xs text-slate-500 italic bg-slate-100/50">
+                      ⚡ Hoạt động này đã được đánh dấu bỏ qua. Khi xuất Word, phần này sẽ giữ nguyên 100% văn bản gốc.
+                    </div>
+                  )}
                 </div>
               );
             })}
+
+            {/* Khối bấm Tải về ngay ở cuối Tab */}
+            <div className="pt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handleExportWord}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-200 flex items-center gap-2 cursor-pointer transition-all hover:-translate-y-0.5"
+              >
+                <Download className="w-4 h-4" /> 
+                Xuất bản file Word với {selectedActivitiesCount} hoạt động đã chọn
+              </button>
+            </div>
 
           </div>
         ) : (
@@ -147,10 +252,13 @@ export default function SmartEditor({ initialContent, onConfirm, onCancel }: Sma
             <div className="max-w-md mx-auto space-y-2">
               <h4 className="text-base font-bold text-slate-800">Xuất file Word tự động (.docx)</h4>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Hệ thống sẽ tự động ghép nối tất cả các phần tích hợp năng lực vào đúng từng vị trí trong file Word gốc của bạn mà vẫn bảo lưu 100% định dạng, bảng biểu và công thức MathType.
+                Hệ thống sẽ chỉ chèn chữ đỏ vào <strong className="text-emerald-700">{selectedActivitiesCount} hoạt động đang được bật</strong>. Những hoạt động đã tắt sẽ được giữ nguyên bản gốc mà không bị ảnh hưởng.
               </p>
             </div>
-            <button onClick={() => onConfirm(initialContent)} className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-200 flex items-center gap-2 mx-auto transition-all cursor-pointer">
+            <button 
+              onClick={handleExportWord} 
+              className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-200 flex items-center gap-2 mx-auto transition-all cursor-pointer hover:-translate-y-0.5"
+            >
               <Download className="w-4 h-4" /> Tải về file hoàn chỉnh (.docx)
             </button>
           </div>
