@@ -18,13 +18,15 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 /**
  * 2. HÀM TÍCH HỢP NỘI DUNG VÀO DOCUMENT.XML CỦA FILE WORD (CHÈN TRỰC TIẾP)
+ * BỔ SUNG: Hỗ trợ tham số targetLessons để định vị chính xác phân đoạn tiết trong file tuần/nhiều tiết
  */
 export const injectContentIntoDocx = async (
   file: File,
   content: GeneratedNLSContent,
   mode: IntegrationMode,
   _log: (msg: string) => void,
-  colorHex: HighlightColor = 'FF0000'
+  colorHex: HighlightColor = 'FF0000',
+  targetLessons: string = ''
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -194,7 +196,40 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC / YÊU CẦU CẦN ĐẠT ---
+        // =========================================================================
+        // BỔ SUNG: XÁC ĐỊNH PHẠM VI (SCOPE) CỦA TIẾT CẦN CHÈN TRONG FILE TUẦN/NHIỀU TIẾT
+        // =========================================================================
+        let scopeStart = 0;
+        let scopeEnd = docXml.length;
+
+        if (targetLessons && targetLessons.trim()) {
+          const rawKey = targetLessons.split('(')[0].trim();
+          if (rawKey) {
+            const foundKeyIdx = findFuzzyIndex(docXml, rawKey, 0);
+            if (foundKeyIdx !== -1) {
+              scopeStart = foundKeyIdx;
+
+              // Quét tìm mốc tiết tiếp theo để giới hạn scopeEnd
+              const nextMarkers = ['GT', 'H', 'CĐ', 'ĐS', 'HH', 'T', 'Tiết'];
+              let earliestNext = -1;
+              for (const mark of nextMarkers) {
+                const markRegex = new RegExp(`(?:<[^>]+>)*\\b${mark}\\.?\\s*\\d+\\b`, 'gi');
+                markRegex.lastIndex = scopeStart + rawKey.length + 50;
+                const mNext = markRegex.exec(docXml);
+                if (mNext && mNext.index > scopeStart) {
+                  if (earliestNext === -1 || mNext.index < earliestNext) {
+                    earliestNext = mNext.index;
+                  }
+                }
+              }
+              if (earliestNext !== -1) {
+                scopeEnd = earliestNext;
+              }
+            }
+          }
+        }
+
+        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC / YÊU CẦU CẦN ĐẠT TRONG PHẠM VI TIẾT ---
         const endKeywords = [
           "3. Phẩm chất",
           "3. Về phẩm chất",
@@ -205,7 +240,6 @@ export const injectContentIntoDocx = async (
           "PHẨM CHẤT:",
           "Về phẩm chất",
           "- Phẩm chất:",
-          // Bổ sung các mốc neo chuẩn cho cấp Tiểu học:
           "II. ĐỒ DÙNG DẠY HỌC",
           "II. ĐỒ DÙNG DẠY - HỌC",
           "II. THIẾT BỊ DẠY HỌC",
@@ -216,10 +250,10 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // Ưu tiên 1: Tìm mốc Phẩm chất để chèn ngay TRƯỚC nó
+        // Ưu tiên 1: Tìm mốc Phẩm chất trong scopeStart -> scopeEnd
         for (const kw of endKeywords) {
-          const idx = findFuzzyIndex(docXml, kw);
-          if (idx !== -1) {
+          const idx = findFuzzyIndex(docXml, kw, scopeStart);
+          if (idx !== -1 && idx < scopeEnd) {
             insertAnchorPos = idx;
             isBeforeKeyword = true;
             break;
@@ -233,8 +267,8 @@ export const injectContentIntoDocx = async (
             "1.2. Năng lực", "1.2. Về năng lực", "Về năng lực", "NĂNG LỰC:", "Năng lực:"
           ];
           for (const kw of fallbackKeywords) {
-            const idx = findFuzzyIndex(docXml, kw);
-            if (idx !== -1) {
+            const idx = findFuzzyIndex(docXml, kw, scopeStart);
+            if (idx !== -1 && idx < scopeEnd) {
               insertAnchorPos = idx;
               isBeforeKeyword = false;
               break;
@@ -251,9 +285,9 @@ export const injectContentIntoDocx = async (
             if (isBeforeKeyword) {
               let pStart = -1;
               let searchIndex = insertAnchorPos;
-              while (searchIndex >= 0) {
+              while (searchIndex >= scopeStart) {
                 const found = newXml.lastIndexOf("<w:p", searchIndex);
-                if (found === -1) break;
+                if (found === -1 || found < scopeStart) break;
                 const charAfter = newXml.charAt(found + 4);
                 if (charAfter === " " || charAfter === ">") {
                   pStart = found;
@@ -263,20 +297,24 @@ export const injectContentIntoDocx = async (
               }
 
               if (pStart !== -1) {
+                const shift = xmlBlock.length;
                 newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
+                scopeEnd += shift;
               }
             } else {
               const pEnd = newXml.indexOf("</w:p>", insertAnchorPos);
               if (pEnd !== -1) {
                 const splitPos = pEnd + "</w:p>".length;
+                const shift = xmlBlock.length;
                 newXml = newXml.substring(0, splitPos) + xmlBlock + newXml.substring(splitPos);
+                scopeEnd += shift;
               }
             }
           }
         }
         docXml = newXml;
 
-        // --- BỔ SUNG: 5.1. TỰ ĐỘNG CHÈN MỤC II (THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU SỐ) ---
+        // --- 5.1. TỰ ĐỘNG CHÈN MỤC II (THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU SỐ) TRONG PHẠM VI TIẾT ---
         if (content.materials_addition) {
           const matKeywords = [
             "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
@@ -289,8 +327,8 @@ export const injectContentIntoDocx = async (
 
           let matIndex = -1;
           for (const mkw of matKeywords) {
-            const idx = findFuzzyIndex(docXml, mkw);
-            if (idx !== -1) {
+            const idx = findFuzzyIndex(docXml, mkw, scopeStart);
+            if (idx !== -1 && idx < scopeEnd) {
               matIndex = idx;
               break;
             }
@@ -298,7 +336,6 @@ export const injectContentIntoDocx = async (
 
           if (matIndex !== -1) {
             const currentStyle = detectStyle(docXml, matIndex);
-            // Tạo paragraph dạng bullet cho học liệu số
             let rPrBody = `<w:color w:val="${colorHex}"/>`;
             if (currentStyle.fontSize) rPrBody += `<w:sz w:val="${currentStyle.fontSize}"/><w:szCs w:val="${currentStyle.fontSize}"/>`;
             if (currentStyle.fontTag) rPrBody += currentStyle.fontTag;
@@ -312,16 +349,16 @@ export const injectContentIntoDocx = async (
                                    </w:r>
                                  </w:p>`;
 
-            // Tìm đoạn kết thúc của dòng tiêu đề Mục II để chèn vào ngay bên dưới
             const pEnd = docXml.indexOf("</w:p>", matIndex);
             if (pEnd !== -1) {
               const splitPos = pEnd + "</w:p>".length;
               docXml = docXml.substring(0, splitPos) + matBlockXml + docXml.substring(splitPos);
+              scopeEnd += matBlockXml.length;
             }
           }
         }
 
-        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG (ƯU TIÊN BỔ SUNG TRỰC TIẾP VÀO Ô BẢNG CV 5512) ---
+        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG TRONG PHẠM VI TIẾT ---
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
             const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -330,7 +367,8 @@ export const injectContentIntoDocx = async (
             if (!actName && !actContent) return;
 
             let safeName = escapeXml(actName);
-            let actIndex = findFuzzyIndex(docXml, safeName);
+            let actIndex = findFuzzyIndex(docXml, safeName, scopeStart);
+            if (actIndex >= scopeEnd) actIndex = -1;
 
             // Tìm kiếm mở rộng các từ khóa chung
             if (actIndex === -1 && safeName) {
@@ -348,10 +386,18 @@ export const injectContentIntoDocx = async (
                     `${key.toUpperCase()}`
                   ];
                   for (const v of variants) {
-                    actIndex = findFuzzyIndex(docXml, v);
-                    if (actIndex !== -1) break;
+                    const found = findFuzzyIndex(docXml, v, scopeStart);
+                    if (found !== -1 && found < scopeEnd) {
+                      actIndex = found;
+                      break;
+                    }
                   }
-                  if (actIndex === -1) actIndex = findFuzzyIndex(docXml, key);
+                  if (actIndex === -1) {
+                    const found = findFuzzyIndex(docXml, key, scopeStart);
+                    if (found !== -1 && found < scopeEnd) {
+                      actIndex = found;
+                    }
+                  }
                   if (actIndex !== -1) break;
                 }
               }
@@ -362,8 +408,11 @@ export const injectContentIntoDocx = async (
               const num = matchNum ? matchNum[0] : String(index + 1);
               const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`, `Nhiệm vụ ${num}`];
               for (const v of variants) {
-                actIndex = findFuzzyIndex(docXml, v);
-                if (actIndex !== -1) break;
+                const found = findFuzzyIndex(docXml, v, scopeStart);
+                if (found !== -1 && found < scopeEnd) {
+                  actIndex = found;
+                  break;
+                }
               }
             }
 
@@ -375,7 +424,7 @@ export const injectContentIntoDocx = async (
                 const tblPos = docXml.indexOf("<w:tbl>", actIndex);
                 let targetCellPos = -1;
 
-                if (tblPos !== -1 && tblPos - actIndex < 20000) {
+                if (tblPos !== -1 && tblPos - actIndex < 20000 && tblPos < scopeEnd) {
                   const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
                   
                   if (hsHeaderPos !== -1) {
@@ -412,7 +461,7 @@ export const injectContentIntoDocx = async (
                   ];
                   for (const cKey of cellKeywords) {
                     const foundPos = findFuzzyIndex(docXml, cKey, actIndex);
-                    if (foundPos !== -1 && foundPos - actIndex < 18000) {
+                    if (foundPos !== -1 && foundPos - actIndex < 18000 && foundPos < scopeEnd) {
                       targetCellPos = foundPos;
                       break;
                     }
@@ -424,12 +473,14 @@ export const injectContentIntoDocx = async (
                   if (cellInsertPos !== -1) {
                     const splitPos = cellInsertPos + "</w:p>".length;
                     docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                    scopeEnd += xmlBlock.length;
                   }
                 } else {
                   const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
                   if (headerInsertPos !== -1) {
                     const splitPos = headerInsertPos + "</w:p>".length;
                     docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                    scopeEnd += xmlBlock.length;
                   }
                 }
               }
@@ -437,14 +488,22 @@ export const injectContentIntoDocx = async (
           });
         }
 
-        // --- 7. TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI BÀI ---
+        // --- 7. TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI PHÂN ĐOẠN HOẶC CUỐI FILE ---
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
           const tableXml = createSummaryTableXml(content.summary_table);
           if (tableXml) {
-            const bodyEndTag = "</w:body>";
-            const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
-            if (bodyEndIndex !== -1) {
-              docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
+            if (scopeEnd < docXml.length - 100) {
+              // Chèn ngay trước khi bắt đầu tiết kế tiếp
+              const lastP = docXml.lastIndexOf("</w:p>", scopeEnd);
+              const splitPos = lastP !== -1 ? lastP + "</w:p>".length : scopeEnd;
+              docXml = docXml.substring(0, splitPos) + tableXml + docXml.substring(splitPos);
+            } else {
+              // Chèn cuối tài liệu
+              const bodyEndTag = "</w:body>";
+              const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
+              if (bodyEndIndex !== -1) {
+                docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
+              }
             }
           }
         }

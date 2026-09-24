@@ -297,18 +297,56 @@ export async function getDeviceId(): Promise<string> {
 }
 
 // ==========================================
-// BỔ SUNG: HÀM QUÉT NHẬN DIỆN DANH SÁCH TIẾT TỰ ĐỘNG TỪ VĂN BẢN GIÁO ÁN (.DOCX)
+// BỔ SUNG: HÀM QUÉT NHẬN DIỆN DANH SÁCH TIẾT TỰ ĐỘNG ĐA NĂNG
+// Hỗ trợ: "T1, T2...", "Tiết 1, Tiết 2...", "GT1, H1, CĐ1..."
 // ==========================================
 export function detectLessonsFromText(text: string): string[] {
   if (!text) return [];
   const foundLessons = new Set<string>();
 
-  // 1. Quét các dạng khai báo thời lượng/PPCT ở phần đầu giáo án:
-  // Ví dụ: "Thời lượng: 3 tiết (tiết 38, 39, 40)", "Tiết theo PPCT: 38, 39", "Số tiết: 2 (Tiết 1, 2)"
+  // 1. Quét định dạng phân phối tuần đặc thù môn Toán/Khoa học (VD: "GT1. Bài 1", "GT2.", "H1.", "CĐ1.")
+  const weekSectionRegex = /(?:^|[\r\n\t.;])\s*(GT|H|CĐ|ĐS|HH)\s*(\d{1,3})\b\s*[\.:\-]?\s*([^\r\n]{0,35})/gi;
+  let matchWeek;
+  while ((matchWeek = weekSectionRegex.exec(text)) !== null) {
+    const prefix = matchWeek[1].toUpperCase();
+    const num = matchWeek[2];
+    const subTitle = matchWeek[3] ? matchWeek[3].replace(/[–—\-_:]/g, ' ').trim() : '';
+    const cleanLabel = subTitle && subTitle.length > 2 && !subTitle.toLowerCase().startsWith('tiết')
+      ? `${prefix}${num} (${subTitle.substring(0, 25)})`
+      : `${prefix}${num}`;
+    foundLessons.add(cleanLabel);
+  }
+
+  // 2. Quét định dạng viết tắt phổ biến: "T1.", "T2:", "T3 -", "T01", "T.1"
+  const shortRegex = /(?:^|[\r\n\t.;])\s*T\.?\s*(\d{1,3})\b\s*[\.:\-]?\s*([^\r\n]{0,35})/gi;
+  let matchShort;
+  while ((matchShort = shortRegex.exec(text)) !== null) {
+    const num = matchShort[1];
+    const subTitle = matchShort[2] ? matchShort[2].replace(/[–—\-_:]/g, ' ').trim() : '';
+    const cleanLabel = subTitle && subTitle.length > 2 && !subTitle.toLowerCase().startsWith('tiết')
+      ? `T${num} (${subTitle.substring(0, 25)})`
+      : `T${num}`;
+    foundLessons.add(cleanLabel);
+  }
+
+  // 3. Quét định dạng viết đầy đủ: "Tiết 1", "Tiết 2", "Tiết 39"...
+  const fullRegex = /(?:^|[\r\n\t.;])\s*(?:BÀI\s+\d+[^:\n\r]*?)?[-–—:(]?\s*(?:TIẾT|Tiết)\s+(\d{1,3})\b\s*[\.:\-]?\s*([^\r\n]{0,35})/gi;
+  let matchFull;
+  while ((matchFull = fullRegex.exec(text)) !== null) {
+    const num = matchFull[1];
+    const subTitle = matchFull[2] ? matchFull[2].replace(/[–—\-_:]/g, ' ').trim() : '';
+    const cleanLabel = subTitle && subTitle.length > 2
+      ? `Tiết ${num} (${subTitle.substring(0, 25)})`
+      : `Tiết ${num}`;
+    foundLessons.add(cleanLabel);
+  }
+
+  // 4. Quét các dạng khai báo thời lượng/PPCT ở phần đầu giáo án:
+  // Ví dụ: "Thời lượng: 3 tiết (tiết 38, 39, 40)", "Tiết theo PPCT: 38, 39"
   const ppctRegex = /(?:tiết\s+theo\s+ppct|tiết\s+ppct|thời\s+lượng[^\n\r:]{0,50}?|số\s+tiết[^\n\r:]{0,20}?)\s*[:\-]?\s*([0-9\s,\-–—vàđến]+)/gi;
-  let match;
-  while ((match = ppctRegex.exec(text)) !== null) {
-    const rawNumbers = match[1].match(/\b\d+\b/g);
+  let matchPpct;
+  while ((matchPpct = ppctRegex.exec(text)) !== null) {
+    const rawNumbers = matchPpct[1].match(/\b\d+\b/g);
     if (rawNumbers && rawNumbers.length > 0 && rawNumbers.length <= 12) {
       rawNumbers.forEach(n => {
         const num = parseInt(n, 10);
@@ -319,20 +357,5 @@ export function detectLessonsFromText(text: string): string[] {
     }
   }
 
-  // 2. Quét tiêu đề mục phân chia theo tiết trong nội dung tiến trình dạy học:
-  // Ví dụ: "TIẾT 1:", "Tiết 2.", "TIẾT 39 -", "Tiết 1. Mở đầu", "BÀI 17 (Tiết 39)"
-  const headerRegex = /(?:^|[\r\n\t.;])\s*(?:BÀI\s+\d+[^:\n\r]*?)?[-–—:(]?\s*(?:TIẾT|Tiết)\s+(\d+)\b/gi;
-  while ((match = headerRegex.exec(text)) !== null) {
-    const num = parseInt(match[1], 10);
-    if (num > 0 && num <= 200) {
-      foundLessons.add(`Tiết ${num}`);
-    }
-  }
-
-  // Sắp xếp tăng dần theo số thứ tự tiết
-  return Array.from(foundLessons).sort((a, b) => {
-    const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
-    const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
-    return numA - numB;
-  });
+  return Array.from(foundLessons);
 }

@@ -371,6 +371,33 @@ const App: React.FC = () => {
     }
   }, [pedagogicalEvaluation]);
 
+  // Hàm cắt riêng nội dung của tiết được chọn để gửi cho Gemini
+  const getScopedTextForAI = (fullText: string, targetLesson: string): string => {
+    if (!targetLesson || !targetLesson.trim()) return fullText; // Không chọn -> lấy toàn bài
+
+    const key = targetLesson.split('(')[0].trim();
+    if (!key) return fullText;
+
+    const regexStart = new RegExp(`(?:^|[\\r\\n\\t.;])\\s*${key}\\b`, 'i');
+    const startMatch = regexStart.exec(fullText);
+    if (!startMatch) return fullText;
+
+    const startIndex = startMatch.index;
+    const nextMarkers = ['GT', 'H', 'CĐ', 'ĐS', 'HH', 'T', 'Tiết'];
+    let endIndex = fullText.length;
+
+    for (const mark of nextMarkers) {
+      const nextRegex = new RegExp(`(?:^|[\\r\\n\\t.;])\\s*${mark}\\.?\\s*\\d+\\b`, 'gi');
+      nextRegex.lastIndex = startIndex + key.length + 20;
+      const m = nextRegex.exec(fullText);
+      if (m && m.index > startIndex && m.index < endIndex) {
+        endIndex = m.index;
+      }
+    }
+
+    const segment = fullText.substring(startIndex, endIndex).trim();
+    return segment.length > 100 ? segment : fullText;
+  };
   // 3. Hàm phân tích giáo án & Hỗ trợ Xử lý hàng loạt (Batch Processing)
   const handleAnalyze = async () => {
     const targetFiles = state.files && state.files.length > 0 ? state.files : (state.file ? [state.file] : []);
@@ -425,10 +452,11 @@ const App: React.FC = () => {
 
     try {
       // TRƯỜNG HỢP 1: XỬ LÝ 1 FILE ĐƠN LẺ -> Cho phép xem lại (Smart Editor)
-      if (targetFiles.length === 1) {
-        const currentFile = targetFiles[0];
-        addLog(`🔍 Đang phân tích cấu trúc giáo án: ${currentFile.name}...`);
-        const textContext = await extractTextFromDocx(currentFile);
+        if (targetFiles.length === 1) {
+          const currentFile = targetFiles[0];
+          addLog(`🔍 Đang phân tích cấu trúc giáo án: ${currentFile.name}...`);
+          const fullText = await extractTextFromDocx(currentFile);
+          const textContext = getScopedTextForAI(fullText, targetLessons);
               
         addLog("🧠 AI đang tư duy và thiết kế nội dung...");
         const generatedContent = await generateCompetencyIntegration(
