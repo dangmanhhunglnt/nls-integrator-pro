@@ -18,7 +18,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 /**
  * 2. HÀM TÍCH HỢP NỘI DUNG VÀO DOCUMENT.XML CỦA FILE WORD (CHÈN TRỰC TIẾP)
- * BỔ SUNG: Hỗ trợ tham số targetLessons để định vị chính xác phân đoạn tiết trong file tuần/nhiều tiết
+ * Hỗ trợ tham số targetLessons để định vị chính xác phân đoạn tiết trong file tuần/nhiều tiết
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -151,7 +151,6 @@ export const injectContentIntoDocx = async (
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
           let rowsXml = "";
-          // Row Header (Tiêu đề bảng)
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
@@ -162,7 +161,6 @@ export const injectContentIntoDocx = async (
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
-          // Data Rows (Các dòng nội dung)
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
@@ -197,60 +195,64 @@ export const injectContentIntoDocx = async (
         };
 
         // =========================================================================
-        // BỔ SUNG: XÁC ĐỊNH PHẠM VI (SCOPE) CỦA TIẾT CẦN CHÈN TRONG FILE TUẦN/NHIỀU TIẾT
+        // XÁC ĐỊNH PHẠM VI (SCOPE) CHUẨN XÁC KHI CHỌN 1 HOẶC NHIỀU TIẾT
         // =========================================================================
         let scopeStart = 0;
         let scopeEnd = docXml.length;
 
         if (targetLessons && targetLessons.trim()) {
-          const rawKey = targetLessons.split('(')[0].trim();
-          if (rawKey) {
-            const foundKeyIdx = findFuzzyIndex(docXml, rawKey, 0);
-            if (foundKeyIdx !== -1) {
-              scopeStart = foundKeyIdx;
+          const targetKeys = targetLessons
+            .split(',')
+            .map(k => k.split('(')[0].trim())
+            .filter(Boolean);
 
-              // Quét tìm mốc tiết tiếp theo để giới hạn scopeEnd
-              const nextMarkers = ['GT', 'H', 'CĐ', 'ĐS', 'HH', 'T', 'Tiết'];
-              let earliestNext = -1;
-              for (const mark of nextMarkers) {
-                const markRegex = new RegExp(`(?:<[^>]+>)*\\b${mark}\\.?\\s*\\d+\\b`, 'gi');
-                markRegex.lastIndex = scopeStart + rawKey.length + 50;
-                const mNext = markRegex.exec(docXml);
-                if (mNext && mNext.index > scopeStart) {
+          if (targetKeys.length > 0) {
+            const firstKey = targetKeys[0];
+            const firstIdx = findFuzzyIndex(docXml, firstKey, 0);
+            if (firstIdx !== -1) {
+              scopeStart = firstIdx;
+            }
+
+            const lastKey = targetKeys[targetKeys.length - 1];
+            const lastIdx = findFuzzyIndex(docXml, lastKey, scopeStart);
+            const searchAfter = lastIdx !== -1 ? lastIdx + lastKey.length + 50 : scopeStart + 100;
+
+            const nextMarkers = ['GT', 'H', 'CĐ', 'ĐS', 'HH', 'T', 'Tiết'];
+            let earliestNext = -1;
+
+            for (const mark of nextMarkers) {
+              const markRegex = new RegExp(`(?:<[^>]+>)*\\b${mark}\\.?\\s*\\d+\\b`, 'gi');
+              markRegex.lastIndex = searchAfter;
+              let mNext;
+              while ((mNext = markRegex.exec(docXml)) !== null) {
+                const cleanFound = mNext[0].replace(/<[^>]+>/g, '').replace(/[\s\.]/g, '').toUpperCase();
+                const isStillSelected = targetKeys.some(tk => cleanFound.startsWith(tk.toUpperCase()));
+                if (!isStillSelected && mNext.index > searchAfter) {
                   if (earliestNext === -1 || mNext.index < earliestNext) {
                     earliestNext = mNext.index;
                   }
+                  break;
                 }
               }
-              if (earliestNext !== -1) {
-                scopeEnd = earliestNext;
-              }
+            }
+
+            if (earliestNext !== -1) {
+              scopeEnd = earliestNext;
             }
           }
         }
 
-        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC / YÊU CẦU CẦN ĐẠT TRONG PHẠM VI TIẾT ---
+        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC TRONG PHẠM VI TIẾT ---
         const endKeywords = [
-          "3. Phẩm chất",
-          "3. Về phẩm chất",
-          "III. Phẩm chất",
-          "1.3. Phẩm chất",
-          "1.3. Về phẩm chất",
-          "Phẩm chất:",
-          "PHẨM CHẤT:",
-          "Về phẩm chất",
-          "- Phẩm chất:",
-          "II. ĐỒ DÙNG DẠY HỌC",
-          "II. ĐỒ DÙNG DẠY - HỌC",
-          "II. THIẾT BỊ DẠY HỌC",
-          "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
-          "II. ĐỒ DÙNG DẠY VÀ HỌC"
+          "3. Phẩm chất", "3. Về phẩm chất", "III. Phẩm chất",
+          "1.3. Phẩm chất", "1.3. Về phẩm chất", "Phẩm chất:", "PHẨM CHẤT:", "Về phẩm chất", "- Phẩm chất:",
+          "II. ĐỒ DÙNG DẠY HỌC", "II. ĐỒ DÙNG DẠY - HỌC", "II. THIẾT BỊ DẠY HỌC",
+          "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", "II. ĐỒ DÙNG DẠY VÀ HỌC"
         ];
 
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // Ưu tiên 1: Tìm mốc Phẩm chất trong scopeStart -> scopeEnd
         for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw, scopeStart);
           if (idx !== -1 && idx < scopeEnd) {
@@ -260,7 +262,6 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        // Ưu tiên 2 (dự phòng): Tìm tiêu đề Năng lực để chèn sau
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
             "2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "I.2. Về năng lực",
@@ -314,15 +315,12 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 5.1. TỰ ĐỘNG CHÈN MỤC II (THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU SỐ) TRONG PHẠM VI TIẾT ---
+        // --- 5.1. TỰ ĐỘNG CHÈN MỤC II (THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU SỐ) ---
         if (content.materials_addition) {
           const matKeywords = [
-            "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
-            "II. THIẾT BỊ DẠY HỌC",
-            "2. Thiết bị dạy học và học liệu",
-            "II. ĐỒ DÙNG DẠY HỌC",
-            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
-            "Thiết bị dạy học và học liệu"
+            "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", "II. THIẾT BỊ DẠY HỌC",
+            "2. Thiết bị dạy học và học liệu", "II. ĐỒ DÙNG DẠY HỌC",
+            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", "Thiết bị dạy học và học liệu"
           ];
 
           let matIndex = -1;
@@ -358,7 +356,7 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG TRONG PHẠM VI TIẾT ---
+        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG ---
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
             const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -370,13 +368,11 @@ export const injectContentIntoDocx = async (
             let actIndex = findFuzzyIndex(docXml, safeName, scopeStart);
             if (actIndex >= scopeEnd) actIndex = -1;
 
-            // Tìm kiếm mở rộng các từ khóa chung
             if (actIndex === -1 && safeName) {
               const coreKeywords = [
                 "KHỞI ĐỘNG", "MỞ ĐẦU", "XÁC ĐỊNH VẤN ĐỀ",
                 "HÌNH THÀNH KIẾN THỨC", "KHÁM PHÁ", "TÌM HIỂU KIẾN THỨC", "ĐỌC HIỂU",
-                "LUYỆN TẬP", "THỰC HÀNH",
-                "VẬN DỤNG", "MỞ RỘNG", "GIAO VIỆC VỀ NHÀ"
+                "LUYỆN TẬP", "THỰC HÀNH", "VẬN DỤNG", "MỞ RỘNG", "GIAO VIỆC VỀ NHÀ"
               ];
               for (const key of coreKeywords) {
                 if (safeName.toUpperCase().includes(key)) {
@@ -443,21 +439,11 @@ export const injectContentIntoDocx = async (
 
                 if (targetCellPos === -1) {
                   const cellKeywords = [
-                    "- HS tiến hành",
-                    "- HS sử dụng",
-                    "- Quan sát, trả lời",
-                    "- Nhóm trưởng điều phối",
-                    "- Mỗi nhóm được sử dụng",
-                    "HS tiến hành",
-                    "HS sử dụng",
-                    "điện thoại cá nhân",
-                    "HS thực hiện nhiệm vụ",
-                    "HS thực hiện",
-                    "Học sinh thực hiện",
-                    "Báo cáo kết quả",
-                    "c) Sản phẩm",
-                    "Sản phẩm:",
-                    "Sản phẩm"
+                    "- HS tiến hành", "- HS sử dụng", "- Quan sát, trả lời",
+                    "- Nhóm trưởng điều phối", "- Mỗi nhóm được sử dụng",
+                    "HS tiến hành", "HS sử dụng", "điện thoại cá nhân",
+                    "HS thực hiện nhiệm vụ", "HS thực hiện", "Học sinh thực hiện",
+                    "Báo cáo kết quả", "c) Sản phẩm", "Sản phẩm:", "Sản phẩm"
                   ];
                   for (const cKey of cellKeywords) {
                     const foundPos = findFuzzyIndex(docXml, cKey, actIndex);
@@ -493,12 +479,10 @@ export const injectContentIntoDocx = async (
           const tableXml = createSummaryTableXml(content.summary_table);
           if (tableXml) {
             if (scopeEnd < docXml.length - 100) {
-              // Chèn ngay trước khi bắt đầu tiết kế tiếp
               const lastP = docXml.lastIndexOf("</w:p>", scopeEnd);
               const splitPos = lastP !== -1 ? lastP + "</w:p>".length : scopeEnd;
               docXml = docXml.substring(0, splitPos) + tableXml + docXml.substring(splitPos);
             } else {
-              // Chèn cuối tài liệu
               const bodyEndTag = "</w:body>";
               const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
               if (bodyEndIndex !== -1) {
@@ -532,7 +516,6 @@ export const createAppendixDocx = async (
   if (mode === 'NLS') label = "KẾ HOẠCH TÍCH HỢP NĂNG LỰC SỐ (TT 02/2025/TT-BGDĐT)";
   if (mode === 'NAI') label = "KẾ HOẠCH TÍCH HỢP GIÁO DỤC AI (QĐ 2422/QĐ-BGDĐT)";
 
-  // 1. Tạo các dòng bảng ma trận
   let tableRowsXml = `
     <w:tr>
       <w:trPr><w:tblHeader/></w:trPr>
@@ -554,7 +537,6 @@ export const createAppendixDocx = async (
       </w:tr>`;
   });
 
-  // 2. Tạo nội dung chi tiết từng hoạt động
   let actXml = "";
   (content.activities_enhancement || []).forEach(act => {
     actXml += `
@@ -562,7 +544,6 @@ export const createAppendixDocx = async (
       <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:rPr><w:color w:val="334155"/></w:rPr><w:t>${escapeXml(act.enhanced_content)}</w:t></w:r></w:p>`;
   });
 
-  // 3. Toàn bộ cấu trúc tài liệu Phụ lục
   const fullDocXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
       <w:body>
