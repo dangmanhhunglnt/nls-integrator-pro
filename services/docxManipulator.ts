@@ -46,22 +46,35 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * HÀM PHỤ TRỢ MỚI: CHUẨN HÓA DÒNG TIÊU ĐỀ TIẾT THEO PPCT VÀ GHI CHÚ TUẦN
+ * HÀM PHỤ TRỢ: CHUẨN HÓA DÒNG TIÊU ĐỀ TIẾT THEO PPCT (XÓA BỎ HOÀN TOÀN CỘT THỪA VÀ KÝ TỰ DÍNH ĐUÔI)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
 
-  // Thay thế dòng "Tiết theo PPCT: ..." hoặc "Số tiết dạy: ..." bằng thông tin chuẩn hóa
-  const pattern = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Tiết theo PPCT|Số tiết dạy)[\s\S]*?<\/w:p>)/i;
-  
-  if (pattern.test(xmlContent)) {
-    return xmlContent.replace(pattern, (match) => {
-      // Thay text bên trong thẻ w:t của đoạn đó
-      return match.replace(/(<w:t[^>]*>)(.*?)(<\/w:t>)/i, `$1${escapeXml(ppctInfoText)}$3`);
+  let result = xmlContent;
+
+  // 1. Quét sạch toàn bộ đoạn văn bản chứa "Tiết theo PPCT" cũ (bất kể nằm trong hay ngoài bảng)
+  result = result.replace(
+    /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis,
+    '<w:p/>'
+  );
+
+  // 2. Tìm đoạn chứa "Số tiết dạy:" hoặc "Thời gian thực hiện:" và thay thế trọn vẹn nội dung
+  const headerParagraphRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Số tiết dạy|Thời gian thực hiện)[\s\S]*?<\/w:p>)/i;
+
+  if (headerParagraphRegex.test(result)) {
+    result = result.replace(headerParagraphRegex, (_match) => {
+      return `<w:p>
+                <w:pPr><w:jc w:val="left"/></w:pPr>
+                <w:r>
+                  <w:rPr><w:i/><w:color w:val="000000"/></w:rPr>
+                  <w:t xml:space="preserve">${escapeXml(ppctInfoText)}</w:t>
+                </w:r>
+              </w:p>`;
     });
   }
 
-  return xmlContent;
+  return result;
 }
 
 /**
@@ -150,6 +163,7 @@ export const injectContentIntoDocx = async (
 
           const headerTitle = customPrefix || `👉 ${label}:`;
 
+          // 1. Tạo dòng Tiêu đề
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
@@ -158,6 +172,7 @@ export const injectContentIntoDocx = async (
                             </w:r>
                           </w:p>`;
 
+          // 2. Tạo các dòng Liệt kê nội dung
           lines.forEach(line => {
             let cleanLine = line
               .replace(/\*\*/g, "") 
