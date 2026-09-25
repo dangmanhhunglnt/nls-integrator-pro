@@ -19,8 +19,7 @@ import TerminalSidebar from './components/TerminalSidebar';
 import { PricingModal } from './components/PricingModal';
 
 /**
- * HÀM ĐỐI CHIẾU GIÁO ÁN VỚI PHÂN PHỐI CHƯƠNG TRÌNH (PPCT)
- * Tự động phân loại: 'NONE' (chuẩn 5512), 'STEM', 'NLS_AI', 'NLS', 'NAI'
+ * HÀM ĐỐI CHIẾU GIÁO ÁN VỚI PHÂN PHỐI CHƯƠNG TRÌNH (PPCT) - PHIÊN BẢN NÂNG CẤP CHÍNH XÁC
  */
 function parsePPCTRequirement(ppctText: string, lessonDocText: string): { 
   hasPPCT: boolean; 
@@ -32,47 +31,61 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): {
     return { hasPPCT: false, lessonTitle: '', integrationType: 'NONE', requirementNote: '' };
   }
 
-  // 1. Trích xuất tên bài từ giáo án (Tìm các dạng "TÊN BÀI DẠY: ...", "BÀI 1...", "BÀI...")
+  // 1. Trích xuất tên bài từ giáo án
   let lessonTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
   if (titleMatch && titleMatch[1]) {
     lessonTitle = titleMatch[1].replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
+  // Chuẩn hóa chuỗi tìm kiếm (xóa chữ bài, chương, tiết...)
   const cleanLesson = (lessonTitle || '')
     .toLowerCase()
     .replace(/(bài\s*\d+|chương\s*[ivxlcdm\d]+|tiết\s*[\d-]+)/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
+  // Tách text PPCT thành mảng dòng
   const lines = ppctText.split('\n').map(l => l.trim()).filter(Boolean);
   let requirementNote = '';
 
+  // 2. Quét qua TẤT CẢ các dòng để không bị sót khi bài có nhiều tiết ở các tuần khác nhau
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].toLowerCase();
     
-    // Nếu dòng trong PPCT khớp với tên bài học
-    if (cleanLesson && (line.includes(cleanLesson) || (cleanLesson.length > 5 && cleanLesson.includes(line)))) {
-      // Quét các dòng lân cận trong bảng PPCT của bài này để tìm cột Ghi chú / Tích hợp
-      const chunk = lines.slice(Math.max(0, i - 1), Math.min(lines.length, i + 6)).join('\n');
-      const match = chunk.match(/(STEM|NLS|AI|Năng lực số|GeoGebra|Desmos|Excel|Python|Thiết bị dạy học)[\s\S]*?(?=\n\s*\d+\s*\||$)/i);
+    // Nếu dòng chứa tên bài (hoặc từ khóa cốt lõi của bài học)
+    if (cleanLesson && (line.includes(cleanLesson) || (cleanLesson.length > 6 && cleanLesson.includes(line)))) {
+      // Mở rộng phạm vi quét lên 15 dòng xung quanh để bao trọn các cột của hàng đó trong bảng Word
+      const chunk = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 15)).join(' \n ');
+      
+      // Quét tìm chỉ thị NLS, AI, STEM, phần mềm trong toàn bộ cụm
+      const match = chunk.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*|Python[^\n\r|]*)/i);
+      
       if (match) {
         requirementNote = match[0].trim();
+        break; // Đã tìm thấy tiết có tích hợp NLS/AI -> Dừng quét và lấy kết quả này
       }
-      break;
     }
   }
 
-  // 2. Phân loại loại hình tích hợp theo nội dung cột ghi chú của PPCT
+  // 3. Phân loại chuẩn xác loại hình tích hợp
   const noteUpper = requirementNote.toUpperCase();
   let integrationType: 'NONE' | 'STEM' | 'NLS_AI' | 'NLS' | 'NAI' = 'NONE';
 
   if (noteUpper.includes('STEM')) {
     integrationType = 'STEM';
-  } else if ((noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ')) && noteUpper.includes('AI')) {
+  } else if ((noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA')) && noteUpper.includes('AI')) {
     integrationType = 'NLS_AI';
   } else if (noteUpper.includes('AI')) {
     integrationType = 'NAI';
-  } else if (noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA') || noteUpper.includes('EXCEL')) {
+  } else if (
+    noteUpper.includes('NLS') || 
+    noteUpper.includes('NĂNG LỰC SỐ') || 
+    noteUpper.includes('GEOGEBRA') || 
+    noteUpper.includes('DESMOS') || 
+    noteUpper.includes('EXCEL') ||
+    noteUpper.includes('SỬ DỤNG PHẦN MỀM')
+  ) {
     integrationType = 'NLS';
   }
 
