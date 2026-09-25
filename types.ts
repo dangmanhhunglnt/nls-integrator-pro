@@ -19,7 +19,7 @@ export interface GeneratedNLSContent {
   summary_table?: SummaryTableItem[];
 }
 
-export type IntegrationMode = 'NLS_AI' | 'NLS' | 'NAI';
+export type IntegrationMode = 'NLS_AI' | 'NLS' | 'NAI' | 'STEM';
 export type SubjectType = string;
 export type GradeType = string;
 

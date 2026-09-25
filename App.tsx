@@ -20,58 +20,67 @@ import { PricingModal } from './components/PricingModal';
 
 /**
  * HÀM ĐỐI CHIẾU GIÁO ÁN VỚI PHÂN PHỐI CHƯƠNG TRÌNH (PPCT)
+ * Tự động phân loại: 'NONE' (chuẩn 5512), 'STEM', 'NLS_AI', 'NLS', 'NAI'
  */
-function extractLessonRequirementFromPPCT(ppctText: string, lessonDocText: string): { 
+function parsePPCTRequirement(ppctText: string, lessonDocText: string): { 
   hasPPCT: boolean; 
-  isFoundInPPCT: boolean; 
-  hasIntegration: boolean; 
-  requirementText: string;
-  lessonName: string;
+  lessonTitle: string; 
+  integrationType: 'NONE' | 'STEM' | 'NLS_AI' | 'NLS' | 'NAI';
+  requirementNote: string;
 } {
   if (!ppctText || !ppctText.trim()) {
-    return { hasPPCT: false, isFoundInPPCT: false, hasIntegration: true, requirementText: '', lessonName: '' };
+    return { hasPPCT: false, lessonTitle: '', integrationType: 'NONE', requirementNote: '' };
   }
 
-  // 1. Trích xuất tên bài từ giáo án (Tìm các dạng "BÀI 1...", "TÊN BÀI DẠY: ...", "BÀI...")
-  let lessonName = '';
+  // 1. Trích xuất tên bài từ giáo án (Tìm các dạng "TÊN BÀI DẠY: ...", "BÀI 1...", "BÀI...")
+  let lessonTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
   if (titleMatch && titleMatch[1]) {
-    lessonName = titleMatch[1].replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
+    lessonTitle = titleMatch[1].replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  // Chuẩn hóa tên bài để tìm kiếm không phân biệt hoa thường và dấu
-  const cleanLesson = (lessonName || '')
+  const cleanLesson = (lessonTitle || '')
     .toLowerCase()
-    .replace(/(bài\s*\d+|chương\s*\d+|tiết\s*[\d-]+)/gi, '')
+    .replace(/(bài\s*\d+|chương\s*[ivxlcdm\d]+|tiết\s*[\d-]+)/gi, '')
     .trim();
 
   const lines = ppctText.split('\n').map(l => l.trim()).filter(Boolean);
-  let requirementText = '';
-  let isFoundInPPCT = false;
+  let requirementNote = '';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].toLowerCase();
     
     // Nếu dòng trong PPCT khớp với tên bài học
     if (cleanLesson && (line.includes(cleanLesson) || (cleanLesson.length > 5 && cleanLesson.includes(line)))) {
-      isFoundInPPCT = true;
       // Quét các dòng lân cận trong bảng PPCT của bài này để tìm cột Ghi chú / Tích hợp
-      const contextChunk = lines.slice(Math.max(0, i - 1), Math.min(lines.length, i + 6)).join('\n');
-      
-      const nlsMatch = contextChunk.match(/(NLS:[^\n\r|]+|AI:[^\n\r|]+|STEM:[^\n\r|]+|Năng lực số[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
-      if (nlsMatch) {
-        requirementText = nlsMatch[0].trim();
+      const chunk = lines.slice(Math.max(0, i - 1), Math.min(lines.length, i + 6)).join('\n');
+      const match = chunk.match(/(STEM|NLS|AI|Năng lực số|GeoGebra|Desmos|Excel|Python|Thiết bị dạy học)[\s\S]*?(?=\n\s*\d+\s*\||$)/i);
+      if (match) {
+        requirementNote = match[0].trim();
       }
       break;
     }
   }
 
+  // 2. Phân loại loại hình tích hợp theo nội dung cột ghi chú của PPCT
+  const noteUpper = requirementNote.toUpperCase();
+  let integrationType: 'NONE' | 'STEM' | 'NLS_AI' | 'NLS' | 'NAI' = 'NONE';
+
+  if (noteUpper.includes('STEM')) {
+    integrationType = 'STEM';
+  } else if ((noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ')) && noteUpper.includes('AI')) {
+    integrationType = 'NLS_AI';
+  } else if (noteUpper.includes('AI')) {
+    integrationType = 'NAI';
+  } else if (noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA') || noteUpper.includes('EXCEL')) {
+    integrationType = 'NLS';
+  }
+
   return {
     hasPPCT: true,
-    isFoundInPPCT,
-    hasIntegration: Boolean(requirementText),
-    requirementText,
-    lessonName
+    lessonTitle,
+    integrationType,
+    requirementNote
   };
 }
 
@@ -86,7 +95,7 @@ const App: React.FC = () => {
 
   const [pedagogy, setPedagogy] = useState<string>('DEFAULT');
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
-  const [stemTopic, setStemTopic] = useState<string>(''); // Bổ sung state lưu chủ đề STEM
+  const [stemTopic, setStemTopic] = useState<string>(''); 
   const [level, setLevel] = useState<IntegrationLevel>('STANDARD');
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('INJECT_DIRECT');
   const [highlightColor, setHighlightColor] = useState<HighlightColor>('FF0000');
@@ -273,7 +282,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Hàm xử lý nạp file Phân phối chương trình (PPCT)
   const handlePpctFileChange = (file: File | null) => {
     setPpctFile(file);
     if (file) {
@@ -425,12 +433,6 @@ const App: React.FC = () => {
       return; 
     }
 
-    const effectiveMode: string = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
-    if (!mode && !stemTopic) {
-      alert("Vui lòng chọn ít nhất một chế độ tích hợp (NLS, AI hoặc STEM)!");
-      return;
-    }
-
     if (!user) {
       alert("Vui lòng Đăng nhập tài khoản Google để tiếp tục!");
       handleLogin();
@@ -460,15 +462,13 @@ const App: React.FC = () => {
     const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
     addLog(`⚙️ Chiến lược: ${modelName}`);
     addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
-    addLog(`🎯 Chế độ: ${effectiveMode === 'STEM' ? 'Chỉ Giáo dục STEM' : effectiveMode}${stemTopic ? ` (STEM: ${stemTopic})` : ''}`);
-    addLog(`🎯 Mức độ: ${level === 'INTENSIVE' ? 'Chuyên sâu (Thao giảng)' : 'Tiêu chuẩn (Lên lớp)'}`);
     addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
     try {
-      // Đọc nội dung file PPCT nếu có
+      // Đọc nội dung file PPCT nếu người dùng có nạp
       let ppctText = '';
       if (ppctFile) {
-        addLog(`📖 Đang đọc Phân phối chương trình: ${ppctFile.name}...`);
+        addLog(`📖 Đang đối chiếu Phân phối chương trình: ${ppctFile.name}...`);
         ppctText = await extractTextFromDocx(ppctFile);
       }
 
@@ -478,19 +478,22 @@ const App: React.FC = () => {
         addLog(`🔍 Đang phân tích cấu trúc giáo án: ${currentFile.name}...`);
         const textContext = await extractTextFromDocx(currentFile);
 
-        // ĐỐI CHIẾU PPCT
-        if (ppctText) {
-          const ppctCheck = extractLessonRequirementFromPPCT(ppctText, textContext);
-          if (ppctCheck.hasPPCT && ppctCheck.isFoundInPPCT && !ppctCheck.hasIntegration) {
-            // KỊCH BẢN: PPCT XÁC ĐỊNH BÀI NÀY KHÔNG TÍCH HỢP NLS/AI
-            addLog(`📋 Kết quả tra cứu PPCT: Bài "${ppctCheck.lessonName || currentFile.name}" KHÔNG quy định tích hợp NLS/AI.`);
-            addLog(`🧹 Tiến hành làm sạch các thẻ rác, mục tiêu NLS cũ và trả về giáo án gốc...`);
+        let effectiveMode = mode;
+        let effectiveStemTopic = stemTopic;
 
-            // Inject rỗng để hàm cleanExistingNLSContent tự động làm sạch
+        // ĐỐI CHIẾU THÔNG MINH THEO PPCT
+        if (ppctText) {
+          const ppctInfo = parsePPCTRequirement(ppctText, textContext);
+
+          if (ppctInfo.integrationType === 'NONE') {
+            // KỊCH BẢN 1: BÀI NÀY PPCT KHÔNG CÓ NLS/AI/STEM -> QUÉT SẠCH VÀ TRẢ VỀ CHUẨN 5512
+            addLog(`📋 Kết quả PPCT: Bài "${ppctInfo.lessonTitle || currentFile.name}" dạy truyền thống (không tích hợp NLS/AI).`);
+            addLog(`🧹 Tiến hành quét sạch toàn bộ mục tiêu NLS cũ, tag rác và xuất giáo án chuẩn 5512...`);
+
             const cleanBlob = await injectContentIntoDocx(
               currentFile, 
               { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 
-              effectiveMode as any, 
+              'NLS', 
               addLog, 
               highlightColor
             );
@@ -499,16 +502,29 @@ const App: React.FC = () => {
               ...prev,
               isProcessing: false,
               step: 'done',
-              result: { fileName: `[BAN-CHUAN-PPCT] ${currentFile.name}`, blob: cleanBlob },
-              logs: [...prev.logs, "✨ Đã làm sạch và xuất bản giáo án chuẩn PPCT!"]
+              result: { fileName: `[CHUAN-5512] ${currentFile.name}`, blob: cleanBlob },
+              logs: [...prev.logs, "✨ Đã làm sạch và xuất bản giáo án chuẩn 5512!"]
             }));
             return;
-          } else if (ppctCheck.hasIntegration) {
-            addLog(`📋 PPCT yêu cầu tích hợp: "${ppctCheck.requirementText}"`);
           }
+
+          // KỊCH BẢN 2: BÀI NÀY CÓ TÍCH HỢP -> TỰ ĐỘNG CHUYỂN CHẾ ĐỘ PHÙ HỢP THEO PPCT
+          if (ppctInfo.integrationType === 'STEM') {
+            effectiveMode = 'STEM' as any;
+            effectiveStemTopic = ppctInfo.requirementNote || 'Thiết kế mô hình & sản phẩm học tập STEM thực tế';
+            addLog(`🚀 PPCT chỉ định: Giáo dục STEM (${effectiveStemTopic})`);
+          } else {
+            effectiveMode = ppctInfo.integrationType as any;
+            addLog(`🎯 PPCT chỉ định: ${effectiveMode} - Yêu cầu: "${ppctInfo.requirementNote}"`);
+          }
+        } else {
+          // NẾU KHÔNG CÓ PPCT: Chạy theo lựa chọn thủ công trên giao diện
+          effectiveMode = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
         }
-            
+
+        addLog(`🎯 Chế độ: ${effectiveMode === 'STEM' ? 'Chỉ Giáo dục STEM' : effectiveMode}`);
         addLog("🧠 AI đang tư duy và thiết kế nội dung...");
+
         const generatedContent = await generateCompetencyIntegration(
           textContext,
           state.subject,
@@ -516,7 +532,7 @@ const App: React.FC = () => {
           effectiveMode as any,
           userApiKey,
           level,
-          stemTopic
+          effectiveStemTopic
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
@@ -555,46 +571,54 @@ const App: React.FC = () => {
         addLog(`[${i + 1}/${targetFiles.length}] Đang xử lý: ${fileItem.name}`);
         
         const fileText = await extractTextFromDocx(fileItem);
+        let itemMode = mode;
+        let itemStem = stemTopic;
+        let isTraditionalLesson = false;
 
-        // Kiểm tra từng file với PPCT nếu có nạp PPCT
-        let shouldSkipIntegration = false;
         if (ppctText) {
-          const checkItem = extractLessonRequirementFromPPCT(ppctText, fileText);
-          if (checkItem.hasPPCT && checkItem.isFoundInPPCT && !checkItem.hasIntegration) {
-            shouldSkipIntegration = true;
+          const itemCheck = parsePPCTRequirement(ppctText, fileText);
+          if (itemCheck.integrationType === 'NONE') {
+            isTraditionalLesson = true;
             addLog(`📋 PPCT quy định: Bài này dạy truyền thống (không NLS/AI). Tiến hành làm sạch...`);
+          } else if (itemCheck.integrationType === 'STEM') {
+            itemMode = 'STEM' as any;
+            itemStem = itemCheck.requirementNote || 'Chế tạo mô hình STEM';
+          } else {
+            itemMode = itemCheck.integrationType as any;
           }
+        } else {
+          itemMode = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
         }
 
         let finalBlob: Blob;
         let outName: string;
 
-        if (shouldSkipIntegration) {
+        if (isTraditionalLesson) {
           finalBlob = await injectContentIntoDocx(
             fileItem, 
             { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 
-            effectiveMode as any, 
+            'NLS', 
             addLog, 
             highlightColor
           );
-          outName = `[CHUAN-PPCT] ${fileItem.name}`;
+          outName = `[CHUAN-5512] ${fileItem.name}`;
         } else {
           const itemContent = await generateCompetencyIntegration(
             fileText,
             state.subject,
             state.grade,
-            effectiveMode as any,
+            itemMode as any,
             userApiKey,
             level,
-            stemTopic
+            itemStem
           );
 
           if (outputFormat === 'APPENDIX_ONLY') {
-            finalBlob = await createAppendixDocx(itemContent, state.subject, state.grade, effectiveMode as any);
-            outName = effectiveMode === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`;
+            finalBlob = await createAppendixDocx(itemContent, state.subject, state.grade, itemMode as any);
+            outName = itemMode === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`;
           } else {
-            finalBlob = await injectContentIntoDocx(fileItem, itemContent, effectiveMode as any, addLog, highlightColor);
-            outName = effectiveMode === 'STEM' ? `[STEM-PRO] ${fileItem.name}` : `[NLS-PRO] ${fileItem.name}`;
+            finalBlob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor);
+            outName = itemMode === 'STEM' ? `[STEM-PRO] ${fileItem.name}` : `[NLS-PRO] ${fileItem.name}`;
           }
         }
 
@@ -605,7 +629,7 @@ const App: React.FC = () => {
       // Đóng gói thành 1 file ZIP duy nhất
       addLog(`📦 Đang nén ${outputBlobs.length} file vào tệp ZIP...`);
       const zipBlob = await createZipFromBlobs(outputBlobs);
-      const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_${effectiveMode === 'STEM' ? 'STEM' : 'tich_hop'}_${state.subject}_${state.grade}.zip`;
+      const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_chuan_PPCT_${state.subject}_${state.grade}.zip`;
 
       if (user.plan !== 'PRO') {
         const nextUsage = (user.usageCount || 0) + targetFiles.length;
@@ -857,7 +881,7 @@ const App: React.FC = () => {
               href="https://zalo.me/0978386357"
               target="_blank"
               rel="noreferrer"
-              className="py-1 px-2.5 rounded-lg bg-emerald-50 practical hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] flex items-center gap-1 transition"
+              className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] flex items-center gap-1 transition"
             >
               💬 Zalo
             </a>

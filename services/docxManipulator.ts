@@ -18,20 +18,29 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 /**
  * HÀM PHỤ TRỢ: LÀM SẠCH NỘI DUNG NLS/AI CŨ VÀ CÁC THẺ RÁC TRƯỚC KHI CHÈN MỚI
+ * (Đã nâng cấp regex xóa triệt để khối NLS cũ gồm nhiều thẻ <w:p> ở Mục I)
  */
-function cleanExistingNLSContent(xmlContent: string): string {
+export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
   // 1. Quét sạch các tag rác cụt lủn như [NLS]: Gemini, [NLS]: ..., [NLS]
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[NLS\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
 
-  // 2. Quét sạch các đoạn NLS đã từng được chèn trước đó trong các hoạt động
+  // 2. Quét sạch các đoạn NLS cũ trong các hoạt động (bắt đầu bằng 👉 Tích hợp, 🚀 TÍCH HỢP, hoặc mang mã TT 02/2025)
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|1\.1\.TC1a|5\.2\.TC2a|NLc\.C2|NLa\.A).*?<\/w:p>/gis, '');
 
-  // 3. Quét sạch mục tiêu Năng lực số (tích hợp) cũ ở Mục I
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?-\s*Năng lực số\s*\([^)]*\):.*?<\/w:p>/gis, '');
+  // 3. Xóa triệt để toàn bộ khối "Năng lực số (tích hợp)" cũ ở Mục I (kể cả các gạch đầu dòng con bên dưới)
+  cleaned = cleaned.replace(
+    /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):)[\s\S]*?)(?=<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:3\.\s*Phẩm chất|3\.\s*Về phẩm chất|III\.\s*Phẩm chất))/gi,
+    ''
+  );
 
-  // 4. Quét sạch bảng tổng hợp NLS/AI cũ ở cuối file (nếu file đã từng chạy qua tool)
+  // Dự phòng: Xóa các đoạn con nếu file không có mục 3. Phẩm chất liền kề
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Sử dụng phần mềm mô phỏng.*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Khai thác thông tin từ Internet.*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Sử dụng máy tính cầm tay\s*\(Casio.*?<\/w:p>/gis, '');
+
+  // 4. Quét sạch bảng tổng hợp NLS/AI cũ ở cuối file nếu có
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
 
   return cleaned;
@@ -60,7 +69,7 @@ export const injectContentIntoDocx = async (
         
         let docXml = docFile.asText();
 
-        // BƯỚC QUAN TRỌNG: TỰ ĐỘNG DỌN SẠCH CÁC THẺ RÁC VÀ NLS CŨ TRƯỚC KHI BẮT ĐẦU CHÈN MỚI
+        // BƯỚC 1: TỰ ĐỘNG DỌN SẠCH CÁC THẺ RÁC VÀ NLS CŨ TRƯỚC KHI CHÈN MỚI
         docXml = cleanExistingNLSContent(docXml);
         
         // Nhãn tiêu đề động theo chế độ (STEM, NLS, AI hoặc kết hợp)
@@ -173,7 +182,6 @@ export const injectContentIntoDocx = async (
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
           let rowsXml = "";
-          // Row Header (Tiêu đề bảng)
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
@@ -184,7 +192,6 @@ export const injectContentIntoDocx = async (
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
-          // Data Rows (Các dòng nội dung)
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
@@ -239,7 +246,6 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // Ưu tiên 1: Tìm mốc Phẩm chất
         for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw, 0);
           if (idx !== -1) {
@@ -249,7 +255,6 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        // Ưu tiên 2 (dự phòng): Tìm tiêu đề Năng lực để chèn sau
         if (insertAnchorPos === -1) {
           const fallbackKeywords = [
             "2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "I.2. Về năng lực",
@@ -353,7 +358,6 @@ export const injectContentIntoDocx = async (
             let safeName = escapeXml(actName);
             let actIndex = findFuzzyIndex(docXml, safeName, 0);
 
-            // Tìm kiếm mở rộng các từ khóa chung
             if (actIndex === -1 && safeName) {
               const coreKeywords = [
                 "KHỞI ĐỘNG", "MỞ ĐẦU", "XÁC ĐỊNH VẤN ĐỀ",
