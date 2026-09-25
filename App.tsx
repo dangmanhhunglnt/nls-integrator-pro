@@ -19,7 +19,7 @@ import TerminalSidebar from './components/TerminalSidebar';
 import { PricingModal } from './components/PricingModal';
 
 /**
- * HÀM ĐỐI CHIẾU GIÁO ÁN VỚI PHÂN PHỐI CHƯƠNG TRÌNH (PPCT) - PHIÊN BẢN NÂNG CẤP CHÍNH XÁC
+ * HÀM ĐỐI CHIẾU GIÁO ÁN VỚI PHÂN PHỐI CHƯƠNG TRÌNH (PPCT) - QUÉT THEO TOÀN BỘ KHỐI VĂN BẢN (RAW CHUNK SCAN)
  */
 function parsePPCTRequirement(ppctText: string, lessonDocText: string): { 
   hasPPCT: boolean; 
@@ -31,44 +31,51 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): {
     return { hasPPCT: false, lessonTitle: '', integrationType: 'NONE', requirementNote: '' };
   }
 
-  // 1. Trích xuất tên bài từ giáo án
+  // 1. Trích xuất tên bài từ giáo án (Bỏ tiền tố BÀI, TÊN BÀI DẠY...)
   let lessonTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
   if (titleMatch && titleMatch[1]) {
     lessonTitle = titleMatch[1].replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  // Chuẩn hóa chuỗi tìm kiếm (xóa chữ bài, chương, tiết...)
-  const cleanLesson = (lessonTitle || '')
+  // Chuẩn hóa tên bài: viết thường, bỏ chữ thừa để làm từ khóa tìm kiếm
+  const cleanKeyword = (lessonTitle || '')
     .toLowerCase()
     .replace(/(bài\s*\d+|chương\s*[ivxlcdm\d]+|tiết\s*[\d-]+)/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Tách text PPCT thành mảng dòng
-  const lines = ppctText.split('\n').map(l => l.trim()).filter(Boolean);
+  // Chuẩn hóa toàn bộ nội dung PPCT (thay thế xuống dòng liên tiếp bằng khoảng trắng để không bị đứt đoạn ô trong bảng)
+  const flatPPCT = ppctText.toLowerCase().replace(/\r/g, ' ');
   let requirementNote = '';
 
-  // 2. Quét qua TẤT CẢ các dòng để không bị sót khi bài có nhiều tiết ở các tuần khác nhau
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].toLowerCase();
-    
-    // Nếu dòng chứa tên bài (hoặc từ khóa cốt lõi của bài học)
-    if (cleanLesson && (line.includes(cleanLesson) || (cleanLesson.length > 6 && cleanLesson.includes(line)))) {
-      // Mở rộng phạm vi quét lên 15 dòng xung quanh để bao trọn các cột của hàng đó trong bảng Word
-      const chunk = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 15)).join(' \n ');
-      
-      // Quét tìm chỉ thị NLS, AI, STEM, phần mềm trong toàn bộ cụm
-      const match = chunk.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*|Python[^\n\r|]*)/i);
-      
-      if (match) {
-        requirementNote = match[0].trim();
-        break; // Đã tìm thấy tiết có tích hợp NLS/AI -> Dừng quét và lấy kết quả này
+  // 2. Tìm vị trí của bài học trong bảng PPCT
+  let searchPos = -1;
+  if (cleanKeyword && cleanKeyword.length >= 4) {
+    searchPos = flatPPCT.indexOf(cleanKeyword);
+    // Nếu không khớp chuỗi dài, thử tìm cụm từ cốt lõi ngắn hơn (ví dụ: "giá trị lượng giác", "hàm số lượng giác", "cấp số cộng")
+    if (searchPos === -1) {
+      const shortKeyword = cleanKeyword.split(' ').slice(0, 4).join(' ');
+      if (shortKeyword.length >= 6) {
+        searchPos = flatPPCT.indexOf(shortKeyword);
       }
     }
   }
 
-  // 3. Phân loại chuẩn xác loại hình tích hợp
+  // 3. Nếu tìm thấy tên bài trong PPCT, bốc toàn bộ đoạn văn bản xung quanh đó (khoảng 3.000 ký tự)
+  if (searchPos !== -1) {
+    // Quét một đoạn đủ lớn sau tên bài để bao trọn cột Ghi chú và Học liệu số của bảng Word
+    const contextChunk = ppctText.substring(searchPos, Math.min(ppctText.length, searchPos + 3500));
+    
+    // Tìm các chỉ thị tích hợp cụ thể: NLS, AI, STEM, GeoGebra, Desmos, Excel...
+    const match = contextChunk.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*|Python[^\n\r|]*)/i);
+    
+    if (match) {
+      requirementNote = match[0].trim();
+    }
+  }
+
+  // 4. Phân loại loại hình tích hợp theo nội dung ghi chú tìm được
   const noteUpper = requirementNote.toUpperCase();
   let integrationType: 'NONE' | 'STEM' | 'NLS_AI' | 'NLS' | 'NAI' = 'NONE';
 
