@@ -18,7 +18,6 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 /**
  * HÀM PHỤ TRỢ: LÀM SẠCH NỘI DUNG NLS/AI CŨ VÀ CÁC THẺ RÁC TRƯỚC KHI CHÈN MỚI
- * (Đã nâng cấp regex xóa triệt để khối NLS cũ gồm nhiều thẻ <w:p> ở Mục I)
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
@@ -26,10 +25,10 @@ export function cleanExistingNLSContent(xmlContent: string): string {
   // 1. Quét sạch các tag rác cụt lủn như [NLS]: Gemini, [NLS]: ..., [NLS]
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[NLS\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
 
-  // 2. Quét sạch các đoạn NLS cũ trong các hoạt động (bắt đầu bằng 👉 Tích hợp, 🚀 TÍCH HỢP, hoặc mang mã TT 02/2025)
+  // 2. Quét sạch các đoạn NLS cũ trong các hoạt động
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|1\.1\.TC1a|5\.2\.TC2a|NLc\.C2|NLa\.A).*?<\/w:p>/gis, '');
 
-  // 3. Xóa triệt để toàn bộ khối "Năng lực số (tích hợp)" cũ ở Mục I (kể cả các gạch đầu dòng con bên dưới)
+  // 3. Xóa triệt để toàn bộ khối "Năng lực số (tích hợp)" cũ ở Mục I
   cleaned = cleaned.replace(
     /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):)[\s\S]*?)(?=<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:3\.\s*Phẩm chất|3\.\s*Về phẩm chất|III\.\s*Phẩm chất))/gi,
     ''
@@ -47,6 +46,25 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
+ * HÀM PHỤ TRỢ MỚI: CHUẨN HÓA DÒNG TIÊU ĐỀ TIẾT THEO PPCT VÀ GHI CHÚ TUẦN
+ */
+export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
+  if (!ppctInfoText) return xmlContent;
+
+  // Thay thế dòng "Tiết theo PPCT: ..." hoặc "Số tiết dạy: ..." bằng thông tin chuẩn hóa
+  const pattern = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Tiết theo PPCT|Số tiết dạy)[\s\S]*?<\/w:p>)/i;
+  
+  if (pattern.test(xmlContent)) {
+    return xmlContent.replace(pattern, (match) => {
+      // Thay text bên trong thẻ w:t của đoạn đó
+      return match.replace(/(<w:t[^>]*>)(.*?)(<\/w:t>)/i, `$1${escapeXml(ppctInfoText)}$3`);
+    });
+  }
+
+  return xmlContent;
+}
+
+/**
  * 2. HÀM TÍCH HỢP NỘI DUNG VÀO DOCUMENT.XML CỦA FILE WORD (CHÈN TRỰC TIẾP)
  */
 export const injectContentIntoDocx = async (
@@ -54,7 +72,8 @@ export const injectContentIntoDocx = async (
   content: GeneratedNLSContent,
   mode: IntegrationMode,
   _log: (msg: string) => void,
-  colorHex: HighlightColor = 'FF0000'
+  colorHex: HighlightColor = 'FF0000',
+  customHeaderPPCT?: string
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -71,6 +90,11 @@ export const injectContentIntoDocx = async (
 
         // BƯỚC 1: TỰ ĐỘNG DỌN SẠCH CÁC THẺ RÁC VÀ NLS CŨ TRƯỚC KHI CHÈN MỚI
         docXml = cleanExistingNLSContent(docXml);
+
+        // BƯỚC 1.1: CẬP NHẬT DÒNG TIÊU ĐỀ TIẾT THEO PPCT NẾU CÓ CHỈ ĐỊNH
+        if (customHeaderPPCT) {
+          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
+        }
         
         // Nhãn tiêu đề động theo chế độ (STEM, NLS, AI hoặc kết hợp)
         let label = "Tích hợp NLS & AI";
@@ -126,7 +150,6 @@ export const injectContentIntoDocx = async (
 
           const headerTitle = customPrefix || `👉 ${label}:`;
 
-          // 1. Tạo dòng Tiêu đề
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
@@ -135,7 +158,6 @@ export const injectContentIntoDocx = async (
                             </w:r>
                           </w:p>`;
 
-          // 2. Tạo các dòng Liệt kê nội dung
           lines.forEach(line => {
             let cleanLine = line
               .replace(/\*\*/g, "") 
