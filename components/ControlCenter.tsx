@@ -20,16 +20,20 @@ interface ControlCenterProps {
   pedagogy: string;
   setPedagogy: (p: string) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handlePpctFileChange?: (file: File | null) => void;
   handleAnalyze: () => void;
   handleFinalizeAndDownload: (content: GeneratedNLSContent) => void;
 }
 
 export default function ControlCenter({
-  state, setState, mode, setMode, stemTopic = '', setStemTopic, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handleAnalyze, handleFinalizeAndDownload
+  state, setState, mode, setMode, stemTopic = '', setStemTopic, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handlePpctFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
   // State độc lập quản lý trạng thái bật/tắt nút STEM
   const [isStemActive, setIsStemActive] = useState<boolean>(Boolean(stemTopic));
+
+  // State lưu file PPCT tại component để hiển thị UI
+  const [selectedPpctName, setSelectedPpctName] = useState<string>('');
 
   // Tự động đồng bộ trạng thái khi prop stemTopic từ component cha thay đổi
   useEffect(() => {
@@ -466,20 +470,55 @@ export default function ControlCenter({
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
                             File Phân phối chương trình (Tùy chọn)
                         </label>
-                        <label className="relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 transition-all cursor-pointer overflow-hidden p-4 group bg-white shadow-xs">
-                            <div className="flex flex-col items-center justify-center text-center z-10 transition-transform duration-300 group-hover:scale-105">
-                                <div className="w-9 h-9 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <FileUp className="w-4 h-4" />
-                                </div>
-                                <p className="font-bold text-slate-700 text-xs">Tải lên PPCT</p>
-                                <span className="text-[10px] text-slate-400 mt-0.5">Hỗ trợ định dạng .docx, .pdf</span>
+                        <label className={`relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-4 group ${
+                          selectedPpctName 
+                          ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
+                          : 'border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
+                        }`}>
+                            <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
+                                {selectedPpctName ? (
+                                    <div className="flex items-center gap-3 w-full px-2">
+                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+                                            <CheckCircle2 className="w-5 h-5" />
+                                        </div>
+                                        <div className="min-w-0 flex-1 text-left">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
+                                                Đã nạp PPCT
+                                              </span>
+                                            </div>
+                                            <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
+                                              {selectedPpctName}
+                                            </p>
+                                        </div>
+                                        <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 shrink-0 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                                          <RefreshCw className="w-3 h-3" /> Đổi
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="w-9 h-9 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                            <FileUp className="w-4 h-4" />
+                                        </div>
+                                        <p className="font-bold text-slate-700 text-xs">Tải lên PPCT</p>
+                                        <span className="text-[10px] text-slate-400 mt-0.5">Hỗ trợ định dạng .docx</span>
+                                    </>
+                                )}
                             </div>
-                            <input type="file" accept=".docx,.pdf" className="hidden" onChange={(e) => {
-                                const ppctFile = e.target.files?.[0];
+                            <input 
+                              type="file" 
+                              accept=".docx" 
+                              className="hidden" 
+                              onChange={(e) => {
+                                const ppctFile = e.target.files?.[0] || null;
                                 if (ppctFile) {
-                                    console.log("Đã chọn file PPCT:", ppctFile.name);
+                                  setSelectedPpctName(ppctFile.name);
+                                  if (handlePpctFileChange) {
+                                    handlePpctFileChange(ppctFile);
+                                  }
                                 }
-                            }} />
+                              }} 
+                            />
                         </label>
                     </div>
                 </div>

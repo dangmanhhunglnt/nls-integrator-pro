@@ -18,6 +18,63 @@ import ControlCenter from './components/ControlCenter';
 import TerminalSidebar from './components/TerminalSidebar';
 import { PricingModal } from './components/PricingModal';
 
+/**
+ * HÀM ĐỐI CHIẾU GIÁO ÁN VỚI PHÂN PHỐI CHƯƠNG TRÌNH (PPCT)
+ */
+function extractLessonRequirementFromPPCT(ppctText: string, lessonDocText: string): { 
+  hasPPCT: boolean; 
+  isFoundInPPCT: boolean; 
+  hasIntegration: boolean; 
+  requirementText: string;
+  lessonName: string;
+} {
+  if (!ppctText || !ppctText.trim()) {
+    return { hasPPCT: false, isFoundInPPCT: false, hasIntegration: true, requirementText: '', lessonName: '' };
+  }
+
+  // 1. Trích xuất tên bài từ giáo án (Tìm các dạng "BÀI 1...", "TÊN BÀI DẠY: ...", "BÀI...")
+  let lessonName = '';
+  const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
+  if (titleMatch && titleMatch[1]) {
+    lessonName = titleMatch[1].replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // Chuẩn hóa tên bài để tìm kiếm không phân biệt hoa thường và dấu
+  const cleanLesson = (lessonName || '')
+    .toLowerCase()
+    .replace(/(bài\s*\d+|chương\s*\d+|tiết\s*[\d-]+)/gi, '')
+    .trim();
+
+  const lines = ppctText.split('\n').map(l => l.trim()).filter(Boolean);
+  let requirementText = '';
+  let isFoundInPPCT = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toLowerCase();
+    
+    // Nếu dòng trong PPCT khớp với tên bài học
+    if (cleanLesson && (line.includes(cleanLesson) || (cleanLesson.length > 5 && cleanLesson.includes(line)))) {
+      isFoundInPPCT = true;
+      // Quét các dòng lân cận trong bảng PPCT của bài này để tìm cột Ghi chú / Tích hợp
+      const contextChunk = lines.slice(Math.max(0, i - 1), Math.min(lines.length, i + 6)).join('\n');
+      
+      const nlsMatch = contextChunk.match(/(NLS:[^\n\r|]+|AI:[^\n\r|]+|STEM:[^\n\r|]+|Năng lực số[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
+      if (nlsMatch) {
+        requirementText = nlsMatch[0].trim();
+      }
+      break;
+    }
+  }
+
+  return {
+    hasPPCT: true,
+    isFoundInPPCT,
+    hasIntegration: Boolean(requirementText),
+    requirementText,
+    lessonName
+  };
+}
+
 const App: React.FC = () => {
   const APP_VERSION = `v${packageJson.version} PRO`; 
   
@@ -35,6 +92,9 @@ const App: React.FC = () => {
   const [highlightColor, setHighlightColor] = useState<HighlightColor>('FF0000');
   const [userApiKey, setUserApiKey] = useState('');
   const [isKeySaved, setIsKeySaved] = useState(false);
+
+  // State lưu file PPCT
+  const [ppctFile, setPpctFile] = useState<File | null>(null);
 
   // 1. Hàm lấy Profile và số lượt dùng thực tế từ Supabase
   const fetchUserProfile = async (userId: string, email: string, displayName: string, photoURL: string) => {
@@ -56,7 +116,6 @@ const App: React.FC = () => {
           maxUsage: data.max_usage || 3
         });
       } else {
-        // Dự phòng nếu chưa có profile trong bảng
         setUser({
           uid: userId,
           email: email,
@@ -95,7 +154,6 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Xử lý Đăng nhập Google qua Supabase
   const handleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -111,19 +169,16 @@ const App: React.FC = () => {
     }
   };
 
-  // Xử lý Đăng xuất
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
   };
 
-  // TỰ ĐỘNG ĐỒNG BỘ: ĐỌC BẢN QUYỀN VÀ KHÓA MÁY VÀO SUPABASE KHI MỞ TRANG
   useEffect(() => {
     const autoSyncLicenseAndBindDevice = async () => {
       const savedCode = localStorage.getItem('USER_LICENSE_CODE') || localStorage.getItem('nls_license_key');
       const savedPlan = localStorage.getItem('USER_PLAN_TYPE') || localStorage.getItem('nls_plan_type');
 
-      // Nếu máy đã lưu key hoặc gói PRO, cập nhật state sang PRO ngay
       if (savedPlan === 'PRO' || (savedCode && savedCode.startsWith('NLS-VIP-'))) {
         setUser(prev => prev ? ({
           ...prev,
@@ -134,7 +189,6 @@ const App: React.FC = () => {
 
       if (!savedCode) return;
 
-      // Gửi deviceId lên Supabase để bảng Admin hiện "Đã khóa máy"
       try {
         const deviceId = await getDeviceId();
         const cleanCode = savedCode.trim().toUpperCase();
@@ -219,11 +273,20 @@ const App: React.FC = () => {
     }
   };
 
+  // Hàm xử lý nạp file Phân phối chương trình (PPCT)
+  const handlePpctFileChange = (file: File | null) => {
+    setPpctFile(file);
+    if (file) {
+      addLog(`📋 Đã nạp File Phân phối chương trình: ${file.name}`);
+    } else {
+      addLog(`📋 Đã gỡ File Phân phối chương trình.`);
+    }
+  };
+
   const addLog = (msg: string) => { 
     setState(prev => ({ ...prev, logs: [...prev.logs, msg] })); 
   };
 
-  // TÍNH TOÁN MA TRẬN PHÂN LOẠI SƯ PHẠM (HIỂN THỊ CỘT PHẢI)
   const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
 
   const pedagogicalEvaluation = useMemo(() => {
@@ -353,7 +416,7 @@ const App: React.FC = () => {
     }
   }, [pedagogicalEvaluation]);
 
-  // 3. Hàm phân tích giáo án & Hỗ trợ Xử lý hàng loạt (Batch Processing)
+  // 3. Hàm phân tích giáo án & Hỗ trợ Đối chiếu PPCT và Xử lý hàng loạt
   const handleAnalyze = async () => {
     const targetFiles = state.files && state.files.length > 0 ? state.files : (state.file ? [state.file] : []);
 
@@ -362,21 +425,18 @@ const App: React.FC = () => {
       return; 
     }
 
-    // Chế độ thực tế: nếu tắt các nút NLS và có stemTopic thì chạy 'STEM'
     const effectiveMode: string = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
     if (!mode && !stemTopic) {
       alert("Vui lòng chọn ít nhất một chế độ tích hợp (NLS, AI hoặc STEM)!");
       return;
     }
 
-    // 1. Kiểm tra tài khoản
     if (!user) {
       alert("Vui lòng Đăng nhập tài khoản Google để tiếp tục!");
       handleLogin();
       return;
     }
 
-    // 2. Kiểm tra bản quyền PRO (từ Supabase hoặc mã đã kích hoạt trên máy)
     const hasLocalLicense = typeof window !== 'undefined' && (
       localStorage.getItem('USER_PLAN_TYPE') === 'PRO' ||
       localStorage.getItem('nls_plan_type') === 'PRO' ||
@@ -386,7 +446,6 @@ const App: React.FC = () => {
 
     const isAccountPro = user.plan === 'PRO' || hasLocalLicense;
 
-    // Nếu không phải PRO và hết hạn mức -> Mới hiện bảng nạp tiền
     if (!isAccountPro && (user.usageCount + targetFiles.length) > user.maxUsage) {
       setIsPricingOpen(true);
       return;
@@ -406,11 +465,48 @@ const App: React.FC = () => {
     addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
     try {
-      // TRƯỜNG HỢP 1: XỬ LÝ 1 FILE ĐƠN LẺ -> Cho phép xem lại (Smart Editor)
+      // Đọc nội dung file PPCT nếu có
+      let ppctText = '';
+      if (ppctFile) {
+        addLog(`📖 Đang đọc Phân phối chương trình: ${ppctFile.name}...`);
+        ppctText = await extractTextFromDocx(ppctFile);
+      }
+
+      // TRƯỜNG HỢP 1: XỬ LÝ 1 FILE ĐƠN LẺ
       if (targetFiles.length === 1) {
         const currentFile = targetFiles[0];
         addLog(`🔍 Đang phân tích cấu trúc giáo án: ${currentFile.name}...`);
         const textContext = await extractTextFromDocx(currentFile);
+
+        // ĐỐI CHIẾU PPCT
+        if (ppctText) {
+          const ppctCheck = extractLessonRequirementFromPPCT(ppctText, textContext);
+          if (ppctCheck.hasPPCT && ppctCheck.isFoundInPPCT && !ppctCheck.hasIntegration) {
+            // KỊCH BẢN: PPCT XÁC ĐỊNH BÀI NÀY KHÔNG TÍCH HỢP NLS/AI
+            addLog(`📋 Kết quả tra cứu PPCT: Bài "${ppctCheck.lessonName || currentFile.name}" KHÔNG quy định tích hợp NLS/AI.`);
+            addLog(`🧹 Tiến hành làm sạch các thẻ rác, mục tiêu NLS cũ và trả về giáo án gốc...`);
+
+            // Inject rỗng để hàm cleanExistingNLSContent tự động làm sạch
+            const cleanBlob = await injectContentIntoDocx(
+              currentFile, 
+              { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 
+              effectiveMode as any, 
+              addLog, 
+              highlightColor
+            );
+
+            setState(prev => ({
+              ...prev,
+              isProcessing: false,
+              step: 'done',
+              result: { fileName: `[BAN-CHUAN-PPCT] ${currentFile.name}`, blob: cleanBlob },
+              logs: [...prev.logs, "✨ Đã làm sạch và xuất bản giáo án chuẩn PPCT!"]
+            }));
+            return;
+          } else if (ppctCheck.hasIntegration) {
+            addLog(`📋 PPCT yêu cầu tích hợp: "${ppctCheck.requirementText}"`);
+          }
+        }
             
         addLog("🧠 AI đang tư duy và thiết kế nội dung...");
         const generatedContent = await generateCompetencyIntegration(
@@ -424,10 +520,8 @@ const App: React.FC = () => {
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
-        // 3. Tự động tăng và lưu số lượt vào Supabase nếu là FREE
         if (user.plan !== 'PRO') {
           const nextUsage = (user.usageCount || 0) + 1;
-          
           await supabase
             .from('profiles')
             .upsert({ 
@@ -438,7 +532,6 @@ const App: React.FC = () => {
               max_usage: user.maxUsage,
               role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
             });
-          
           setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
           addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
         }
@@ -452,7 +545,7 @@ const App: React.FC = () => {
         return;
       }
 
-      // TRƯỜNG HỢP 2: XỬ LÝ HÀNG LOẠT (BATCH PROCESSING) -> Tự động chạy tuần tự & nén ZIP
+      // TRƯỜNG HỢP 2: XỬ LÝ HÀNG LOẠT (BATCH PROCESSING)
       addLog(`⚡ Bắt đầu tiến trình xử lý hàng loạt ${targetFiles.length} file...`);
       const outputBlobs: { name: string; blob: Blob }[] = [];
 
@@ -462,25 +555,47 @@ const App: React.FC = () => {
         addLog(`[${i + 1}/${targetFiles.length}] Đang xử lý: ${fileItem.name}`);
         
         const fileText = await extractTextFromDocx(fileItem);
-        const itemContent = await generateCompetencyIntegration(
-          fileText,
-          state.subject,
-          state.grade,
-          effectiveMode as any,
-          userApiKey,
-          level,
-          stemTopic
-        );
+
+        // Kiểm tra từng file với PPCT nếu có nạp PPCT
+        let shouldSkipIntegration = false;
+        if (ppctText) {
+          const checkItem = extractLessonRequirementFromPPCT(ppctText, fileText);
+          if (checkItem.hasPPCT && checkItem.isFoundInPPCT && !checkItem.hasIntegration) {
+            shouldSkipIntegration = true;
+            addLog(`📋 PPCT quy định: Bài này dạy truyền thống (không NLS/AI). Tiến hành làm sạch...`);
+          }
+        }
 
         let finalBlob: Blob;
         let outName: string;
 
-        if (outputFormat === 'APPENDIX_ONLY') {
-          finalBlob = await createAppendixDocx(itemContent, state.subject, state.grade, effectiveMode as any);
-          outName = effectiveMode === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`;
+        if (shouldSkipIntegration) {
+          finalBlob = await injectContentIntoDocx(
+            fileItem, 
+            { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 
+            effectiveMode as any, 
+            addLog, 
+            highlightColor
+          );
+          outName = `[CHUAN-PPCT] ${fileItem.name}`;
         } else {
-          finalBlob = await injectContentIntoDocx(fileItem, itemContent, effectiveMode as any, addLog, highlightColor);
-          outName = effectiveMode === 'STEM' ? `[STEM-PRO] ${fileItem.name}` : `[NLS-PRO] ${fileItem.name}`;
+          const itemContent = await generateCompetencyIntegration(
+            fileText,
+            state.subject,
+            state.grade,
+            effectiveMode as any,
+            userApiKey,
+            level,
+            stemTopic
+          );
+
+          if (outputFormat === 'APPENDIX_ONLY') {
+            finalBlob = await createAppendixDocx(itemContent, state.subject, state.grade, effectiveMode as any);
+            outName = effectiveMode === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`;
+          } else {
+            finalBlob = await injectContentIntoDocx(fileItem, itemContent, effectiveMode as any, addLog, highlightColor);
+            outName = effectiveMode === 'STEM' ? `[STEM-PRO] ${fileItem.name}` : `[NLS-PRO] ${fileItem.name}`;
+          }
         }
 
         outputBlobs.push({ name: outName, blob: finalBlob });
@@ -522,7 +637,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 4. Hàm đóng gói và xuất bản file Word (Chèn trực tiếp hoặc Xuất phụ lục riêng)
+  // 4. Hàm đóng gói và xuất bản file Word
   const handleFinalizeAndDownload = async (finalContent: GeneratedNLSContent) => {
     if (!state.file) return;
     const effectiveMode: string = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
@@ -581,7 +696,7 @@ const App: React.FC = () => {
           {/* 3. MAIN WORKSPACE GRID: CHIA TỶ LỆ CÂN ĐỐI 6 : 6 (50% - 50%) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            {/* LEFT COLUMN: CONTROL CENTER COMPONENT (6 PHẦN) */}
+            {/* LEFT COLUMN: CONTROL CENTER COMPONENT */}
             <div className="lg:col-span-6 space-y-6">
               <ControlCenter 
                 state={state}
@@ -599,15 +714,16 @@ const App: React.FC = () => {
                 pedagogy={pedagogy}
                 setPedagogy={setPedagogy}
                 handleFileChange={handleFileChange}
+                handlePpctFileChange={handlePpctFileChange}
                 handleAnalyze={handleAnalyze}
                 handleFinalizeAndDownload={handleFinalizeAndDownload}
               />
             </div>
             
-            {/* RIGHT COLUMN: GIÁM SÁT SƯ PHẠM, LOADER VÀ CONSOLE LOG (6 PHẦN) */}
+            {/* RIGHT COLUMN: GIÁM SÁT SƯ PHẠM, LOADER VÀ CONSOLE LOG */}
             <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-20">
               
-              {/* BẢNG ĐÁNH GIÁ SƯ PHẠM: TỰ ĐỘNG HIỆN Ở CỘT PHẢI KHI CHỌN MÔN/FILE */}
+              {/* BẢNG ĐÁNH GIÁ SƯ PHẠM */}
               {pedagogicalEvaluation && (
                 <div className={`rounded-2xl p-4.5 border shadow-sm transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
                     <div className="flex items-start gap-3">
@@ -632,7 +748,7 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* TRẠNG THÁI: KHI AI ĐANG CHẠY THÌ HIỆN KHỐI TÍM ĐEN CÂN ĐỐI */}
+              {/* TRẠNG THÁI LOADER */}
               {state.isProcessing ? (
                 <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-2xl border border-indigo-500/30 text-center flex flex-col items-center justify-center min-h-[380px] animate-fade-in-up">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -675,14 +791,12 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  {/* Console Log chuẩn hoá */}
                   <TerminalSidebar logs={state.logs.length > 0 ? state.logs : [
                     "🚀 Hệ thống sẵn sàng.",
                     "📂 Hãy chọn môn, khối lớp và tải file giáo án (.docx) ở cột bên trái.",
                     "🎯 Hệ thống sẽ tự động đối chiếu ma trận sư phạm và chuẩn hoá."
                   ]} isProcessing={state.isProcessing} />
 
-                  {/* Thẻ hướng dẫn quy chuẩn sư phạm để lấp đầy cột phải */}
                   <div className="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-xs space-y-2.5">
                     <h4 className="font-extrabold text-xs uppercase tracking-wide text-slate-700 flex items-center gap-2">
                       <span>📋</span> Định hướng tích hợp chuyên môn
@@ -714,7 +828,6 @@ const App: React.FC = () => {
       <footer className="mt-8 border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-3 text-xs text-slate-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
           
-          {/* Cụm trái: Logo, Tên app, Phiên bản & Tác giả */}
           <div className="flex items-center gap-2.5">
             <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px] shadow-xs">
               NLS
@@ -727,13 +840,11 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Cụm giữa: Căn cứ quy định */}
           <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span>CV 2345 • CV 5512 • TT 02/2025 • CV 3089 (GD STEM)</span>
           </div>
 
-          {/* Cụm phải: Nút Bản quyền & Liên hệ nhanh */}
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -746,7 +857,7 @@ const App: React.FC = () => {
               href="https://zalo.me/0978386357"
               target="_blank"
               rel="noreferrer"
-              className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] flex items-center gap-1 transition"
+              className="py-1 px-2.5 rounded-lg bg-emerald-50 practical hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] flex items-center gap-1 transition"
             >
               💬 Zalo
             </a>
@@ -761,7 +872,6 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* POPUP BẢNG GIÁ & NẠP TIỀN VIETQR */}
       <PricingModal 
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
