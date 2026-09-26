@@ -74,7 +74,7 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
 
 /**
  * HÀM ĐỐI CHIẾU DỮ LIỆU ĐỘNG VỚI PPCT:
- * So khớp chính xác tên bài, đếm đúng số tiết, tuần và không để lẫn lộn sang bài khác
+ * So khớp chính xác theo hàng ngang của bảng, tránh bắt nhầm số tuần thành số tiết
  */
 function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPPCTResult {
   if (!ppctText || !ppctText.trim()) {
@@ -111,7 +111,7 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Phát hiện số tuần trong PPCT
+    // Phát hiện số tuần trong PPCT (dòng riêng biệt chỉ có số 1 đến 35)
     const weekMatch = line.match(/^(?:tuần\s*)?(\d{1,2})$/i);
     if (weekMatch && parseInt(weekMatch[1], 10) <= 35) {
       currentWeek = parseInt(weekMatch[1], 10);
@@ -119,7 +119,7 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
 
     const lowerLine = line.toLowerCase().replace(/\s+/g, ' ');
 
-    // SO KHỚP CHÍNH XÁC: Đảm bảo bài nào ra bài đó
+    // SO KHỚP CHÍNH XÁC: Đảm bảo bài nào ra bài đó, không lẫn sang các bài khác
     let isMatched = false;
     if (cleanKeyword) {
       if (cleanKeyword.includes('công thức') && lowerLine.includes('công thức lượng giác')) {
@@ -136,22 +136,49 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
     }
 
     if (isMatched) {
-      const surroundingChunk = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 8)).join(' \n ');
-
+      // Tìm dòng số tiết: Số tiết của hàng đó phải nằm ngay trước hoặc lân cận dòng tên bài
+      // Loại trừ con số tuần hiện tại để không bị nhầm tuần 3 thành tiết 3
       let rawPeriod = '';
-      const periodMatch = surroundingChunk.match(/(?:\n|^)\s*(\d{1,2}(?:\s*,\s*\d{1,2})*|\d{1,2}\s*-\s*\d{1,2})\s*(?:\n|$)/);
-      if (periodMatch) {
-        rawPeriod = periodMatch[1];
+      
+      // Quét các dòng phía trước dòng tên bài (tối đa 4 dòng)
+      for (let j = Math.max(0, i - 4); j < i; j++) {
+        const testLine = lines[j].trim();
+        // Ô tiết thường là "5", "7-8", "1,2", "10-11"
+        if (/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(testLine) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(testLine)) {
+          // Nếu dòng này trùng với số tuần hiện tại thì bỏ qua (đó là ô Tuần)
+          if (parseInt(testLine, 10) === currentWeek && !testLine.includes(',') && !testLine.includes('-')) {
+            continue;
+          }
+          rawPeriod = testLine;
+          break;
+        }
+      }
+
+      // Nếu không thấy ở trước, quét các dòng phía sau (trong phạm vi 4 dòng)
+      if (!rawPeriod) {
+        for (let j = i + 1; j < Math.min(lines.length, i + 5); j++) {
+          const testLine = lines[j].trim();
+          if (/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(testLine) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(testLine)) {
+            if (parseInt(testLine, 10) === currentWeek && !testLine.includes(',') && !testLine.includes('-')) {
+              continue;
+            }
+            rawPeriod = testLine;
+            break;
+          }
+        }
       }
 
       const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(rawPeriod);
 
+      // Quét ghi chú NLS / AI / STEM
+      const surroundingChunk = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 8)).join(' \n ');
       let noteFound = '';
       const noteMatch = surroundingChunk.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
       if (noteMatch) {
         noteFound = noteMatch[0].trim();
       }
 
+      // Lưu lịch học nếu có tiết hợp lệ
       const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplay);
       if (!exists && periodDisplay) {
         schedules.push({
@@ -211,12 +238,8 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
 const App: React.FC = () => {
   const APP_VERSION = `v${packageJson.version} PRO`; 
   
-  // State tài khoản người dùng
   const [user, setUser] = useState<UserProfile | null>(null);
-
-  // State quản lý hiển thị Modal Nâng cấp / Thanh toán
   const [isPricingOpen, setIsPricingOpen] = useState<boolean>(false);
-
   const [pedagogy, setPedagogy] = useState<string>('DEFAULT');
   const [mode, setMode] = useState<IntegrationMode>('NLS_AI');
   const [stemTopic, setStemTopic] = useState<string>(''); 
@@ -225,11 +248,8 @@ const App: React.FC = () => {
   const [highlightColor, setHighlightColor] = useState<HighlightColor>('FF0000');
   const [userApiKey, setUserApiKey] = useState('');
   const [isKeySaved, setIsKeySaved] = useState(false);
-
-  // State lưu file PPCT
   const [ppctFile, setPpctFile] = useState<File | null>(null);
 
-  // 1. Hàm lấy Profile và số lượt dùng thực tế từ Supabase
   const fetchUserProfile = async (userId: string, email: string, displayName: string, photoURL: string) => {
     try {
       const { data, error } = await supabase
@@ -264,7 +284,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 2. Lắng nghe trạng thái đăng nhập Supabase Auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data }: { data: { session: any } }) => {
       if (data?.session?.user) {
@@ -291,13 +310,10 @@ const App: React.FC = () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        },
+        options: { redirectTo: window.location.origin },
       });
       if (error) throw error;
     } catch (error) {
-      console.error("Đăng nhập thất bại:", error);
       alert("Đăng nhập thất bại, vui lòng thử lại!");
     }
   };
@@ -313,11 +329,7 @@ const App: React.FC = () => {
       const savedPlan = localStorage.getItem('USER_PLAN_TYPE') || localStorage.getItem('nls_plan_type');
 
       if (savedPlan === 'PRO' || (savedCode && savedCode.startsWith('NLS-VIP-'))) {
-        setUser(prev => prev ? ({
-          ...prev,
-          plan: 'PRO',
-          maxUsage: 9999
-        }) : prev);
+        setUser(prev => prev ? ({ ...prev, plan: 'PRO', maxUsage: 9999 }) : prev);
       }
 
       if (!savedCode) return;
@@ -325,28 +337,14 @@ const App: React.FC = () => {
       try {
         const deviceId = await getDeviceId();
         const cleanCode = savedCode.trim().toUpperCase();
-
-        const { data: license } = await supabase
-          .from('licenses')
-          .select('bound_device_id')
-          .eq('code', cleanCode)
-          .maybeSingle();
-
+        const { data: license } = await supabase.from('licenses').select('bound_device_id').eq('code', cleanCode).maybeSingle();
         if (license && !license.bound_device_id) {
-          await supabase
-            .from('licenses')
-            .update({
-              bound_device_id: deviceId,
-              activated_at: new Date().toISOString()
-            })
-            .eq('code', cleanCode);
-          console.log('✅ Đã tự động ghi nhận khóa máy cho mã:', cleanCode);
+          await supabase.from('licenses').update({ bound_device_id: deviceId, activated_at: new Date().toISOString() }).eq('code', cleanCode);
         }
       } catch (err) {
         console.warn('Lỗi tự động khóa máy:', err);
       }
     };
-
     autoSyncLicenseAndBindDevice();
   }, [user?.uid]);
 
@@ -423,78 +421,23 @@ const App: React.FC = () => {
 
   const pedagogicalEvaluation = useMemo(() => {
     if (fileCount === 0 && !state.subject) return null;
-
     const fileNames = state.files && state.files.length > 0 
       ? state.files.map(f => f.name.toLowerCase()).join(' ') 
       : (state.file?.name.toLowerCase() || '');
-    
     const subject = (state.subject || '').toLowerCase();
     const query = `${fileNames} ${subject}`;
 
-    const isPracticeOrDrill = 
-      query.includes('luyện tập') || 
-      query.includes('thực hành') || 
-      query.includes('rèn kỹ năng') || 
-      query.includes('ôn tập') ||
-      query.includes('cộng') || 
-      query.includes('trừ') || 
-      query.includes('nhân') || 
-      query.includes('chia') ||
-      query.includes('phân số') || 
-      query.includes('tính nhẩm') || 
-      query.includes('giải phương trình') || 
-      query.includes('bất đẳng thức') ||
-      query.includes('chính tả') || 
-      query.includes('tập đọc') || 
-      query.includes('luyện viết') || 
-      query.includes('cảm thụ') ||
-      query.includes('kể chuyện') ||
-      query.includes('thể chất') ||
-      query.includes('chạy') ||
-      query.includes('đá cầu');
-
-    const isSpatialOrSimulation = 
-      query.includes('không gian') || 
-      query.includes('hình học') || 
-      query.includes('hình chóp') || 
-      query.includes('lăng trụ') || 
-      query.includes('mặt cầu') || 
-      query.includes('vectơ') || 
-      query.includes('đồ thị') || 
-      query.includes('hàm số') || 
-      query.includes('lượng giác') ||
-      query.includes('chuyển động') || 
-      query.includes('mô phỏng') || 
-      query.includes('vũ trụ') || 
-      query.includes('quang hợp') ||
-      query.includes('nguyên tử');
-
-    const isDataOrAI = 
-      query.includes('thống kê') || 
-      query.includes('xác suất') || 
-      query.includes('mẫu số liệu') || 
-      query.includes('biểu đồ') || 
-      query.includes('dữ liệu') || 
-      query.includes('tin học') || 
-      query.includes('thuật toán') || 
-      query.includes('lập trình') ||
-      query.includes('kinh tế');
-
-    const isSocialOrLanguage = 
-      query.includes('lịch sử') || 
-      query.includes('địa lí') || 
-      query.includes('tiếng anh') || 
-      query.includes('tự nhiên và xã hội') || 
-      query.includes('văn minh') || 
-      query.includes('khoa học');
+    const isPracticeOrDrill = query.includes('luyện tập') || query.includes('thực hành') || query.includes('ôn tập') || query.includes('cộng') || query.includes('trừ') || query.includes('giải phương trình');
+    const isSpatialOrSimulation = query.includes('không gian') || query.includes('hình học') || query.includes('hình chóp') || query.includes('đồ thị') || query.includes('lượng giác');
+    const isDataOrAI = query.includes('thống kê') || query.includes('xác suất') || query.includes('mẫu số liệu') || query.includes('tin học');
 
     if (isPracticeOrDrill && !isSpatialOrSimulation && !isDataOrAI) {
       return {
         status: 'KHÔNG NÊN GƯỢNG ÉP NĂNG LỰC SỐ / AI',
-        badgeColor: 'bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200',
+        badgeColor: 'bg-amber-50 border-amber-300 text-amber-900',
         icon: <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />,
         tool: 'Bảng phấn, Giấy vở, Phiếu in, Thao tác trực tiếp trên đồ dùng thật',
-        action: 'Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu. Không đưa công nghệ vào để tránh làm phân tán học sinh.',
+        action: 'Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu.',
         recommendedLevel: 'STANDARD'
       };
     }
@@ -502,10 +445,10 @@ const App: React.FC = () => {
     if (isSpatialOrSimulation) {
       return {
         status: 'BẮT BUỘC TÍCH HỢP NĂNG LỰC SỐ (MÔ PHỎNG TRỰC QUAN)',
-        badgeColor: 'bg-blue-50 border-blue-300 text-blue-900 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-200',
+        badgeColor: 'bg-blue-50 border-blue-300 text-blue-900',
         icon: <Cpu className="w-5 h-5 text-blue-600 shrink-0" />,
         tool: 'GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học động',
-        action: 'Chèn vào Hoạt động Khám phá & Hình thành kiến thức: Cho học sinh quan sát xoay góc nhìn 3D, thay đổi tham số để tự phát hiện quy luật.',
+        action: 'Chèn vào Hoạt động Khám phá & Hình thành kiến thức: Cho học sinh quan sát xoay góc nhìn 3D.',
         recommendedLevel: 'INTENSIVE'
       };
     }
@@ -513,28 +456,17 @@ const App: React.FC = () => {
     if (isDataOrAI) {
       return {
         status: 'TÍCH HỢP NĂNG LỰC SỐ & TRỢ LÝ AI (XỬ LÝ DỮ LIỆU)',
-        badgeColor: 'bg-purple-50 border-purple-300 text-purple-900 dark:bg-purple-950/40 dark:border-purple-800 dark:text-purple-200',
+        badgeColor: 'bg-purple-50 border-purple-300 text-purple-900',
         icon: <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />,
         tool: 'Bảng tính Excel/Google Sheets, Công cụ phân tích dữ liệu AI',
-        action: 'Chèn vào Hoạt động Luyện tập & Vận dụng: Nhập bảng dữ liệu thực tế, dùng hàm tính các số đặc trưng và biểu diễn bằng biểu đồ trực tuyến.',
+        action: 'Chèn vào Hoạt động Luyện tập & Vận dụng: Nhập bảng dữ liệu thực tế và tính nhanh số đặc trưng.',
         recommendedLevel: 'INTENSIVE'
-      };
-    }
-
-    if (isSocialOrLanguage) {
-      return {
-        status: 'TÍCH HỢP HỌC LIỆU SỐ & NỀN TẢNG TƯƠNG TÁC',
-        badgeColor: 'bg-cyan-50 border-cyan-300 text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-800 dark:text-cyan-200',
-        icon: <BookOpen className="w-5 h-5 text-cyan-600 shrink-0" />,
-        tool: 'Bản đồ số (Google Earth), Video tư liệu lịch sử, Ứng dụng phát âm AI',
-        action: 'Chèn vào Hoạt động Mở đầu & Khám phá: Khai thác tư liệu hình ảnh, lược đồ tương tác số.',
-        recommendedLevel: 'STANDARD'
       };
     }
 
     return {
       status: 'TÍCH HỢP MỨC HỖ TRỢ TRÌNH CHIẾU THỰC CHẤT',
-      badgeColor: 'bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200',
+      badgeColor: 'bg-emerald-50 border-emerald-300 text-emerald-900',
       icon: <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />,
       tool: 'Slide trình chiếu bài giảng, Phiếu học tập số (Quizizz / Google Form)',
       action: 'Chèn câu hỏi tương tác mở đầu hoặc củng cố cuối bài.',
@@ -548,7 +480,7 @@ const App: React.FC = () => {
     }
   }, [pedagogicalEvaluation]);
 
-  // 3. Hàm phân tích giáo án & Hỗ trợ Đối chiếu PPCT và Xử lý hàng loạt
+  // 3. HÀM PHÂN TÍCH VÀ ĐỐI CHIẾU PPCT
   const handleAnalyze = async () => {
     const targetFiles = state.files && state.files.length > 0 ? state.files : (state.file ? [state.file] : []);
 
@@ -589,7 +521,6 @@ const App: React.FC = () => {
     addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
     try {
-      // Đọc nội dung file PPCT nếu người dùng có nạp
       let ppctText = '';
       if (ppctFile) {
         addLog(`📖 Đang đối chiếu Phân phối chương trình: ${ppctFile.name}...`);
@@ -599,7 +530,7 @@ const App: React.FC = () => {
       // TRƯỜNG HỢP 1: XỬ LÝ 1 FILE ĐƠN LẺ
       if (targetFiles.length === 1) {
         const currentFile = targetFiles[0];
-        addLog(`🔍 Đang phân tích cấu trúc giáo án: ${currentFile.name}...`);
+        addLog(`🔍 Phân tích cấu trúc giáo án: ${currentFile.name}...`);
         const textContext = await extractTextFromDocx(currentFile);
 
         let effectiveMode = mode;
@@ -711,12 +642,12 @@ const App: React.FC = () => {
           const sched1 = ppctInfo.schedules[0];
           const sched2 = ppctInfo.schedules[1];
 
-          // 1. File Tuần thứ nhất (ví dụ: Tuần 2 dạy Tiết 5)
+          // 1. File Tuần thứ nhất
           const week1Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched1.week} dạy Tiết ${sched1.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
           const blobWeek1 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week1Header);
           const nameWeek1 = `Toan11_Tuan ${sched1.week}_Tiet ${sched1.periodDisplay.replace(/\s+/g, '')}_${currentFile.name}`;
 
-          // 2. File Tuần thứ hai (ví dụ: Tuần 3 dạy tiếp Tiết 7, 8)
+          // 2. File Tuần thứ hai
           const week2Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched2.week} dạy tiếp Tiết ${sched2.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
           const blobWeek2 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week2Header);
           const nameWeek2 = `Toan11_Tuan ${sched2.week}_Tiet ${sched2.periodDisplay.replace(/\s+/g, '')}_${currentFile.name.replace(/\.docx$/i, '')} (tiep).docx`;
