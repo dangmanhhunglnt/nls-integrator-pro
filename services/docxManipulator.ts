@@ -23,7 +23,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
   // 1. Quét sạch các tag rác [NLS], [AI], [STEM]
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS|AI|STEM)\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
 
   // 2. Quét sạch các đoạn chỉ thị tích hợp trong các hoạt động dạy học
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
@@ -47,44 +47,49 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TIÊU ĐỀ TIẾT THEO PPCT (AN TOÀN XML 100%)
+ * 3. HÀM CẬP NHẬT TIÊU ĐỀ TIẾT THEO PPCT (AN TOÀN TUYỆT ĐỐI CHO OPENXML WORD)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
 
   let result = xmlContent;
 
-  // 1. Tìm paragraph chứa thông tin "Thời gian thực hiện" hoặc "Số tiết dạy"
+  // Tìm đoạn paragraph chứa thông tin Thời gian thực hiện hoặc Số tiết dạy
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
   const match = result.match(pRegex);
 
   if (match) {
     let pXml = match[0];
 
-    // Đảm bảo có căn giữa <w:jc w:val="center"/> trong thuộc tính pPr
-    if (/<w:pPr\b[^>]*>/i.test(pXml)) {
-      if (/<w:jc\b[^>]*\/>/i.test(pXml)) {
-        pXml = pXml.replace(/<w:jc\b[^>]*\/>/i, '<w:jc w:val="center"/>');
+    // Căn giữa an toàn bằng cách cập nhật thuộc tính jc
+    if (pXml.includes('<w:pPr>')) {
+      if (pXml.includes('<w:jc')) {
+        pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
       } else {
-        pXml = pXml.replace(/(<w:pPr\b[^>]*>)/i, '$1<w:jc w:val="center"/>');
+        pXml = pXml.replace('<w:pPr>', '<w:pPr><w:jc w:val="center"/>');
       }
+    } else if (pXml.includes('<w:pPr/>')) {
+      pXml = pXml.replace('<w:pPr/>', '<w:pPr><w:jc w:val="center"/></w:pPr>');
     } else {
       pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
     }
 
-    // Thay thế toàn bộ text bên trong paragraph này bằng chuỗi PPCT mới
-    // Giữ lại thẻ mở <w:p...> và </w:p>, thay phần ruột run text
+    // Xóa sạch tất cả các thẻ text cũ <w:r>...</w:r> bên trong paragraph đó
     const pPrMatch = pXml.match(/<w:pPr\b[\s\S]*?<\/w:pPr>/i);
-    const pPrContent = pPrMatch ? pPrMatch[0] : '<w:pPr><w:jc w:val="center"/></w:pPr>';
+    const pPr = pPrMatch ? pPrMatch[0] : '<w:pPr><w:jc w:val="center"/></w:pPr>';
 
     const safeNewText = escapeXml(ppctInfoText);
-    const newInner = `${pPrContent}<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
+    const newRun = `<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
 
-    const fixedPXml = pXml.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/i, `<w:p>${newInner}</w:p>`);
+    // Ghép lại đúng chuẩn OpenXML: <w:p attrs...> <w:pPr>...</w:pPr> <w:r>...</w:r> </w:p>
+    const openingTagMatch = pXml.match(/^<w:p\b[^>]*>/i);
+    const openingTag = openingTagMatch ? openingTagMatch[0] : '<w:p>';
+    const fixedPXml = `${openingTag}${pPr}${newRun}</w:p>`;
+
     result = result.replace(match[0], fixedPXml);
   }
 
-  // Xóa các paragraph rác chứa "Tiết theo PPCT" cũ nếu có
+  // Dọn các dòng rác Tiết theo PPCT cũ
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
 
   return result;
