@@ -67,7 +67,7 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
 
 /**
  * HÀM ĐỐI CHIẾU DỮ LIỆU PPCT:
- * Quét chuỗi văn bản phân cấp theo từng tuần, không để sót hàng bài học
+ * Phân tích theo từng khối tuần độc lập, bắt trọn vẹn số tiết của bài học
  */
 function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPPCTResult {
   if (!ppctText || !ppctText.trim()) {
@@ -103,6 +103,7 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
+    // Phát hiện số tuần
     const weekMatch = line.match(/^(?:tuần\s*)?(\d{1,2})$/i);
     if (weekMatch && parseInt(weekMatch[1], 10) <= 35) {
       currentWeek = parseInt(weekMatch[1], 10);
@@ -528,7 +529,7 @@ const App: React.FC = () => {
           if (ppctInfo.integrationType === 'NONE') {
             addLog(`🧹 PPCT quy định: Tiết học truyền thống. Tự động làm sạch mục tiêu cũ và đưa về chuẩn 5512...`);
 
-            // NẾU BÀI TRUYỀN THỐNG VẮT QUA 2 TUẦN -> TÁCH 2 FILE NỘP THEO TỪNG TUẦN
+            // NẾU BÀI TRUYỀN THỐNG VẮT QUA 2 TUẦN -> TỰ ĐỘNG TÁCH 2 FILE THEO LỊCH TUẦN
             if (ppctInfo.isMultiWeek && ppctInfo.schedules.length >= 2) {
               const sched1 = ppctInfo.schedules[0];
               const sched2 = ppctInfo.schedules[1];
