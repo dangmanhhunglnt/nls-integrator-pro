@@ -7,7 +7,7 @@ import packageJson from './package.json';
 import mammoth from 'mammoth';
 
 // Import icons cho cột bên phải
-import { Sparkles, ShieldAlert, Cpu, BookOpen, CheckCircle } from 'lucide-react';
+import { Sparkles, ShieldAlert, Cpu, CheckCircle } from 'lucide-react';
 
 // Import Supabase Client để quản lý Auth & Đếm lượt dùng
 import { supabase } from './config/supabaseClient';
@@ -75,17 +75,19 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
 }
 
 /**
- * HÀM ĐỐI CHIẾU PPCT BẰNG CẤU TRÚC BẢNG HTML (PARSER CHÍNH XÁC THEO HÀNG & CỘT)
- * Cột 0: Tuần | Cột 1: Tiết | Cột 2: Tên bài | Cột 4: Ghi chú
+ * HÀM ĐỐI CHIẾU PPCT VẠN NĂNG:
+ * Tự động nhận diện Tuần, Tiết, Tên bài dựa trên mẫu dữ liệu thực tế của từng ô,
+ * không phụ thuộc vào việc ô có bị gộp dòng (rowspan) hay gộp cột hay không.
  */
 async function parsePPCTRequirementFromHtml(ppctFile: File, lessonDocText: string): Promise<ParsedPPCTResult> {
-  // 1. Trích xuất tên bài từ giáo án
+  // 1. Trích xuất và chuẩn hóa tên bài từ giáo án
   let lessonTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
   if (titleMatch && titleMatch[1]) {
     lessonTitle = titleMatch[1].replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
+  // Lấy cụm từ khóa cốt lõi (VD: "công thức lượng giác", "giá trị lượng giác", "hai đường thẳng song song")
   const cleanKeyword = (lessonTitle || '')
     .toLowerCase()
     .replace(/(bài\s*\d+[:\.]?|chương\s*[ivxlcdm\d]+[:\.]?|tiết\s*[\d-]+[:\.]?)/gi, '')
@@ -105,46 +107,63 @@ async function parsePPCTRequirementFromHtml(ppctFile: File, lessonDocText: strin
 
   for (const row of rows) {
     const cells = Array.from(row.querySelectorAll('td, th')).map(c => (c.textContent || '').trim());
-    if (cells.length < 3) continue;
+    if (cells.length < 2) continue;
 
-    // Cột 0: TUẦN (Nếu ô có số tuần thì cập nhật tuần hiện tại)
-    const weekVal = parseInt(cells[0].replace(/\D/g, ''), 10);
-    if (!isNaN(weekVal) && weekVal >= 1 && weekVal <= 35) {
-      currentWeek = weekVal;
+    // BƯỚC 1: TỰ ĐỘNG CẬP NHẬT TUẦN (Quét ô đầu tiên xem có phải là ô Tuần không)
+    const firstCellText = cells[0].replace(/\s+/g, '');
+    const weekNum = parseInt(firstCellText.replace(/\D/g, ''), 10);
+    // Ô tuần thường là số đơn lẻ từ 1 đến 35, hoặc có chữ "Tuần X"
+    if (!isNaN(weekNum) && weekNum >= 1 && weekNum <= 35 && firstCellText.length <= 6 && !firstCellText.includes(',') && !firstCellText.includes('-')) {
+      currentWeek = weekNum;
     }
 
-    // Cột 1: TIẾT
-    const rawPeriod = cells[1] || '';
+    // BƯỚC 2: TỰ ĐỘNG DÒ TÌM Ô TIẾT VÀ Ô TÊN BÀI THEO MẪU DỮ LIỆU
+    let detectedPeriodStr = '';
+    let isLessonMatched = false;
+    let noteText = '';
 
-    // Cột 2: TÊN BÀI HỌC
-    const lessonNameInPPCT = (cells[2] || '').toLowerCase().replace(/\s+/g, ' ');
+    for (let c = 0; c < cells.length; c++) {
+      const cellText = cells[c];
+      const lowerCell = cellText.toLowerCase().replace(/\s+/g, ' ');
 
-    // Cột 4: GHI CHÚ
-    const noteContent = cells[4] || cells[3] || '';
+      // Kiểm tra ô có phải là Cột Tiết không (Mẫu: "5", "7-8", "1,2", "10-11")
+      if (!detectedPeriodStr) {
+        const isPeriodPattern = /^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(cellText) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(cellText);
+        // Tránh nhầm với số Tuần ở ô đầu tiên
+        if (isPeriodPattern && !(c === 0 && parseInt(cellText, 10) === currentWeek)) {
+          detectedPeriodStr = cellText;
+        }
+      }
 
-    // SO KHỚP CHÍNH XÁC TÊN BÀI
-    let isMatched = false;
-    if (cleanKeyword) {
-      if (cleanKeyword.includes('công thức') && lessonNameInPPCT.includes('công thức lượng giác')) {
-        isMatched = true;
-      } else if (cleanKeyword.includes('giá trị') && lessonNameInPPCT.includes('giá trị lượng giác')) {
-        isMatched = true;
-      } else if (cleanKeyword.includes('hàm số') && lessonNameInPPCT.includes('hàm số lượng giác')) {
-        isMatched = true;
-      } else if (cleanKeyword.includes('phương trình') && lessonNameInPPCT.includes('phương trình lượng giác')) {
-        isMatched = true;
-      } else if (!cleanKeyword.includes('lượng giác') && cleanKeyword.length >= 5 && lessonNameInPPCT.includes(cleanKeyword)) {
-        isMatched = true;
+      // Kiểm tra ô có chứa tên bài học không
+      if (cleanKeyword && !isLessonMatched) {
+        if (cleanKeyword.includes('công thức') && lowerCell.includes('công thức lượng giác')) {
+          isLessonMatched = true;
+        } else if (cleanKeyword.includes('giá trị') && lowerCell.includes('giá trị lượng giác')) {
+          isLessonMatched = true;
+        } else if (cleanKeyword.includes('hàm số') && lowerCell.includes('hàm số lượng giác')) {
+          isLessonMatched = true;
+        } else if (cleanKeyword.includes('phương trình') && lowerCell.includes('phương trình lượng giác')) {
+          isLessonMatched = true;
+        } else if (!cleanKeyword.includes('lượng giác') && cleanKeyword.length >= 5 && lowerCell.includes(cleanKeyword)) {
+          isLessonMatched = true;
+        }
+      }
+
+      // Kiểm tra ô Ghi chú (chứa NLS, AI, STEM hoặc link học liệu)
+      if (/NLS|AI|STEM|GeoGebra|Desmos|Excel/i.test(cellText)) {
+        noteText = cellText;
       }
     }
 
-    if (isMatched && rawPeriod) {
-      const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(rawPeriod);
+    // BƯỚC 3: GHI NHẬN NẾU HÀNG NÀY ĐÚNG LÀ BÀI ĐANG XÉT
+    if (isLessonMatched && detectedPeriodStr) {
+      const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(detectedPeriodStr);
 
-      let noteFound = '';
-      const noteMatch = noteContent.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
+      let cleanNote = '';
+      const noteMatch = noteText.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
       if (noteMatch) {
-        noteFound = noteMatch[0].trim();
+        cleanNote = noteMatch[0].trim();
       }
 
       const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplay);
@@ -153,13 +172,14 @@ async function parsePPCTRequirementFromHtml(ppctFile: File, lessonDocText: strin
           week: currentWeek,
           periodDisplay,
           periodCount,
-          hasIntegration: Boolean(noteFound),
-          requirement: noteFound
+          hasIntegration: Boolean(cleanNote),
+          requirement: cleanNote
         });
       }
     }
   }
 
+  // Tổng hợp dữ liệu đa tuần
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
   const periodsCombined = schedules.map(s => s.periodDisplay).filter(Boolean).join(', ');
