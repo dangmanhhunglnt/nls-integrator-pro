@@ -5,7 +5,6 @@ import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZ
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
-
 // Import icons cho cột bên phải
 import { Sparkles, ShieldAlert, Cpu, CheckCircle } from 'lucide-react';
 
@@ -39,16 +38,12 @@ interface ParsedPPCTResult {
   requirementNote: string;
 }
 
-/**
- * HÀM BÓC TÁCH CỘT TIẾT (CỘT 2)
- */
 function cleanPeriodEntry(raw: string): { display: string; count: number } {
   if (!raw) return { display: '', count: 1 };
   
   const text = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   const firstLine = text.split('\n')[0].trim();
 
-  // Dạng dải tiết liên tiếp: "7-8", "10-11", "22-23"
   const rangeMatch = firstLine.match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
   if (rangeMatch) {
     const start = parseInt(rangeMatch[1], 10);
@@ -61,7 +56,6 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
     return { display: `${start}`, count: 1 };
   }
 
-  // Dạng danh sách: "1,2", "1, 2"
   const listMatch = firstLine.match(/\d{1,2}/g);
   if (listMatch && listMatch.length > 0) {
     const unique = Array.from(new Set(listMatch.map(Number))).sort((a, b) => a - b);
@@ -72,8 +66,8 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
 }
 
 /**
- * HÀM ĐỐI CHIẾU DỮ LIỆU ĐỘNG VỚI PPCT:
- * Duyệt theo dòng dữ liệu thực tế, theo dõi số tuần liên tục và bóc tách từng phân đoạn
+ * HÀM ĐỐI CHIẾU DỮ LIỆU PPCT:
+ * Quét chuỗi văn bản phân cấp theo từng tuần, không để sót hàng bài học
  */
 function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPPCTResult {
   if (!ppctText || !ppctText.trim()) {
@@ -90,7 +84,6 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
     };
   }
 
-  // 1. Trích xuất tên bài từ giáo án (Bỏ tiền tố BÀI, TÊN BÀI DẠY...)
   let lessonTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
   if (titleMatch && titleMatch[1]) {
@@ -110,7 +103,6 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Phát hiện số tuần (ví dụ: dòng chỉ ghi số 1, 2... hoặc "Tuần 1", "Tuần 2")
     const weekMatch = line.match(/^(?:tuần\s*)?(\d{1,2})$/i);
     if (weekMatch && parseInt(weekMatch[1], 10) <= 35) {
       currentWeek = parseInt(weekMatch[1], 10);
@@ -118,7 +110,6 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
 
     const lowerLine = line.toLowerCase().replace(/\s+/g, ' ');
 
-    // SO KHỚP CHÍNH XÁC TỪNG BÀI:
     let isMatched = false;
     if (cleanKeyword) {
       if (cleanKeyword.includes('công thức') && lowerLine.includes('công thức lượng giác')) {
@@ -135,15 +126,12 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
     }
 
     if (isMatched) {
-      // Tìm số tiết thuộc hàng của bài này:
-      // Trong file PPCT dạng text, số tiết nằm ở các dòng lân cận ngay trước hoặc sau tên bài
       let rawPeriod = '';
       
-      // Quét lùi tối đa 3 dòng
-      for (let j = Math.max(0, i - 3); j < i; j++) {
+      // Quét lùi tối đa 6 dòng
+      for (let j = Math.max(0, i - 6); j < i; j++) {
         const testLine = lines[j].trim();
         if (/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(testLine) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(testLine)) {
-          // Bỏ qua nếu dòng này trùng số tuần hiện tại (ô Tuần)
           if (parseInt(testLine, 10) === currentWeek && !testLine.includes(',') && !testLine.includes('-')) {
             continue;
           }
@@ -152,9 +140,9 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
         }
       }
 
-      // Nếu không thấy ở trước, quét tiến tối đa 3 dòng
+      // Quét tiến tối đa 6 dòng
       if (!rawPeriod) {
-        for (let j = i + 1; j < Math.min(lines.length, i + 4); j++) {
+        for (let j = i + 1; j < Math.min(lines.length, i + 7); j++) {
           const testLine = lines[j].trim();
           if (/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(testLine) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(testLine)) {
             if (parseInt(testLine, 10) === currentWeek && !testLine.includes(',') && !testLine.includes('-')) {
@@ -168,8 +156,7 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
 
       const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(rawPeriod);
 
-      // Quét ghi chú NLS / AI / STEM
-      const surroundingChunk = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 8)).join(' \n ');
+      const surroundingChunk = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 8)).join(' \n ');
       let noteFound = '';
       const noteMatch = surroundingChunk.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
       if (noteMatch) {
@@ -192,7 +179,6 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
 
-  // Ghép toàn bộ các tiết (ví dụ: "5, 7, 8" hoặc "1, 2, 4")
   const periodsCombined = schedules.map(s => s.periodDisplay).filter(Boolean).join(', ');
 
   let calculatedTotal = 0;
@@ -534,7 +520,6 @@ const App: React.FC = () => {
         let effectiveStemTopic = stemTopic;
         let ppctInfo: ParsedPPCTResult | null = null;
 
-        // ĐỐI CHIẾU THÔNG MINH THEO PPCT
         if (ppctText) {
           ppctInfo = parsePPCTRequirement(ppctText, textContext);
           addLog(`📋 Kết quả PPCT: Bài dạy ${ppctInfo.totalPeriods} tiết [Tiết PPCT: ${ppctInfo.allPeriods}] ${ppctInfo.isMultiWeek ? `(Vắt qua các tuần: ${ppctInfo.weeksList.join(', ')})` : ''}`);
@@ -632,19 +617,16 @@ const App: React.FC = () => {
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
-        // NẾU BÀI DẠY VẮT QUA NHIỀU TUẦN -> TỰ ĐỘNG TẠO 2 FILE NỘP RIÊNG BIỆT CHO 2 TUẦN
         if (ppctInfo && ppctInfo.isMultiWeek && ppctInfo.schedules.length >= 2) {
           addLog(`📦 Tự động tạo 2 file nộp cho Tuần ${ppctInfo.schedules[0].week} và Tuần ${ppctInfo.schedules[1].week}...`);
 
           const sched1 = ppctInfo.schedules[0];
           const sched2 = ppctInfo.schedules[1];
 
-          // 1. File Tuần thứ nhất
           const week1Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched1.week} dạy Tiết ${sched1.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
           const blobWeek1 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week1Header);
           const nameWeek1 = `Toan11_Tuan ${sched1.week}_Tiet ${sched1.periodDisplay.replace(/\s+/g, '')}_${currentFile.name}`;
 
-          // 2. File Tuần thứ hai
           const week2Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched2.week} dạy tiếp Tiết ${sched2.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
           const blobWeek2 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week2Header);
           const nameWeek2 = `Toan11_Tuan ${sched2.week}_Tiet ${sched2.periodDisplay.replace(/\s+/g, '')}_${currentFile.name.replace(/\.docx$/i, '')} (tiep).docx`;
@@ -797,7 +779,6 @@ const App: React.FC = () => {
         addLog(`✓ Đã hoàn thành [${i + 1}/${targetFiles.length}]: ${fileItem.name}`);
       }
 
-      // Đóng gói thành 1 file ZIP duy nhất
       addLog(`📦 Đang nén ${outputBlobs.length} file vào tệp ZIP...`);
       const zipBlob = await createZipFromBlobs(outputBlobs);
       const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_chuan_PPCT_${state.subject}_${state.grade}.zip`;
@@ -832,7 +813,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 4. Hàm đóng gói và xuất bản file Word
   const handleFinalizeAndDownload = async (finalContent: GeneratedNLSContent) => {
     if (!state.file) return;
     const effectiveMode: string = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
@@ -868,8 +848,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 flex flex-col justify-between overflow-x-hidden selection:bg-indigo-100 selection:text-indigo-900">
-      
-      {/* 1. HEADER COMPONENT */}
       <div>
         <Header 
           userApiKey={userApiKey}
@@ -884,14 +862,9 @@ const App: React.FC = () => {
         />
 
         <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-          
-          {/* 2. HERO SECTION COMPONENT */}
           <HeroSection appVersion={APP_VERSION} />
 
-          {/* 3. MAIN WORKSPACE GRID: CHIA TỶ LỆ CÂN ĐỐI 6 : 6 (50% - 50%) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
-            {/* LEFT COLUMN: CONTROL CENTER COMPONENT */}
             <div className="lg:col-span-6 space-y-6">
               <ControlCenter 
                 state={state}
@@ -915,10 +888,7 @@ const App: React.FC = () => {
               />
             </div>
             
-            {/* RIGHT COLUMN: GIÁM SÁT SƯ PHẠM, LOADER VÀ CONSOLE LOG */}
             <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-20">
-              
-              {/* BẢNG ĐÁNH GIÁ SƯ PHẠM */}
               {pedagogicalEvaluation && (
                 <div className={`rounded-2xl p-4.5 border shadow-sm transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
                     <div className="flex items-start gap-3">
@@ -927,7 +897,6 @@ const App: React.FC = () => {
                             <h4 className="text-xs font-black tracking-wide uppercase">
                                 {pedagogicalEvaluation.status}
                             </h4>
-                            
                             <div className="text-[11px] grid grid-cols-1 gap-1.5 pt-1.5 border-t border-black/5 dark:border-white/5">
                                 <div>
                                     <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
@@ -943,12 +912,8 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* TRẠNG THÁI LOADER */}
               {state.isProcessing ? (
                 <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-2xl border border-indigo-500/30 text-center flex flex-col items-center justify-center min-h-[380px] animate-fade-in-up">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-                    <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-
                     <div className="relative z-10 flex flex-col items-center justify-center w-full">
                         <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5">
                             <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
@@ -1005,16 +970,13 @@ const App: React.FC = () => {
                   </div>
                 </>
               )}
-
             </div>
-
           </div>
         </main>
       </div>
 
       <footer className="mt-8 border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-3 text-xs text-slate-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
-          
           <div className="flex items-center gap-2.5">
             <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px] shadow-xs">
               NLS
@@ -1055,7 +1017,6 @@ const App: React.FC = () => {
               📞 097 8386 357
             </a>
           </div>
-
         </div>
       </footer>
 
@@ -1072,7 +1033,7 @@ const App: React.FC = () => {
       
       <style>{`
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
         .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
         .animate-fade-in-left { animation: fadeInLeft 0.3s ease-out forwards; }
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
