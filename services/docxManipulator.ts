@@ -3,7 +3,7 @@ import mammoth from 'mammoth';
 import { GeneratedNLSContent, IntegrationMode, HighlightColor } from '../types';
 
 /**
- * 1. HÀM ĐỌC VÀ TRÍCH XUẤT VĂN BẢN TỪ FILE WORD (.DOCX)
+ * 1. HÀM ĐỌC VĂN BẢN TỪ FILE WORD (.DOCX)
  */
 export async function extractTextFromDocx(file: File): Promise<string> {
   try {
@@ -11,42 +11,43 @@ export async function extractTextFromDocx(file: File): Promise<string> {
     const result = await mammoth.extractRawText({ arrayBuffer });
     return result.value || "";
   } catch (error) {
-    console.error("Lỗi khi đọc nội dung file Word:", error);
+    console.error("Lỗi khi đọc file Word:", error);
     return "";
   }
 }
 
 /**
- * HÀM PHỤ TRỢ: LÀM SẠCH NỘI DUNG NLS/AI CŨ VÀ CÁC THẺ RÁC TRƯỚC KHI CHÈN MỚI
+ * 2. HÀM QUÉT SẠCH 100% CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ RÁC FORMAT
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  // 1. Quét sạch các tag rác cụt lủn như [NLS]: Gemini, [NLS]: ..., [NLS]
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[NLS\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
+  // 1. Quét sạch các tag rác [NLS], [AI], [STEM]
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS|AI|STEM)\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
 
-  // 2. Quét sạch các đoạn NLS cũ trong các hoạt động
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|1\.1\.TC1a|5\.2\.TC2a|NLc\.C2|NLa\.A).*?<\/w:p>/gis, '');
+  // 2. Quét sạch các đoạn chỉ thị tích hợp trong các hoạt động dạy học
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
 
-  // 3. Xóa triệt để toàn bộ khối "Năng lực số (tích hợp)" cũ ở Mục I
+  // 3. Quét sạch các đoạn mã chuẩn đầu ra NLS (1.1.TC1a, 2.2.TC1a, NLc.C2,...)
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:\d\.\d\.[A-Z\d]+|[A-Z]{2,}\.[A-Z\d]+|\bGeoGebra\b|\bDesmos\b).*?<\/w:p>/gis, '');
+
+  // 4. Xóa triệt để toàn bộ khối "Năng lực số (tích hợp)" ở Mục I.2
   cleaned = cleaned.replace(
-    /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):)[\s\S]*?)(?=<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:3\.\s*Phẩm chất|3\.\s*Về phẩm chất|III\.\s*Phẩm chất))/gi,
+    /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):)[\s\S]*?)(?=<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:3\.\s*Phẩm chất|3\.\s*Về phẩm chất|III\.\s*Phẩm chất|Về phẩm chất))/gi,
     ''
   );
 
-  // Dự phòng: Xóa các đoạn con nếu file không có mục 3. Phẩm chất liền kề
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Sử dụng phần mềm mô phỏng.*?<\/w:p>/gis, '');
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Khai thác thông tin từ Internet.*?<\/w:p>/gis, '');
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Sử dụng máy tính cầm tay\s*\(Casio.*?<\/w:p>/gis, '');
+  // 5. Xóa các mục học liệu số ở Mục II nếu có
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thiết bị dạy học và Học liệu số|Học liệu số).*?<\/w:p>/gis, '');
 
-  // 4. Quét sạch bảng tổng hợp NLS/AI cũ ở cuối file nếu có
+  // 6. Xóa triệt để Bảng tổng hợp NLS/AI ở cuối bài
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
 
   return cleaned;
 }
 
 /**
- * HÀM PHỤ TRỢ: CHUẨN HÓA DÒNG TIÊU ĐỀ TIẾT THEO PPCT - CĂN CHÍNH GIỮA TRANG (CENTER TOÀN BỘ)
+ * 3. HÀM CĂN GIỮA DÒNG TIÊU ĐỀ TIẾT THEO PPCT (XÓA SẠCH BẢNG 2 Ô NẾU CÓ)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -69,27 +70,26 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     </w:r>
   </w:p>`;
 
-  // 1. Quét tìm và thay thế nếu dòng này nằm trong bảng tiêu đề 2 ô
+  // Nếu dòng này nằm trong bảng 2 ô, thay thế toàn bộ bảng đó bằng 1 dòng căn giữa
   const headerTableRegex = /<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:tbl>/i;
 
   if (headerTableRegex.test(result)) {
     result = result.replace(headerTableRegex, centerParagraphXml);
   } else {
-    // 2. Nếu là đoạn văn bản thông thường
     const headerParagraphRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Số tiết dạy|Thời gian thực hiện)[\s\S]*?<\/w:p>)/i;
     if (headerParagraphRegex.test(result)) {
       result = result.replace(headerParagraphRegex, centerParagraphXml);
     }
   }
 
-  // Quét dọn các ô phụ chứa chữ "Tiết theo PPCT" còn sót lại
+  // Xóa các ô/dòng dư thừa chứa Tiết theo PPCT cũ
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
 
   return result;
 }
 
 /**
- * 2. HÀM TÍCH HỢP NỘI DUNG VÀO DOCUMENT.XML CỦA FILE WORD (CHÈN TRỰC TIẾP)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -112,24 +112,28 @@ export const injectContentIntoDocx = async (
         
         let docXml = docFile.asText();
 
-        // BƯỚC 1: LÀM SẠCH CÁC THẺ RÁC VÀ NLS CŨ TRƯỚC KHI CHÈN MỚI
+        // 1. Quét sạch toàn bộ các nội dung NLS/AI/STEM cũ
         docXml = cleanExistingNLSContent(docXml);
 
-        // BƯỚC 1.1: CẬP NHẬT DÒNG TIÊU ĐỀ TIẾT THEO PPCT (CĂN GIỮA)
+        // 2. Căn giữa dòng tiêu đề thông tin PPCT
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
-        
-        let label = "Tích hợp NLS & AI";
-        if ((mode as string) === 'STEM') {
-          label = "Giáo dục STEM";
-        } else if (mode === 'NLS') {
-          label = "Tích hợp NLS";
-        } else if (mode === 'NAI') {
-          label = "Tích hợp AI";
+
+        // NẾU BÀI DẠY TRUYỀN THỐNG (content rỗng) -> XUẤT NGAY FILE ĐÃ LÀM SẠCH CHUẨN 5512
+        const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
+        if (!hasNewContent) {
+          zip.file("word/document.xml", docXml);
+          resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
+          return;
         }
 
-        // --- HÀM 1: PHÁT HIỆN STYLE GỐC ---
+        // NẾU BÀI CÓ CHỈ ĐỊNH TÍCH HỢP -> CHÈN NỘI DUNG MỚI
+        let label = "Tích hợp NLS & AI";
+        if ((mode as string) === 'STEM') label = "Giáo dục STEM";
+        else if (mode === 'NLS') label = "Tích hợp NLS";
+        else if (mode === 'NAI') label = "Tích hợp AI";
+
         const detectStyle = (xml: string, index: number) => {
           const chunk = xml.substring(Math.max(0, index - 10000), index); 
           let fontSize = null;
@@ -149,7 +153,6 @@ export const injectContentIntoDocx = async (
           return { fontSize, fontTag };
         };
 
-        // --- HÀM 2: TẠO KHỐI XML ---
         const createXmlBlock = (text: string, style: { fontSize: string | null, fontTag: string }, customPrefix?: string) => {
           if (!text) return "";
           const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -201,7 +204,6 @@ export const injectContentIntoDocx = async (
           return xmlBlock;
         };
 
-        // --- HÀM 3: TÌM KIẾM FUZZY INDEX ---
         const findFuzzyIndex = (xml: string, keyword: string, startIndex = 0) => {
           if (!keyword) return -1;
           let directIdx = xml.indexOf(keyword, startIndex);
@@ -219,7 +221,6 @@ export const injectContentIntoDocx = async (
           return match ? match.index : -1;
         };
 
-        // --- HÀM 4: BẢNG TỔNG HỢP NLS/AI ---
         const createSummaryTableXml = (tableData: Array<any>) => {
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
@@ -267,7 +268,6 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN MỤC TIÊU NĂNG LỰC ---
         const endKeywords = [
           "3. Phẩm chất", "3. Về phẩm chất", "III. Phẩm chất", "1.3. Phẩm chất", "1.3. Về phẩm chất",
           "Phẩm chất:", "PHẨM CHẤT:", "Về phẩm chất", "- Phẩm chất:", "II. ĐỒ DÙNG DẠY HỌC",
@@ -332,7 +332,6 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 5.1. CHÈN MỤC II: HỌC LIỆU SỐ ---
         if (content.materials_addition) {
           const matKeywords = [
             "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", "II. THIẾT BỊ DẠY HỌC",
@@ -371,7 +370,6 @@ export const injectContentIntoDocx = async (
           }
         }
 
-        // --- 6. CHÈN NỘI DUNG VÀO CÁC HOẠT ĐỘNG ---
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
             const actName = (item as any).activity_name || (item as any).activity_title || "";
@@ -469,7 +467,6 @@ export const injectContentIntoDocx = async (
           });
         }
 
-        // --- 7. CHÈN BẢNG MA TRẬN CUỐI FILE ---
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
           const tableXml = createSummaryTableXml(content.summary_table);
           if (tableXml) {
@@ -490,6 +487,9 @@ export const injectContentIntoDocx = async (
   });
 };
 
+/**
+ * 5. HÀM TẠO FILE PHỤ LỤC RIÊNG
+ */
 export const createAppendixDocx = async (
   content: GeneratedNLSContent,
   subject: string,
@@ -570,6 +570,9 @@ export const createAppendixDocx = async (
   return zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" });
 };
 
+/**
+ * 6. HÀM ĐÓNG GÓI NHIỀU FILE THÀNH TỆP ZIP
+ */
 export const createZipFromBlobs = async (
   files: { name: string; blob: Blob }[]
 ): Promise<Blob> => {

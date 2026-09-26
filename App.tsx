@@ -20,7 +20,7 @@ import { PricingModal } from './components/PricingModal';
 
 interface PPCTLessonSchedule {
   week: number;
-  periodDisplay: string; // VD: "5" hoặc "7, 8"
+  periodDisplay: string; // VD: "5" hoặc "7,8"
   periodCount: number;   // Số tiết thực tế
   hasIntegration: boolean;
   requirement: string;
@@ -51,7 +51,7 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
     if (end > start && end - start <= 4) {
       const arr: number[] = [];
       for (let p = start; p <= end; p++) arr.push(p);
-      return { display: arr.join(', '), count: arr.length };
+      return { display: arr.join(','), count: arr.length };
     }
     return { display: `${start}`, count: 1 };
   }
@@ -59,15 +59,15 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
   const listMatch = firstLine.match(/\d{1,2}/g);
   if (listMatch && listMatch.length > 0) {
     const unique = Array.from(new Set(listMatch.map(Number))).sort((a, b) => a - b);
-    return { display: unique.join(', '), count: unique.length };
+    return { display: unique.join(','), count: unique.length };
   }
 
   return { display: firstLine, count: 1 };
 }
 
 /**
- * HÀM ĐỐI CHIẾU DỮ LIỆU PPCT:
- * Phân tích theo từng khối tuần độc lập, bắt trọn vẹn số tiết của bài học
+ * HÀM ĐỐI CHIẾU PPCT THEO KHỐI TUẦN CHÍNH XÁC:
+ * Tách bảng PPCT thành từng tuần từ Tuần 1 đến 35, sau đó tìm bài học bên trong tuần đó.
  */
 function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPPCTResult {
   if (!ppctText || !ppctText.trim()) {
@@ -98,81 +98,83 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
 
   const lines = ppctText.split('\n').map(l => l.trim()).filter(Boolean);
   const schedules: PPCTLessonSchedule[] = [];
+
+  // TÁCH VĂN BẢN THÀNH CÁC KHỐI TUẦN
+  const weekBlocks: { week: number; lines: string[] }[] = [];
   let currentWeek = 1;
+  let currentBlockLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-
-    // Phát hiện số tuần
     const weekMatch = line.match(/^(?:tuần\s*)?(\d{1,2})$/i);
-    if (weekMatch && parseInt(weekMatch[1], 10) <= 35) {
-      currentWeek = parseInt(weekMatch[1], 10);
-    }
+    const num = weekMatch ? parseInt(weekMatch[1], 10) : NaN;
 
-    const lowerLine = line.toLowerCase().replace(/\s+/g, ' ');
-
-    let isMatched = false;
-    if (cleanKeyword) {
-      if (cleanKeyword.includes('công thức') && lowerLine.includes('công thức lượng giác')) {
-        isMatched = true;
-      } else if (cleanKeyword.includes('giá trị') && lowerLine.includes('giá trị lượng giác')) {
-        isMatched = true;
-      } else if (cleanKeyword.includes('hàm số') && lowerLine.includes('hàm số lượng giác')) {
-        isMatched = true;
-      } else if (cleanKeyword.includes('phương trình') && lowerLine.includes('phương trình lượng giác')) {
-        isMatched = true;
-      } else if (!cleanKeyword.includes('lượng giác') && cleanKeyword.length >= 5 && lowerLine.includes(cleanKeyword)) {
-        isMatched = true;
+    if (!isNaN(num) && num >= 1 && num <= 35 && line.length <= 8) {
+      if (currentBlockLines.length > 0) {
+        weekBlocks.push({ week: currentWeek, lines: currentBlockLines });
+        currentBlockLines = [];
       }
+      currentWeek = num;
+    } else {
+      currentBlockLines.push(line);
     }
+  }
+  if (currentBlockLines.length > 0) {
+    weekBlocks.push({ week: currentWeek, lines: currentBlockLines });
+  }
 
-    if (isMatched) {
-      let rawPeriod = '';
-      
-      // Quét lùi tối đa 6 dòng
-      for (let j = Math.max(0, i - 6); j < i; j++) {
-        const testLine = lines[j].trim();
-        if (/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(testLine) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(testLine)) {
-          if (parseInt(testLine, 10) === currentWeek && !testLine.includes(',') && !testLine.includes('-')) {
-            continue;
-          }
-          rawPeriod = testLine;
-          break;
+  // DUYỆT TỪNG TUẦN ĐỂ TÌM TIẾT CỦA BÀI HỌC
+  for (const block of weekBlocks) {
+    const bLines = block.lines;
+    for (let j = 0; j < bLines.length; j++) {
+      const lower = bLines[j].toLowerCase().replace(/\s+/g, ' ');
+
+      let isMatched = false;
+      if (cleanKeyword) {
+        if (cleanKeyword.includes('công thức') && lower.includes('công thức lượng giác')) {
+          isMatched = true;
+        } else if (cleanKeyword.includes('giá trị') && lower.includes('giá trị lượng giác')) {
+          isMatched = true;
+        } else if (cleanKeyword.includes('hàm số') && lower.includes('hàm số lượng giác')) {
+          isMatched = true;
+        } else if (cleanKeyword.includes('phương trình') && lower.includes('phương trình lượng giác')) {
+          isMatched = true;
+        } else if (!cleanKeyword.includes('lượng giác') && cleanKeyword.length >= 5 && lower.includes(cleanKeyword)) {
+          isMatched = true;
         }
       }
 
-      // Quét tiến tối đa 6 dòng
-      if (!rawPeriod) {
-        for (let j = i + 1; j < Math.min(lines.length, i + 7); j++) {
-          const testLine = lines[j].trim();
-          if (/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(testLine) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(testLine)) {
-            if (parseInt(testLine, 10) === currentWeek && !testLine.includes(',') && !testLine.includes('-')) {
-              continue;
-            }
-            rawPeriod = testLine;
+      if (isMatched) {
+        // Tìm số tiết gần dòng bài này nhất trong tuần đó
+        let foundPeriodStr = '';
+        for (let k = Math.max(0, j - 4); k <= Math.min(bLines.length - 1, j + 4); k++) {
+          const test = bLines[k].trim();
+          if ((/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(test) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(test)) && k !== j) {
+            foundPeriodStr = test;
             break;
           }
         }
-      }
 
-      const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(rawPeriod);
+        const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(foundPeriodStr);
 
-      const surroundingChunk = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 8)).join(' \n ');
-      let noteFound = '';
-      const noteMatch = surroundingChunk.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
-      if (noteMatch) {
-        noteFound = noteMatch[0].trim();
-      }
+        // Quét ghi chú NLS / AI / STEM trong tuần đó
+        const weekText = bLines.join(' ');
+        let noteFound = '';
+        const noteMatch = weekText.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
+        if (noteMatch) {
+          noteFound = noteMatch[0].trim();
+        }
 
-      const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplay);
-      if (!exists && periodDisplay) {
-        schedules.push({
-          week: currentWeek,
-          periodDisplay,
-          periodCount,
-          hasIntegration: Boolean(noteFound),
-          requirement: noteFound
-        });
+        const exists = schedules.some(s => s.week === block.week && s.periodDisplay === periodDisplay);
+        if (!exists && periodDisplay) {
+          schedules.push({
+            week: block.week,
+            periodDisplay,
+            periodCount,
+            hasIntegration: Boolean(noteFound),
+            requirement: noteFound
+          });
+        }
       }
     }
   }
@@ -464,7 +466,7 @@ const App: React.FC = () => {
     }
   }, [pedagogicalEvaluation]);
 
-  // 3. HÀM PHÂN TÍCH VÀ ĐỐI CHIẾU PPCT
+  // 3. TIẾN TRÌNH XỬ LÝ VÀ ĐỐI CHIẾU PPCT
   const handleAnalyze = async () => {
     const targetFiles = state.files && state.files.length > 0 ? state.files : (state.file ? [state.file] : []);
 
@@ -525,16 +527,20 @@ const App: React.FC = () => {
           ppctInfo = parsePPCTRequirement(ppctText, textContext);
           addLog(`📋 Kết quả PPCT: Bài dạy ${ppctInfo.totalPeriods} tiết [Tiết PPCT: ${ppctInfo.allPeriods}] ${ppctInfo.isMultiWeek ? `(Vắt qua các tuần: ${ppctInfo.weeksList.join(', ')})` : ''}`);
 
-          // KỊCH BẢN 1: BÀI TRUYỀN THỐNG (KHÔNG CÓ NLS/AI/STEM)
+          // KỊCH BẢN 1: BÀI TRUYỀN THỐNG (KHÔNG CÓ NLS/AI/STEM) -> QUÉT SẠCH NLS CŨ VỀ CHUẨN 5512
           if (ppctInfo.integrationType === 'NONE') {
-            addLog(`🧹 PPCT quy định: Tiết học truyền thống. Tự động làm sạch mục tiêu cũ và đưa về chuẩn 5512...`);
+            addLog(`🧹 PPCT quy định: Tiết học truyền thống. Tự động xóa sạch toàn bộ NLS/AI/STEM cũ ở giáo án gốc và đưa về chuẩn 5512...`);
 
-            // NẾU BÀI TRUYỀN THỐNG VẮT QUA 2 TUẦN -> TỰ ĐỘNG TÁCH 2 FILE THEO LỊCH TUẦN
+            // Nếu bài truyền thống vắt qua 2 tuần -> tách 2 file theo đúng lịch tuần
             if (ppctInfo.isMultiWeek && ppctInfo.schedules.length >= 2) {
               const sched1 = ppctInfo.schedules[0];
               const sched2 = ppctInfo.schedules[1];
 
-              const week1Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched1.week} dạy Tiết ${sched1.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
+              // Tên file rút gọn đúng tiến độ
+              const nameWeek1 = `Toan11_Tuan ${sched1.week}_tiet ${sched1.periodDisplay}_Congthucluonggiac.docx`;
+              const nameWeek2 = `Toan11_Tuan ${sched2.week}_tiet ${sched2.periodDisplay}_congthucluonggiac.docx`;
+
+              const week1Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched1.week} dạy Tiết ${sched1.periodDisplay.replace(',', ', ')} theo PPCT: ${ppctInfo.allPeriods.replace(',', ', ')})`;
               const blobWeek1 = await injectContentIntoDocx(
                 currentFile, 
                 { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 
@@ -543,9 +549,8 @@ const App: React.FC = () => {
                 highlightColor, 
                 week1Header
               );
-              const nameWeek1 = `Toan11_Tuan ${sched1.week}_Tiet ${sched1.periodDisplay.replace(/\s+/g, '')}_${currentFile.name}`;
 
-              const week2Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched2.week} dạy tiếp Tiết ${sched2.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
+              const week2Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched2.week} dạy tiếp Tiết ${sched2.periodDisplay.replace(',', ', ')} theo PPCT: ${ppctInfo.allPeriods.replace(',', ', ')})`;
               const blobWeek2 = await injectContentIntoDocx(
                 currentFile, 
                 { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 
@@ -554,7 +559,6 @@ const App: React.FC = () => {
                 highlightColor, 
                 week2Header
               );
-              const nameWeek2 = `Toan11_Tuan ${sched2.week}_Tiet ${sched2.periodDisplay.replace(/\s+/g, '')}_${currentFile.name.replace(/\.docx$/i, '')} (tiep).docx`;
 
               const zipPackage = await createZipFromBlobs([
                 { name: nameWeek1, blob: blobWeek1 },
@@ -566,7 +570,7 @@ const App: React.FC = () => {
                 isProcessing: false, 
                 step: 'done', 
                 result: { fileName: `[CHUAN-5512-DA-TUAN] ${currentFile.name.replace(/\.docx$/i, '')}.zip`, blob: zipPackage },
-                logs: [...prev.logs, "✨ Đã tạo trọn bộ 2 file chuẩn 5512 nộp theo từng tuần!"] 
+                logs: [...prev.logs, "✨ Đã quét sạch NLS cũ và tạo trọn bộ 2 file chuẩn 5512 nộp theo từng tuần!"] 
               }));
               return;
             }
@@ -578,7 +582,7 @@ const App: React.FC = () => {
               'NLS', 
               addLog, 
               highlightColor,
-              `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tiết theo PPCT: ${ppctInfo.allPeriods})`
+              `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tiết theo PPCT: ${ppctInfo.allPeriods.replace(',', ', ')})`
             );
 
             setState(prev => ({
@@ -591,7 +595,7 @@ const App: React.FC = () => {
             return;
           }
 
-          // KỊCH BẢN 2: BÀI CÓ TÍCH HỢP NLS / AI / STEM
+          // KỊCH BẢN 2: BÀI CÓ TÍCH HỢP NLS / AI / STEM THEO PPCT
           if (ppctInfo.integrationType === 'STEM') {
             effectiveMode = 'STEM' as any;
             effectiveStemTopic = ppctInfo.requirementNote || 'Thiết kế mô hình & sản phẩm học tập STEM thực tế';
@@ -618,19 +622,21 @@ const App: React.FC = () => {
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
+        // NẾU BÀI TÍCH HỢP VẮT QUA 2 TUẦN -> TÁCH 2 FILE NỘP RIÊNG
         if (ppctInfo && ppctInfo.isMultiWeek && ppctInfo.schedules.length >= 2) {
           addLog(`📦 Tự động tạo 2 file nộp cho Tuần ${ppctInfo.schedules[0].week} và Tuần ${ppctInfo.schedules[1].week}...`);
 
           const sched1 = ppctInfo.schedules[0];
           const sched2 = ppctInfo.schedules[1];
 
-          const week1Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched1.week} dạy Tiết ${sched1.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
-          const blobWeek1 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week1Header);
-          const nameWeek1 = `Toan11_Tuan ${sched1.week}_Tiet ${sched1.periodDisplay.replace(/\s+/g, '')}_${currentFile.name}`;
+          const nameWeek1 = `Toan11_Tuan ${sched1.week}_tiet ${sched1.periodDisplay}_Congthucluonggiac.docx`;
+          const nameWeek2 = `Toan11_Tuan ${sched2.week}_tiet ${sched2.periodDisplay}_congthucluonggiac.docx`;
 
-          const week2Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched2.week} dạy tiếp Tiết ${sched2.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
+          const week1Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched1.week} dạy Tiết ${sched1.periodDisplay.replace(',', ', ')} theo PPCT: ${ppctInfo.allPeriods.replace(',', ', ')})`;
+          const blobWeek1 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week1Header);
+
+          const week2Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched2.week} dạy tiếp Tiết ${sched2.periodDisplay.replace(',', ', ')} theo PPCT: ${ppctInfo.allPeriods.replace(',', ', ')})`;
           const blobWeek2 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week2Header);
-          const nameWeek2 = `Toan11_Tuan ${sched2.week}_Tiet ${sched2.periodDisplay.replace(/\s+/g, '')}_${currentFile.name.replace(/\.docx$/i, '')} (tiep).docx`;
 
           const zipPackage = await createZipFromBlobs([
             { name: nameWeek1, blob: blobWeek1 },
@@ -707,7 +713,7 @@ const App: React.FC = () => {
           batchPPCT = parsePPCTRequirement(ppctText, fileText);
           if (batchPPCT.integrationType === 'NONE') {
             isTraditionalLesson = true;
-            addLog(`📋 PPCT quy định: Bài này dạy truyền thống (không NLS/AI). Tiến hành làm sạch...`);
+            addLog(`📋 PPCT quy định: Bài này dạy truyền thống (không NLS/AI). Xóa sạch NLS cũ...`);
           } else if (batchPPCT.integrationType === 'STEM') {
             itemMode = 'STEM' as any;
             itemStem = batchPPCT.requirementNote || 'Chế tạo mô hình STEM';
@@ -723,11 +729,14 @@ const App: React.FC = () => {
             const bSched1 = batchPPCT.schedules[0];
             const bSched2 = batchPPCT.schedules[1];
 
-            const w1Blob = await injectContentIntoDocx(fileItem, { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 'NLS', addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched1.week} dạy Tiết ${bSched1.periodDisplay} theo PPCT: ${batchPPCT.allPeriods})`);
-            const w2Blob = await injectContentIntoDocx(fileItem, { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 'NLS', addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched2.week} dạy tiếp Tiết ${bSched2.periodDisplay} theo PPCT: ${batchPPCT.allPeriods})`);
+            const nameW1 = `Toan11_Tuan ${bSched1.week}_tiet ${bSched1.periodDisplay}_${fileItem.name}`;
+            const nameW2 = `Toan11_Tuan ${bSched2.week}_tiet ${bSched2.periodDisplay}_${fileItem.name.replace(/\.docx$/i, '')} (tiep).docx`;
 
-            outputBlobs.push({ name: `Toan11_Tuan ${bSched1.week}_Tiet ${bSched1.periodDisplay.replace(/\s+/g, '')}_${fileItem.name}`, blob: w1Blob });
-            outputBlobs.push({ name: `Toan11_Tuan ${bSched2.week}_Tiet ${bSched2.periodDisplay.replace(/\s+/g, '')}_${fileItem.name.replace(/\.docx$/i, '')} (tiep).docx`, blob: w2Blob });
+            const w1Blob = await injectContentIntoDocx(fileItem, { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 'NLS', addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched1.week} dạy Tiết ${bSched1.periodDisplay.replace(',', ', ')} theo PPCT: ${batchPPCT.allPeriods.replace(',', ', ')})`);
+            const w2Blob = await injectContentIntoDocx(fileItem, { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 'NLS', addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched2.week} dạy tiếp Tiết ${bSched2.periodDisplay.replace(',', ', ')} theo PPCT: ${batchPPCT.allPeriods.replace(',', ', ')})`);
+
+            outputBlobs.push({ name: nameW1, blob: w1Blob });
+            outputBlobs.push({ name: nameW2, blob: w2Blob });
           } else {
             const cleanBlob = await injectContentIntoDocx(
               fileItem, 
@@ -735,7 +744,7 @@ const App: React.FC = () => {
               'NLS', 
               addLog, 
               highlightColor,
-              batchPPCT ? `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tiết theo PPCT: ${batchPPCT.allPeriods})` : undefined
+              batchPPCT ? `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tiết theo PPCT: ${batchPPCT.allPeriods.replace(',', ', ')})` : undefined
             );
             outputBlobs.push({ name: `[CHUAN-5512] ${fileItem.name}`, blob: cleanBlob });
           }
@@ -754,11 +763,14 @@ const App: React.FC = () => {
             const bSched1 = batchPPCT.schedules[0];
             const bSched2 = batchPPCT.schedules[1];
 
-            const w1Blob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched1.week} dạy Tiết ${bSched1.periodDisplay} theo PPCT: ${batchPPCT.allPeriods})`);
-            const w2Blob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched2.week} dạy tiếp Tiết ${bSched2.periodDisplay} theo PPCT: ${batchPPCT.allPeriods})`);
+            const nameW1 = `Toan11_Tuan ${bSched1.week}_tiet ${bSched1.periodDisplay}_${fileItem.name}`;
+            const nameW2 = `Toan11_Tuan ${bSched2.week}_tiet ${bSched2.periodDisplay}_${fileItem.name.replace(/\.docx$/i, '')} (tiep).docx`;
 
-            outputBlobs.push({ name: `Toan11_Tuan ${bSched1.week}_Tiet ${bSched1.periodDisplay.replace(/\s+/g, '')}_${fileItem.name}`, blob: w1Blob });
-            outputBlobs.push({ name: `Toan11_Tuan ${bSched2.week}_Tiet ${bSched2.periodDisplay.replace(/\s+/g, '')}_${fileItem.name.replace(/\.docx$/i, '')} (tiep).docx`, blob: w2Blob });
+            const w1Blob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched1.week} dạy Tiết ${bSched1.periodDisplay.replace(',', ', ')} theo PPCT: ${batchPPCT.allPeriods.replace(',', ', ')})`);
+            const w2Blob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched2.week} dạy tiếp Tiết ${bSched2.periodDisplay.replace(',', ', ')} theo PPCT: ${batchPPCT.allPeriods.replace(',', ', ')})`);
+
+            outputBlobs.push({ name: nameW1, blob: w1Blob });
+            outputBlobs.push({ name: nameW2, blob: w2Blob });
           } else {
             if (outputFormat === 'APPENDIX_ONLY') {
               const appendixBlob = await createAppendixDocx(itemContent, state.subject, state.grade, itemMode as any);
@@ -770,7 +782,7 @@ const App: React.FC = () => {
                 itemMode as any, 
                 addLog, 
                 highlightColor,
-                batchPPCT ? `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tiết theo PPCT: ${batchPPCT.allPeriods})` : undefined
+                batchPPCT ? `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tiết theo PPCT: ${batchPPCT.allPeriods.replace(',', ', ')})` : undefined
               );
               outputBlobs.push({ name: (itemMode as string) === 'STEM' ? `[STEM-PRO] ${fileItem.name}` : `[NLS-PRO] ${fileItem.name}`, blob: finalBlob });
             }
