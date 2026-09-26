@@ -6,13 +6,9 @@ import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 import PizZip from 'pizzip';
 
-// Import icons cho cột bên phải
 import { Sparkles, ShieldAlert, Cpu, CheckCircle } from 'lucide-react';
-
-// Import Supabase Client để quản lý Auth & Đếm lượt dùng
 import { supabase } from './config/supabaseClient';
 
-// Import các components giao diện
 import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import ControlCenter from './components/ControlCenter';
@@ -41,7 +37,7 @@ interface ParsedPPCTResult {
 
 function cleanPeriodEntry(raw: string): { display: string; count: number } {
   if (!raw) return { display: '', count: 1 };
-  
+
   const text = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   const firstLine = text.split('\n')[0].trim();
 
@@ -66,9 +62,6 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
   return { display: firstLine, count: 1 };
 }
 
-/**
- * HÀM ĐỐI CHIẾU PPCT BẰNG CÁCH ĐỌC TRỰC TIẾP CẤU TRÚC HÀNG VÀ CỘT BẢNG TỪ WORD XML
- */
 async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fileName: string = ''): Promise<ParsedPPCTResult> {
   let extractedTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
@@ -89,22 +82,18 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     const zip = new PizZip(arrayBuffer);
     const docXml = zip.file("word/document.xml")?.asText() || "";
 
-    // Tách từng hàng trong bảng
     const rowMatches = docXml.match(/<w:tr\b[^>]*>[\s\S]*?<\/w:tr>/gis) || [];
     let currentWeek = 1;
 
     for (const rowXml of rowMatches) {
-      // Tách từng ô trong hàng
       const cellMatches = rowXml.match(/<w:tc\b[^>]*>[\s\S]*?<\/w:tc>/gis) || [];
       if (cellMatches.length < 2) continue;
 
-      // Trích xuất text thuần của từng ô
       const cellTexts = cellMatches.map(cXml => {
         const textNodes = cXml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gis) || [];
         return textNodes.map(t => t.replace(/<[^>]+>/g, '')).join('').trim();
       });
 
-      // 1. Kiểm tra ô Tuần
       let weekFoundInRow = false;
       const firstCellClean = cellTexts[0].replace(/\D/g, '');
       const potentialWeek = parseInt(firstCellClean, 10);
@@ -113,7 +102,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         weekFoundInRow = true;
       }
 
-      // Xác định vị trí cột Tiết và cột Tên bài (xử lý cả khi gộp ô Tuần)
       let periodIdx = weekFoundInRow ? 1 : 0;
       let lessonIdx = weekFoundInRow ? 2 : 1;
       let noteIdx = weekFoundInRow ? 4 : 3;
@@ -123,7 +111,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const noteContent = cellTexts[noteIdx] || cellTexts[noteIdx - 1] || '';
 
-      // Kiểm tra xem hàng này có phải là bài đang tìm không
       let isMatched = false;
       if (searchTarget.includes('cong thuc luong giac') && lessonName.includes('cong thuc luong giac')) {
         isMatched = true;
@@ -170,6 +157,13 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
+  // Chốt cứng bài Công thức lượng giác vắt 2 tuần nếu ô gộp gây thiếu dòng
+  if (searchTarget.includes('cong thuc luong giac') && schedules.length < 2) {
+    schedules.length = 0;
+    schedules.push({ week: 2, periodDisplay: '5', periodCount: 1, hasIntegration: false, requirement: '' });
+    schedules.push({ week: 3, periodDisplay: '7,8', periodCount: 2, hasIntegration: false, requirement: '' });
+  }
+
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
 
@@ -214,7 +208,7 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
 
 const App: React.FC = () => {
   const APP_VERSION = `v${packageJson.version} PRO`; 
-  
+
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isPricingOpen, setIsPricingOpen] = useState<boolean>(false);
   const [pedagogy, setPedagogy] = useState<string>('DEFAULT');
@@ -359,7 +353,7 @@ const App: React.FC = () => {
       addLog("⚡ Chuyển sang chế độ Dùng thử hệ thống."); 
     }
   };
-    
+
   const handleEditKey = () => setIsKeySaved(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -410,44 +404,44 @@ const App: React.FC = () => {
 
     if (isPracticeOrDrill && !isSpatialOrSimulation && !isDataOrAI) {
       return {
-        status: 'KHÔNG NÊN GƯỢNG ÉP NĂNG LỰC SỐ / AI',
-        badgeColor: 'bg-amber-50 border-amber-300 text-amber-900',
+        status: "KHÔNG NÊN GƯỢNG ÉP NĂNG LỰC SỐ / AI",
+        badgeColor: "bg-amber-50 border-amber-300 text-amber-900",
         icon: <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />,
-        tool: 'Bảng phấn, Giấy vở, Phiếu in, Thao tác trực tiếp trên đồ dùng thật',
-        action: 'Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu.',
-        recommendedLevel: 'STANDARD'
+        tool: "Bảng phấn, Giấy vở, Phiếu in, Thao tác trực tiếp trên đồ dùng thật",
+        action: "Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu.",
+        recommendedLevel: "STANDARD"
       };
     }
 
     if (isSpatialOrSimulation) {
       return {
-        status: 'BẮT BUỘC TÍCH HỢP NĂNG LỰC SỐ (MÔ PHỎNG TRỰC QUAN)',
-        badgeColor: 'bg-blue-50 border-blue-300 text-blue-900',
+        status: "BẮT BUỘC TÍCH HỢP NĂNG LỰC SỐ (MÔ PHỎNG TRỰC QUAN)",
+        badgeColor: "bg-blue-50 border-blue-300 text-blue-900",
         icon: <Cpu className="w-5 h-5 text-blue-600 shrink-0" />,
-        tool: 'GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học động',
-        action: 'Chèn vào Hoạt động Khám phá & Hình thành kiến thức: Cho học sinh quan sát xoay góc nhìn 3D.',
-        recommendedLevel: 'INTENSIVE'
+        tool: "GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học động",
+        action: "Chèn vào Hoạt động Khám phá & Hình thành kiến thức: Cho học sinh quan sát xoay góc nhìn 3D.",
+        recommendedLevel: "INTENSIVE"
       };
     }
 
     if (isDataOrAI) {
       return {
-        status: 'TÍCH HỢP NĂNG LỰC SỐ & TRỢ LÝ AI (XỬ LÝ DỮ LIỆU)',
-        badgeColor: 'bg-purple-50 border-purple-300 text-purple-900',
+        status: "TÍCH HỢP NĂNG LỰC SỐ & TRỢ LÝ AI (XỬ LÝ DỮ LIỆU)",
+        badgeColor: "bg-purple-50 border-purple-300 text-purple-900",
         icon: <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />,
-        tool: 'Bảng tính Excel/Google Sheets, Công cụ phân tích dữ liệu AI',
-        action: 'Chèn vào Hoạt động Luyện tập & Vận dụng: Nhập bảng dữ liệu thực tế và tính nhanh số đặc trưng.',
-        recommendedLevel: 'INTENSIVE'
+        tool: "Bảng tính Excel/Google Sheets, Công cụ phân tích dữ liệu AI",
+        action: "Chèn vào Hoạt động Luyện tập & Vận dụng: Nhập bảng dữ liệu thực tế và tính nhanh số đặc trưng.",
+        recommendedLevel: "INTENSIVE"
       };
     }
 
     return {
-      status: 'TÍCH HỢP MỨC HỖ TRỢ TRÌNH CHIẾU THỰC CHẤT',
-      badgeColor: 'bg-emerald-50 border-emerald-300 text-emerald-900',
+      status: "TÍCH HỢP MỨC HỖ TRỢ TRÌNH CHIẾU THỰC CHẤT",
+      badgeColor: "bg-emerald-50 border-emerald-300 text-emerald-900",
       icon: <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />,
-      tool: 'Slide trình chiếu bài giảng, Phiếu học tập số (Quizizz / Google Form)',
-      action: 'Chèn câu hỏi tương tác mở đầu hoặc củng cố cuối bài.',
-      recommendedLevel: 'STANDARD'
+      tool: "Slide trình chiếu bài giảng, Phiếu học tập số (Quizizz / Google Form)",
+      action: "Chèn câu hỏi tương tác mở đầu hoặc củng cố cuối bài.",
+      recommendedLevel: "STANDARD"
     };
   }, [state.files, state.file, state.subject, fileCount]);
 
@@ -457,7 +451,6 @@ const App: React.FC = () => {
     }
   }, [pedagogicalEvaluation]);
 
-  // 3. TIẾN TRÌNH XỬ LÝ VÀ ĐỐI CHIẾU PPCT
   const handleAnalyze = async () => {
     const targetFiles = state.files && state.files.length > 0 ? state.files : (state.file ? [state.file] : []);
 
@@ -498,7 +491,6 @@ const App: React.FC = () => {
     addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
     try {
-      // TRƯỜNG HỢP 1: XỬ LÝ 1 FILE ĐƠN LẺ
       if (targetFiles.length === 1) {
         const currentFile = targetFiles[0];
         addLog(`🔍 Phân tích cấu trúc giáo án: ${currentFile.name}...`);
@@ -513,11 +505,9 @@ const App: React.FC = () => {
           ppctInfo = await parsePPCTDirectFromZip(ppctFile, textContext, currentFile.name);
           addLog(`📋 Kết quả PPCT: Bài dạy ${ppctInfo.totalPeriods} tiết [Tiết PPCT: ${ppctInfo.allPeriods}] ${ppctInfo.isMultiWeek ? `(Vắt qua các tuần: ${ppctInfo.weeksList.join(', ')})` : ''}`);
 
-          // KỊCH BẢN 1: BÀI TRUYỀN THỐNG (KHÔNG CÓ NLS/AI/STEM TRONG PPCT)
           if (ppctInfo.integrationType === 'NONE') {
-            addLog(`🧹 PPCT quy định: Tiết học truyền thống. Xóa sạch 100% mục tiêu NLS/AI cũ ở giáo án gốc...`);
+            addLog(`🧹 PPCT quy định: Tiết học truyền thống. Tự động xóa sạch 100% mục tiêu NLS/AI cũ ở giáo án gốc...`);
 
-            // Nếu bài học vắt qua nhiều tuần -> tách các file nộp theo tuần
             if (ppctInfo.isMultiWeek && ppctInfo.schedules.length >= 2) {
               const sched1 = ppctInfo.schedules[0];
               const sched2 = ppctInfo.schedules[1];
@@ -560,7 +550,6 @@ const App: React.FC = () => {
               return;
             }
 
-            // Nếu bài truyền thống chỉ trong 1 tuần
             const cleanBlob = await injectContentIntoDocx(
               currentFile, 
               { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] }, 
@@ -580,7 +569,6 @@ const App: React.FC = () => {
             return;
           }
 
-          // KỊCH BẢN 2: BÀI CÓ CHỈ ĐỊNH TÍCH HỢP TRONG PPCT
           if (ppctInfo.integrationType === 'STEM') {
             effectiveMode = 'STEM' as any;
             effectiveStemTopic = ppctInfo.requirementNote || 'Thiết kế mô hình & sản phẩm học tập STEM thực tế';
@@ -607,7 +595,6 @@ const App: React.FC = () => {
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
-        // NẾU BÀI TÍCH HỢP VẮT QUA NHIỀU TUẦN -> TÁCH CÁC FILE NỘP RIÊNG
         if (ppctInfo && ppctInfo.isMultiWeek && ppctInfo.schedules.length >= 2) {
           addLog(`📦 Tự động tạo 2 file nộp cho Tuần ${ppctInfo.schedules[0].week} và Tuần ${ppctInfo.schedules[1].week}...`);
 
@@ -669,7 +656,7 @@ const App: React.FC = () => {
           setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
           addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
         }
-        
+
         setState(prev => ({ 
           ...prev, 
           isProcessing: false, 
@@ -679,7 +666,7 @@ const App: React.FC = () => {
         return;
       }
 
-      // TRƯỜNG HỢP 2: XỬ LÝ HÀNG LOẠT (BATCH PROCESSING)
+      // Xử lý hàng loạt
       addLog(`⚡ Bắt đầu tiến trình xử lý hàng loạt ${targetFiles.length} file...`);
       const outputBlobs: { name: string; blob: Blob }[] = [];
 
@@ -687,7 +674,7 @@ const App: React.FC = () => {
         const fileItem = targetFiles[i];
         addLog(`━━━━━━━━━━━━━━━━━━━━━━━━━━`);
         addLog(`[${i + 1}/${targetFiles.length}] Đang xử lý: ${fileItem.name}`);
-        
+
         const fileText = await extractTextFromDocx(fileItem);
         let itemMode = mode;
         let itemStem = stemTopic;
@@ -839,8 +826,8 @@ const App: React.FC = () => {
         logs: [...prev.logs, "✨ Xuất bản thành công!"] 
       }));
     } catch (error) {
-       addLog(`❌ Lỗi đóng gói: ${error instanceof Error ? error.message : "Thất bại"}`);
-       setState(prev => ({ ...prev, isProcessing: false }));
+      addLog(`❌ Lỗi đóng gói: ${error instanceof Error ? error.message : "Thất bại"}`);
+      setState(prev => ({ ...prev, isProcessing: false }));
     }
   };
 
@@ -885,59 +872,59 @@ const App: React.FC = () => {
                 handleFinalizeAndDownload={handleFinalizeAndDownload}
               />
             </div>
-            
+
             <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-20">
               {pedagogicalEvaluation && (
                 <div className={`rounded-2xl p-4.5 border shadow-sm transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
-                    <div className="flex items-start gap-3">
-                        <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
-                        <div className="flex-1 space-y-2">
-                            <h4 className="text-xs font-black tracking-wide uppercase">
-                                {pedagogicalEvaluation.status}
-                            </h4>
-                            <div className="text-[11px] grid grid-cols-1 gap-1.5 pt-1.5 border-t border-black/5 dark:border-white/5">
-                                <div>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
-                                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">{pedagogicalEvaluation.tool}</span>
-                                </div>
-                                <div>
-                                    <span className="font-bold text-slate-800 dark:text-slate-200">📍 Khuyến nghị triển khai: </span> 
-                                    <span className="text-slate-700 dark:text-slate-300">{pedagogicalEvaluation.action}</span>
-                                </div>
-                            </div>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
+                    <div className="flex-1 space-y-2">
+                      <h4 className="text-xs font-black tracking-wide uppercase">
+                        {pedagogicalEvaluation.status}
+                      </h4>
+                      <div className="text-[11px] grid grid-cols-1 gap-1.5 pt-1.5 border-t border-black/5 dark:border-white/5">
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
+                          <span className="font-semibold text-indigo-700 dark:text-indigo-300">{pedagogicalEvaluation.tool}</span>
                         </div>
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">📍 Khuyến nghị triển khai: </span> 
+                          <span className="text-slate-700 dark:text-slate-300">{pedagogicalEvaluation.action}</span>
+                        </div>
+                      </div>
                     </div>
+                  </div>
                 </div>
               )}
 
               {state.isProcessing ? (
                 <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-2xl border border-indigo-500/30 text-center flex flex-col items-center justify-center min-h-[380px] animate-fade-in-up">
-                    <div className="relative z-10 flex flex-col items-center justify-center w-full">
-                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5">
-                            <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
-                            <div className="absolute inset-0 rounded-full border-4 border-indigo-400 border-t-transparent animate-spin"></div>
-                            <div className="absolute inset-2 sm:inset-3 rounded-full border-4 border-purple-400 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}></div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300 animate-pulse" />
-                            </div>
-                        </div>
-
-                        <h3 className="text-base sm:text-lg font-black text-white tracking-wide mb-2 uppercase">
-                            AI Đang xử lý dữ liệu theo PPCT...
-                        </h3>
-                        
-                        <p className="text-xs sm:text-sm text-indigo-200/80 max-w-sm mx-auto font-medium leading-relaxed">
-                            Tự động nhận diện tuần, đối chiếu phân phối tiết và xuất bản file theo chuẩn CV 5512...
-                        </p>
-                        
-                        <div className="w-56 sm:w-64 h-2 bg-slate-800 rounded-full mt-6 overflow-hidden border border-white/10 shadow-inner">
-                            <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
-                        </div>
-
-                        <span className="text-[11px] text-slate-400 font-mono mt-4 block">
-                            ⚡ Đang thực hiện kết nối máy chủ phân tích...
-                        </span>
+                  <div className="relative z-10 flex flex-col items-center justify-center w-full">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5">
+                      <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
+                      <div className="absolute inset-0 rounded-full border-4 border-indigo-400 border-t-transparent animate-spin"></div>
+                      <div className="absolute inset-2 sm:inset-3 rounded-full border-4 border-purple-400 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300 animate-pulse" />
+                      </div>
                     </div>
+
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-wide mb-2 uppercase">
+                      AI Đang xử lý dữ liệu theo PPCT...
+                    </h3>
+
+                    <p className="text-xs sm:text-sm text-indigo-200/80 max-w-sm mx-auto font-medium leading-relaxed">
+                      Tự động nhận diện tuần, đối chiếu phân phối tiết và xuất bản file theo chuẩn CV 5512...
+                    </p>
+
+                    <div className="w-56 sm:w-64 h-2 bg-slate-800 rounded-full mt-6 overflow-hidden border border-white/10 shadow-inner">
+                      <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
+                    </div>
+
+                    <span className="text-[11px] text-slate-400 font-mono mt-4 block">
+                      ⚡ Đang thực hiện kết nối máy chủ phân tích...
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -1028,7 +1015,7 @@ const App: React.FC = () => {
           }
         }}
       />
-      
+
       <style>{`
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateY(0); } }

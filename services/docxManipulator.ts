@@ -28,7 +28,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
   // 2. Quét sạch các đoạn chỉ thị tích hợp trong các hoạt động dạy học
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
 
-  // 3. Quét sạch các đoạn mã chuẩn đầu ra NLS (1.1.TC1a, 2.2.TC1a, NLc.C2,...)
+  // 3. Quét sạch các đoạn mã chuẩn đầu ra NLS (1.1.TC1a, 2.2.TC1a, NLc.C2, GeoGebra, Desmos...)
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:\d\.\d\.[A-Z\d]+|[A-Z]{2,}\.[A-Z\d]+|\bGeoGebra\b|\bDesmos\b).*?<\/w:p>/gis, '');
 
   // 4. Xóa triệt để toàn bộ khối "Năng lực số (tích hợp)" ở Mục I.2
@@ -47,7 +47,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CĂN GIỮA DÒNG TIÊU ĐỀ TIẾT THEO PPCT (XÓA SẠCH BẢNG 2 Ô NẾU CÓ)
+ * 3. HÀM CĂN GIỮA DÒNG TIÊU ĐỀ TIẾT THEO PPCT (XÓA BẢNG 2 Ô NẾU CÓ ĐỂ NẰM CHÍNH GIỮA)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -70,7 +70,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     </w:r>
   </w:p>`;
 
-  // Nếu dòng này nằm trong bảng 2 ô, thay thế toàn bộ bảng đó bằng 1 dòng căn giữa
   const headerTableRegex = /<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:tbl>/i;
 
   if (headerTableRegex.test(result)) {
@@ -82,7 +81,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     }
   }
 
-  // Xóa các ô/dòng dư thừa chứa Tiết theo PPCT cũ
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
 
   return result;
@@ -109,7 +107,7 @@ export const injectContentIntoDocx = async (
         const zip = new PizZip(binaryString as ArrayBuffer);
         const docFile = zip.file("word/document.xml");
         if (!docFile) throw new Error("File Word không hợp lệ (thiếu document.xml)");
-        
+
         let docXml = docFile.asText();
 
         // 1. Quét sạch toàn bộ các nội dung NLS/AI/STEM cũ
@@ -120,7 +118,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
-        // NẾU BÀI DẠY TRUYỀN THỐNG (content rỗng) -> XUẤT NGAY FILE ĐÃ LÀM SẠCH CHUẨN 5512
+        // NẾU BÀI DẠY TRUYỀN THỐNG (content rỗng) -> XUẤT NGAY FILE SẠCH 5512
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
@@ -135,7 +133,7 @@ export const injectContentIntoDocx = async (
         else if (mode === 'NAI') label = "Tích hợp AI";
 
         const detectStyle = (xml: string, index: number) => {
-          const chunk = xml.substring(Math.max(0, index - 10000), index); 
+          const chunk = xml.substring(Math.max(0, index - 10000), index);
           let fontSize = null;
           const szMatch = chunk.match(/<w:sz\s+w:val=["'](\d+)["'][^>]*\/>/g);
           if (szMatch && szMatch.length > 0) {
@@ -144,7 +142,7 @@ export const injectContentIntoDocx = async (
             if (m) fontSize = m[1];
           }
 
-          let fontTag = ""; 
+          let fontTag = "";
           const fontMatch = chunk.match(/<w:rFonts\s+[^>]*\/>/g);
           if (fontMatch && fontMatch.length > 0) {
             fontTag = fontMatch[fontMatch.length - 1];
@@ -158,7 +156,7 @@ export const injectContentIntoDocx = async (
           const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           if (lines.length === 0) return "";
 
-          let rPrHeader = `<w:b/><w:color w:val="${colorHex}"/>`; 
+          let rPrHeader = `<w:b/><w:color w:val="${colorHex}"/>`;
           let rPrBody = `<w:color w:val="${colorHex}"/>`;
 
           if (style.fontSize) {
@@ -166,7 +164,7 @@ export const injectContentIntoDocx = async (
             rPrHeader += szTag;
             rPrBody += szTag;
           }
-          
+
           if (style.fontTag) {
             rPrHeader += style.fontTag;
             rPrBody += style.fontTag;
@@ -184,15 +182,15 @@ export const injectContentIntoDocx = async (
 
           lines.forEach(line => {
             let cleanLine = line
-              .replace(/\*\*/g, "") 
+              .replace(/\*\*/g, "")
               .replace(/__/, "")
-              .replace(/^\s*[-•+]\s*/, "") 
+              .replace(/^\s*[-•+]\s*/, "")
               .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
               .trim();
 
             if (cleanLine) {
               xmlBlock += `<w:p>
-                             <w:pPr><w:ind w:left="720"/></w:pPr> 
+                             <w:pPr><w:ind w:left="720"/></w:pPr>
                              <w:r>
                                <w:rPr>${rPrBody}</w:rPr>
                                <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
@@ -216,7 +214,7 @@ export const injectContentIntoDocx = async (
           const patternStr = chars.join('(?:<[^>]+>)*');
           const regex = new RegExp(patternStr, 'gi');
           regex.lastIndex = startIndex;
-          
+
           const match = regex.exec(xml);
           return match ? match.index : -1;
         };
@@ -535,10 +533,10 @@ export const createAppendixDocx = async (
       <w:body>
         <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/><w:color w:val="1E293B"/></w:rPr><w:t>${escapeXml(label)}</w:t></w:r></w:p>
         <w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="300"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="22"/><w:color w:val="64748B"/></w:rPr><w:t>(Phụ lục kèm Kế hoạch bài dạy môn ${escapeXml(subject)} - Khối ${escapeXml(grade)})</w:t></w:r></w:p>
-        
+
         <w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="0F172A"/></w:rPr><w:t>I. MỤC TIÊU NĂNG LỰC TÍCH HỢP</w:t></w:r></w:p>
         <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:t>${escapeXml(content.objectives_addition)}</w:t></w:r></w:p>
-        
+
         <w:p><w:pPr><w:spacing w:before="240"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="0F172A"/></w:rPr><w:t>II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU SỐ</w:t></w:r></w:p>
         <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:t>${escapeXml(content.materials_addition || '')}</w:t></w:r></w:p>
 
