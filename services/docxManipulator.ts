@@ -46,28 +46,36 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * HÀM PHỤ TRỢ: CHUẨN HÓA DÒNG TIÊU ĐỀ TIẾT THEO PPCT (XÓA BỎ HOÀN TOÀN CỘT THỪA VÀ KÝ TỰ DÍNH ĐUÔI)
+ * HÀM PHỤ TRỢ: CHUẨN HÓA DÒNG TIÊU ĐỀ TIẾT THEO PPCT - CĂN CHÍNH GIỮA TRANG (CENTER)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
 
   let result = xmlContent;
 
-  // 1. Quét sạch toàn bộ đoạn văn bản chứa "Tiết theo PPCT" cũ (bất kể nằm trong hay ngoài bảng)
+  // 1. Quét sạch toàn bộ đoạn văn bản chứa "Tiết theo PPCT" cũ ở ô bên cạnh hoặc dòng dưới
   result = result.replace(
     /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis,
     '<w:p/>'
   );
 
-  // 2. Tìm đoạn chứa "Số tiết dạy:" hoặc "Thời gian thực hiện:" và thay thế trọn vẹn nội dung
+  // 2. Tìm đoạn chứa "Số tiết dạy:" hoặc "Thời gian thực hiện:" và thay thế thành đoạn CĂN GIỮA (center)
   const headerParagraphRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Số tiết dạy|Thời gian thực hiện)[\s\S]*?<\/w:p>)/i;
 
   if (headerParagraphRegex.test(result)) {
     result = result.replace(headerParagraphRegex, (_match) => {
       return `<w:p>
-                <w:pPr><w:jc w:val="left"/></w:pPr>
+                <w:pPr>
+                  <w:jc w:val="center"/>
+                  <w:spacing w:before="60" w:after="140"/>
+                </w:pPr>
                 <w:r>
-                  <w:rPr><w:i/><w:color w:val="000000"/></w:rPr>
+                  <w:rPr>
+                    <w:i/>
+                    <w:color w:val="000000"/>
+                    <w:sz w:val="24"/>
+                    <w:szCs w:val="24"/>
+                  </w:rPr>
                   <w:t xml:space="preserve">${escapeXml(ppctInfoText)}</w:t>
                 </w:r>
               </w:p>`;
@@ -104,7 +112,7 @@ export const injectContentIntoDocx = async (
         // BƯỚC 1: TỰ ĐỘNG DỌN SẠCH CÁC THẺ RÁC VÀ NLS CŨ TRƯỚC KHI CHÈN MỚI
         docXml = cleanExistingNLSContent(docXml);
 
-        // BƯỚC 1.1: CẬP NHẬT DÒNG TIÊU ĐỀ TIẾT THEO PPCT NẾU CÓ CHỈ ĐỊNH
+        // BƯỚC 1.1: CẬP NHẬT DÒNG TIÊU ĐỀ TIẾT THEO PPCT (CĂN GIỮA)
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
@@ -122,7 +130,6 @@ export const injectContentIntoDocx = async (
         // --- HÀM 1: PHÁT HIỆN STYLE (TỰ ĐỘNG THỪA KẾ FONT/SIZE) ---
         const detectStyle = (xml: string, index: number) => {
           const chunk = xml.substring(Math.max(0, index - 10000), index); 
-          
           let fontSize = null;
           const szMatch = chunk.match(/<w:sz\s+w:val=["'](\d+)["'][^>]*\/>/g);
           if (szMatch && szMatch.length > 0) {
@@ -143,7 +150,6 @@ export const injectContentIntoDocx = async (
         // --- HÀM 2: TẠO KHỐI XML (MÀU TÙY CHỈNH + THỪA KẾ STYLE GỐC) ---
         const createXmlBlock = (text: string, style: { fontSize: string | null, fontTag: string }, customPrefix?: string) => {
           if (!text) return "";
-          
           const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           if (lines.length === 0) return "";
 
@@ -163,7 +169,6 @@ export const injectContentIntoDocx = async (
 
           const headerTitle = customPrefix || `👉 ${label}:`;
 
-          // 1. Tạo dòng Tiêu đề
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
@@ -172,7 +177,6 @@ export const injectContentIntoDocx = async (
                             </w:r>
                           </w:p>`;
 
-          // 2. Tạo các dòng Liệt kê nội dung
           lines.forEach(line => {
             let cleanLine = line
               .replace(/\*\*/g, "") 
@@ -195,10 +199,9 @@ export const injectContentIntoDocx = async (
           return xmlBlock;
         };
 
-        // --- HÀM 3: TÌM KIẾM XUYÊN THẤU TỪNG KÝ TỰ (CHARACTER-LEVEL FUZZY SEARCH) ---
+        // --- HÀM 3: TÌM KIẾM FUZZY INDEX ---
         const findFuzzyIndex = (xml: string, keyword: string, startIndex = 0) => {
           if (!keyword) return -1;
-          
           let directIdx = xml.indexOf(keyword, startIndex);
           if (directIdx !== -1) return directIdx;
 
@@ -214,7 +217,7 @@ export const injectContentIntoDocx = async (
           return match ? match.index : -1;
         };
 
-        // --- HÀM 4: VẼ BẢNG TỔNG HỢP NLS/AI BẰNG XML CHO WORD ---
+        // --- HÀM 4: BẢNG TỔNG HỢP NLS/AI ---
         const createSummaryTableXml = (tableData: Array<any>) => {
           if (!Array.isArray(tableData) || tableData.length === 0) return "";
 
@@ -262,22 +265,11 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC / YÊU CẦU CẦN ĐẠT ---
+        // --- 5. CHÈN NĂNG LỰC VÀO CUỐI PHẦN NĂNG LỰC ---
         const endKeywords = [
-          "3. Phẩm chất",
-          "3. Về phẩm chất",
-          "III. Phẩm chất",
-          "1.3. Phẩm chất",
-          "1.3. Về phẩm chất",
-          "Phẩm chất:",
-          "PHẨM CHẤT:",
-          "Về phẩm chất",
-          "- Phẩm chất:",
-          "II. ĐỒ DÙNG DẠY HỌC",
-          "II. ĐỒ DÙNG DẠY - HỌC",
-          "II. THIẾT BỊ DẠY HỌC",
-          "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
-          "II. ĐỒ DÙNG DẠY VÀ HỌC"
+          "3. Phẩm chất", "3. Về phẩm chất", "III. Phẩm chất", "1.3. Phẩm chất", "1.3. Về phẩm chất",
+          "Phẩm chất:", "PHẨM CHẤT:", "Về phẩm chất", "- Phẩm chất:", "II. ĐỒ DÙNG DẠY HỌC",
+          "II. ĐỒ DÙNG DẠY - HỌC", "II. THIẾT BỊ DẠY HỌC", "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU"
         ];
 
         let insertAnchorPos = -1;
@@ -293,10 +285,7 @@ export const injectContentIntoDocx = async (
         }
 
         if (insertAnchorPos === -1) {
-          const fallbackKeywords = [
-            "2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "I.2. Về năng lực",
-            "1.2. Năng lực", "1.2. Về năng lực", "Về năng lực", "NĂNG LỰC:", "Năng lực:"
-          ];
+          const fallbackKeywords = ["2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "Về năng lực", "NĂNG LỰC:"];
           for (const kw of fallbackKeywords) {
             const idx = findFuzzyIndex(docXml, kw, 0);
             if (idx !== -1) {
@@ -341,15 +330,11 @@ export const injectContentIntoDocx = async (
         }
         docXml = newXml;
 
-        // --- 5.1. TỰ ĐỘNG CHÈN MỤC II (THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU SỐ) ---
+        // --- 5.1. CHÈN MỤC II: HỌC LIỆU SỐ ---
         if (content.materials_addition) {
           const matKeywords = [
-            "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
-            "II. THIẾT BỊ DẠY HỌC",
-            "2. Thiết bị dạy học và học liệu",
-            "II. ĐỒ DÙNG DẠY HỌC",
-            "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU",
-            "Thiết bị dạy học và học liệu"
+            "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", "II. THIẾT BỊ DẠY HỌC",
+            "2. Thiết bị dạy học và học liệu", "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU"
           ];
 
           let matIndex = -1;
@@ -389,7 +374,6 @@ export const injectContentIntoDocx = async (
           content.activities_enhancement.forEach((item, index) => {
             const actName = (item as any).activity_name || (item as any).activity_title || "";
             const actContent = (item as any).enhanced_content || (item as any).content || "";
-
             if (!actName && !actContent) return;
 
             let safeName = escapeXml(actName);
@@ -398,29 +382,19 @@ export const injectContentIntoDocx = async (
             if (actIndex === -1 && safeName) {
               const coreKeywords = [
                 "KHỞI ĐỘNG", "MỞ ĐẦU", "XÁC ĐỊNH VẤN ĐỀ",
-                "HÌNH THÀNH KIẾN THỨC", "KHÁM PHÁ", "TÌM HIỂU KIẾN THỨC", "ĐỌC HIỂU",
-                "LUYỆN TẬP", "THỰC HÀNH",
-                "VẬN DỤNG", "MỞ RỘNG", "GIAO VIỆC VỀ NHÀ"
+                "HÌNH THÀNH KIẾN THỨC", "KHÁM PHÁ", "TÌM HIỂU KIẾN THỨC",
+                "LUYỆN TẬP", "THỰC HÀNH", "VẬN DỤNG"
               ];
               for (const key of coreKeywords) {
                 if (safeName.toUpperCase().includes(key)) {
-                  const variants = [
-                    `HOẠT ĐỘNG ${key.toUpperCase()}`, 
-                    `HOẠT ĐỘNG ${key}`,             
-                    `${key.toUpperCase()}`
-                  ];
+                  const variants = [`HOẠT ĐỘNG ${key.toUpperCase()}`, `HOẠT ĐỘNG ${key}`, `${key.toUpperCase()}`];
                   for (const v of variants) {
                     const found = findFuzzyIndex(docXml, v, 0);
-                    if (found !== -1) {
-                      actIndex = found;
-                      break;
-                    }
+                    if (found !== -1) { actIndex = found; break; }
                   }
                   if (actIndex === -1) {
                     const found = findFuzzyIndex(docXml, key, 0);
-                    if (found !== -1) {
-                      actIndex = found;
-                    }
+                    if (found !== -1) { actIndex = found; }
                   }
                   if (actIndex !== -1) break;
                 }
@@ -430,13 +404,10 @@ export const injectContentIntoDocx = async (
             if (actIndex === -1) {
               const matchNum = safeName ? safeName.match(/\d+/) : null;
               const num = matchNum ? matchNum[0] : String(index + 1);
-              const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`, `Nhiệm vụ ${num}`];
+              const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`];
               for (const v of variants) {
                 const found = findFuzzyIndex(docXml, v, 0);
-                if (found !== -1) {
-                  actIndex = found;
-                  break;
-                }
+                if (found !== -1) { actIndex = found; break; }
               }
             }
 
@@ -450,7 +421,6 @@ export const injectContentIntoDocx = async (
 
                 if (tblPos !== -1 && tblPos - actIndex < 20000) {
                   const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
-                  
                   if (hsHeaderPos !== -1) {
                     const contentRowPos = docXml.indexOf("<w:tr>", tblPos + hsHeaderPos);
                     if (contentRowPos !== -1 && contentRowPos - tblPos < 10000) {
@@ -467,21 +437,8 @@ export const injectContentIntoDocx = async (
 
                 if (targetCellPos === -1) {
                   const cellKeywords = [
-                    "- HS tiến hành",
-                    "- HS sử dụng",
-                    "- Quan sát, trả lời",
-                    "- Nhóm trưởng điều phối",
-                    "- Mỗi nhóm được sử dụng",
-                    "HS tiến hành",
-                    "HS sử dụng",
-                    "điện thoại cá nhân",
-                    "HS thực hiện nhiệm vụ",
-                    "HS thực hiện",
-                    "Học sinh thực hiện",
-                    "Báo cáo kết quả",
-                    "c) Sản phẩm",
-                    "Sản phẩm:",
-                    "Sản phẩm"
+                    "- HS tiến hành", "- HS sử dụng", "- Quan sát, trả lời", "HS thực hiện nhiệm vụ",
+                    "HS thực hiện", "Học sinh thực hiện", "Báo cáo kết quả", "c) Sản phẩm"
                   ];
                   for (const cKey of cellKeywords) {
                     const foundPos = findFuzzyIndex(docXml, cKey, actIndex);
@@ -510,7 +467,7 @@ export const injectContentIntoDocx = async (
           });
         }
 
-        // --- 7. TỰ ĐỘNG CHÈN BẢNG TỔNG HỢP NLS/AI VÀO CUỐI TÀI LIỆU ---
+        // --- 7. CHÈN BẢNG MA TRẬN CUỐI FILE ---
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
           const tableXml = createSummaryTableXml(content.summary_table);
           if (tableXml) {
@@ -532,7 +489,7 @@ export const injectContentIntoDocx = async (
 };
 
 /**
- * 3. HÀM TẠO FILE WORD PHỤ LỤC TÍCH HỢP NLS & AI RIÊNG BIỆT (KHÔNG CHÈN VÀO FILE GỐC)
+ * 3. HÀM TẠO FILE PHỤ LỤC RIÊNG
  */
 export const createAppendixDocx = async (
   content: GeneratedNLSContent,
