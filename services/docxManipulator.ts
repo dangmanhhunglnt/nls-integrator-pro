@@ -18,12 +18,11 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 /**
  * 2. HÀM QUÉT SẠCH 100% CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ RÁC FORMAT
- * (Thao tác an toàn trên từng đoạn <w:p>...</w:p> độc lập, không làm rách cấu trúc phân cấp Word)
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  // 1. Quét sạch các tag rác [NLS], [AI], [STEM] bên trong từng đoạn <w:p>
+  // 1. Quét sạch các tag rác [NLS], [AI], [STEM]
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
 
   // 2. Quét sạch các đoạn chỉ thị tích hợp trong các hoạt động dạy học
@@ -45,7 +44,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG (XÓA BẢNG 2 CỘT CHỨA NÓ NẾU CÓ)
+ * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -53,40 +52,32 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Tạo đoạn văn bản độc lập căn giữa toàn trang chuẩn OpenXML
-  const centerParagraphXml = `<w:p>
-    <w:pPr>
-      <w:jc w:val="center"/>
-      <w:spacing w:before="120" w:after="160"/>
-    </w:pPr>
-    <w:r>
-      <w:rPr>
-        <w:i/>
-        <w:sz w:val="24"/>
-        <w:szCs w:val="24"/>
-      </w:rPr>
-      <w:t xml:space="preserve">${safeNewText}</w:t>
-    </w:r>
-  </w:p>`;
+  // Tạo một paragraph độc lập chuẩn OpenXML căn giữa toàn trang
+  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // TRƯỜNG HỢP 1: Dòng chữ nằm trong bảng 2 ô (khiến nó bị co về góc trái)
-  // Ta thay thế cả bảng chứa nó thành 1 đoạn paragraph căn giữa toàn trang
-  const tblRegex = /<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:tbl>/i;
-  if (tblRegex.test(result)) {
-    result = result.replace(tblRegex, centerParagraphXml);
-    // Dọn các đoạn "Tiết theo PPCT" cũ nếu có
+  // 1. Nếu dòng chữ nằm trong 1 bảng (bảng 2 ô header), thay thế cả bảng bằng dòng căn giữa
+  const tblRegex = /<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
+  let replacedTable = false;
+
+  result = result.replace(tblRegex, (tblXml) => {
+    if (!replacedTable && (tblXml.includes("Thời gian thực hiện") || tblXml.includes("Số tiết dạy") || tblXml.includes("Tiết theo PPCT"))) {
+      replacedTable = true;
+      return centerParagraphXml;
+    }
+    return tblXml;
+  });
+
+  if (replacedTable) {
     result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
     return result;
   }
 
-  // TRƯỜNG HỢP 2: Nếu file gốc vốn không dùng bảng mà là paragraph thông thường
+  // 2. Nếu nằm trong đoạn paragraph thông thường ngoài bảng
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
   const match = result.match(pRegex);
 
   if (match) {
     let pXml = match[0];
-
-    // Đảm bảo có căn giữa <w:jc w:val="center"/>
     if (pXml.includes('<w:pPr>')) {
       if (pXml.includes('<w:jc')) {
         pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
@@ -99,7 +90,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
       pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
     }
 
-    // Xóa ruột text cũ và nạp text mới
     pXml = pXml.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/gi, '');
     const newRun = `<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
     pXml = pXml.replace(/<\/w:p>$/i, `${newRun}</w:p>`);
