@@ -22,22 +22,23 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  // 1. Quét sạch các tag rác [NLS], [AI], [STEM]
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\](?::\s*[^<]*)?.*?<\/w:p>/gis, '');
+  // 1. Quét sạch triệt để mọi đoạn chứa [NLS], [AI], [STEM], bao gồm cả [NLS]: Gemini
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS|AI|STEM)\][\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
 
-  // 2. Quét sạch các đoạn chỉ thị tích hợp trong các hoạt động dạy học
+  // 2. Quét sạch các chỉ thị tích hợp trong tiến trình bài dạy
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
 
-  // 3. Quét sạch các đoạn mã chuẩn đầu ra NLS (1.1.TC1a, 2.2.TC1a, NLc.C2, GeoGebra, Desmos...)
+  // 3. Quét sạch các mã chuẩn đầu ra cũ nếu có
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:\d\.\d\.[A-Z\d]+|[A-Z]{2,}\.[A-Z\d]+|\bGeoGebra\b|\bDesmos\b).*?<\/w:p>/gis, '');
 
-  // 4. Xóa các đoạn con chứa nội dung "Năng lực số" mà vẫn giữ nguyên thẻ cha/bảng
+  // 4. Xóa các đoạn con chứa nội dung "Năng lực số" mà vẫn giữ nguyên khung bài
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):).*?<\/w:p>/gis, '');
 
-  // 5. Xóa các mục học liệu số ở Mục II nếu có
+  // 5. Xóa các mục học liệu số cũ ở Mục II
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thiết bị dạy học và Học liệu số|Học liệu số).*?<\/w:p>/gis, '');
 
-  // 6. Xóa triệt để Bảng tổng hợp NLS/AI ở cuối bài nếu có
+  // 6. Xóa Bảng tổng hợp NLS/AI ở cuối bài
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
 
   return cleaned;
