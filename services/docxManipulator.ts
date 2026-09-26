@@ -47,40 +47,44 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CĂN GIỮA DÒNG TIÊU ĐỀ TIẾT THEO PPCT (XÓA BẢNG 2 Ô NẾU CÓ ĐỂ NẰM CHÍNH GIỮA)
+ * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TIÊU ĐỀ TIẾT THEO PPCT (AN TOÀN XML 100%)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
 
   let result = xmlContent;
 
-  const centerParagraphXml = `<w:p>
-    <w:pPr>
-      <w:jc w:val="center"/>
-      <w:spacing w:before="120" w:after="160"/>
-    </w:pPr>
-    <w:r>
-      <w:rPr>
-        <w:i/>
-        <w:color w:val="000000"/>
-        <w:sz w:val="24"/>
-        <w:szCs w:val="24"/>
-      </w:rPr>
-      <w:t xml:space="preserve">${escapeXml(ppctInfoText)}</w:t>
-    </w:r>
-  </w:p>`;
+  // 1. Tìm paragraph chứa thông tin "Thời gian thực hiện" hoặc "Số tiết dạy"
+  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
+  const match = result.match(pRegex);
 
-  const headerTableRegex = /<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:tbl>/i;
+  if (match) {
+    let pXml = match[0];
 
-  if (headerTableRegex.test(result)) {
-    result = result.replace(headerTableRegex, centerParagraphXml);
-  } else {
-    const headerParagraphRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Số tiết dạy|Thời gian thực hiện)[\s\S]*?<\/w:p>)/i;
-    if (headerParagraphRegex.test(result)) {
-      result = result.replace(headerParagraphRegex, centerParagraphXml);
+    // Đảm bảo có căn giữa <w:jc w:val="center"/> trong thuộc tính pPr
+    if (/<w:pPr\b[^>]*>/i.test(pXml)) {
+      if (/<w:jc\b[^>]*\/>/i.test(pXml)) {
+        pXml = pXml.replace(/<w:jc\b[^>]*\/>/i, '<w:jc w:val="center"/>');
+      } else {
+        pXml = pXml.replace(/(<w:pPr\b[^>]*>)/i, '$1<w:jc w:val="center"/>');
+      }
+    } else {
+      pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
     }
+
+    // Thay thế toàn bộ text bên trong paragraph này bằng chuỗi PPCT mới
+    // Giữ lại thẻ mở <w:p...> và </w:p>, thay phần ruột run text
+    const pPrMatch = pXml.match(/<w:pPr\b[\s\S]*?<\/w:pPr>/i);
+    const pPrContent = pPrMatch ? pPrMatch[0] : '<w:pPr><w:jc w:val="center"/></w:pPr>';
+
+    const safeNewText = escapeXml(ppctInfoText);
+    const newInner = `${pPrContent}<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
+
+    const fixedPXml = pXml.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/i, `<w:p>${newInner}</w:p>`);
+    result = result.replace(match[0], fixedPXml);
   }
 
+  // Xóa các paragraph rác chứa "Tiết theo PPCT" cũ nếu có
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
 
   return result;
