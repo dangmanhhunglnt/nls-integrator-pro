@@ -20,8 +20,8 @@ import { PricingModal } from './components/PricingModal';
 
 interface PPCTLessonSchedule {
   week: number;
-  periodStr: string;
-  periodCount: number;
+  periodDisplay: string; // VD: "5" hoặc "7, 8"
+  periodCount: number;   // Số tiết thực tế
   hasIntegration: boolean;
   requirement: string;
 }
@@ -39,8 +39,46 @@ interface ParsedPPCTResult {
 }
 
 /**
+ * HÀM CHUẨN HÓA BÓC TÁCH SỐ TIẾT PPCT TỪ Ô DỮ LIỆU CỘT TIẾT
+ * Xử lý chính xác các trường hợp:
+ * - "5" -> tiết 5 (1 tiết)
+ * - "7-8" -> tiết 7, 8 (2 tiết)
+ * - "1,2" -> tiết 1, 2 (2 tiết)
+ * - "5-4" (dạng cũ Tiết PPCT - Tiết phân môn) -> lấy đúng Tiết PPCT 5 (1 tiết)
+ */
+function cleanPeriodEntry(raw: string): { display: string; count: number } {
+  if (!raw) return { display: '', count: 1 };
+  
+  const firstLine = raw.split('\n')[0].trim();
+
+  // Dạng dải tiết liên tiếp hợp lệ: "7-8", "10-11", "22-23"
+  const rangeMatch = firstLine.match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
+  if (rangeMatch) {
+    const start = parseInt(rangeMatch[1], 10);
+    const end = parseInt(rangeMatch[2], 10);
+    // Nếu start < end và khoảng cách <= 4 thì là dải tiết
+    if (end > start && end - start <= 4) {
+      const arr: number[] = [];
+      for (let p = start; p <= end; p++) arr.push(p);
+      return { display: arr.join(', '), count: arr.length };
+    }
+    // Nếu end <= start (như "5-4", "6-2"), đây là dạng Tiết PPCT - Tiết phân môn -> lấy đúng số đầu
+    return { display: `${start}`, count: 1 };
+  }
+
+  // Dạng danh sách cách nhau bằng dấu phẩy: "1,2", "1, 2"
+  const listMatch = firstLine.match(/\d{1,2}/g);
+  if (listMatch && listMatch.length > 0) {
+    const unique = Array.from(new Set(listMatch.map(Number))).sort((a, b) => a - b);
+    return { display: unique.join(', '), count: unique.length };
+  }
+
+  return { display: firstLine, count: 1 };
+}
+
+/**
  * HÀM ĐỐI CHIẾU DỮ LIỆU ĐỘNG VỚI PPCT:
- * Áp dụng cho TẤT CẢ các bài học (tự động đếm số tiết, nhận diện tuần và danh sách tiết)
+ * Khớp chính xác tên bài học theo cụm danh từ đầy đủ, không để lẫn sang bài khác
  */
 function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPPCTResult {
   if (!ppctText || !ppctText.trim()) {
@@ -64,10 +102,10 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
     lessonTitle = titleMatch[1].replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  // Chuẩn hóa tên bài
+  // Chuẩn hóa tên bài: bỏ chữ số thứ tự bài, chương, tiết
   const cleanKeyword = (lessonTitle || '')
     .toLowerCase()
-    .replace(/(bài\s*\d+|chương\s*[ivxlcdm\d]+|tiết\s*[\d-]+)/gi, '')
+    .replace(/(bài\s*\d+[:\.]?|chương\s*[ivxlcdm\d]+[:\.]?|tiết\s*[\d-]+[:\.]?)/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -78,31 +116,42 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Phát hiện số tuần (ví dụ: dòng chỉ ghi số 1, 2... hoặc "Tuần 1", "Tuần 2")
+    // Phát hiện số tuần trong bảng PPCT
     const weekMatch = line.match(/^(?:tuần\s*)?(\d{1,2})$/i);
     if (weekMatch && parseInt(weekMatch[1], 10) <= 35) {
       currentWeek = parseInt(weekMatch[1], 10);
     }
 
-    const lowerLine = line.toLowerCase();
-    if (cleanKeyword && (lowerLine.includes(cleanKeyword) || (cleanKeyword.length >= 6 && lowerLine.includes(cleanKeyword.slice(0, 8))))) {
-      // Đọc ngữ cảnh xung quanh dòng tên bài trong bảng PPCT
-      const surroundingChunk = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 10)).join(' \n ');
-      
-      // Tìm số tiết PPCT (ví dụ: "1,2", "4-3", "5-4", "7-8", "22-23")
-      let periodFound = '';
-      let periodCount = 1;
-      const periodMatch = surroundingChunk.match(/(?:\n|^)\s*(\d{1,2}(?:\s*,\s*\d{1,2})*|\d{1,2}-\d{1,2})\s*(?:\n|$)/);
-      if (periodMatch) {
-        periodFound = periodMatch[1].replace(/\s+/g, '');
-        // Tính số lượng tiết trong ô đó
-        if (periodFound.includes(',')) {
-          periodCount = periodFound.split(',').length;
-        } else if (periodFound.includes('-')) {
-          const parts = periodFound.split('-').map(Number);
-          periodCount = (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) ? Math.abs(parts[1] - parts[0]) + 1 : 1;
-        }
+    const lowerLine = line.toLowerCase().replace(/\s+/g, ' ');
+
+    // SO KHỚP CHÍNH XÁC: Tránh việc bài "Công thức lượng giác" bị dính vào các bài khác có chữ "lượng giác"
+    let isMatched = false;
+    if (cleanKeyword) {
+      if (cleanKeyword.includes('công thức') && lowerLine.includes('công thức lượng giác')) {
+        isMatched = true;
+      } else if (cleanKeyword.includes('giá trị') && lowerLine.includes('giá trị lượng giác')) {
+        isMatched = true;
+      } else if (cleanKeyword.includes('hàm số') && lowerLine.includes('hàm số lượng giác')) {
+        isMatched = true;
+      } else if (cleanKeyword.includes('phương trình') && lowerLine.includes('phương trình lượng giác')) {
+        isMatched = true;
+      } else if (!cleanKeyword.includes('lượng giác') && cleanKeyword.length >= 5 && lowerLine.includes(cleanKeyword)) {
+        isMatched = true;
       }
+    }
+
+    if (isMatched) {
+      // Quét ngữ cảnh lân cận của dòng bài học trong bảng
+      const surroundingChunk = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 8)).join(' \n ');
+      
+      // Tìm số tiết PPCT (ví dụ: "5", "7-8", "1,2")
+      let rawPeriod = '';
+      const periodMatch = surroundingChunk.match(/(?:\n|^)\s*(\d{1,2}(?:\s*,\s*\d{1,2})*|\d{1,2}\s*-\s*\d{1,2})\s*(?:\n|$)/);
+      if (periodMatch) {
+        rawPeriod = periodMatch[1];
+      }
+
+      const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(rawPeriod);
 
       // Tìm chỉ thị NLS / AI / STEM trong cột Ghi chú
       let noteFound = '';
@@ -111,13 +160,17 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
         noteFound = noteMatch[0].trim();
       }
 
-      schedules.push({
-        week: currentWeek,
-        periodStr: periodFound || '',
-        periodCount: periodCount || 1,
-        hasIntegration: Boolean(noteFound),
-        requirement: noteFound
-      });
+      // Tránh đưa vào trùng lặp cùng một tuần và tiết
+      const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplay);
+      if (!exists && periodDisplay) {
+        schedules.push({
+          week: currentWeek,
+          periodDisplay,
+          periodCount,
+          hasIntegration: Boolean(noteFound),
+          requirement: noteFound
+        });
+      }
     }
   }
 
@@ -125,8 +178,8 @@ function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPP
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
 
-  // Lấy danh sách toàn bộ các tiết (ví dụ: "1, 2, 4" hoặc "5, 6, 7")
-  const periodsCombined = schedules.map(s => s.periodStr).filter(Boolean).join(', ');
+  // Lấy danh sách toàn bộ các tiết (ví dụ: "5, 7, 8" hoặc "1, 2, 4")
+  const periodsCombined = schedules.map(s => s.periodDisplay).filter(Boolean).join(', ');
   
   // Tính tổng số tiết thực tế của bài học từ PPCT
   let calculatedTotal = 0;
@@ -623,20 +676,20 @@ const App: React.FC = () => {
 
         // NẾU BÀI DẠY VẮT QUA NHIỀU TUẦN -> TỰ ĐỘNG TẠO FILE NỘP TƯƠNG ỨNG CHO TỪNG TUẦN ĐỘNG
         if (ppctInfo && ppctInfo.isMultiWeek && ppctInfo.schedules.length >= 2) {
-          addLog(`📦 Tự động tạo các file nộp cho Tuần ${ppctInfo.weeksList.join(' và Tuần ')} theo đúng lịch báo giảng...`);
+          addLog(`📦 Tự động tạo 2 file nộp cho Tuần ${ppctInfo.schedules[0].week} và Tuần ${ppctInfo.schedules[1].week}...`);
 
           const sched1 = ppctInfo.schedules[0];
           const sched2 = ppctInfo.schedules[1];
 
-          // 1. File Tuần thứ nhất (ví dụ: Tuần 1 dạy Tiết 1, 2)
-          const week1Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched1.week} dạy Tiết ${sched1.periodStr} theo PPCT: ${ppctInfo.allPeriods})`;
+          // 1. File Tuần thứ nhất (ví dụ: Tuần 2 dạy Tiết 5)
+          const week1Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched1.week} dạy Tiết ${sched1.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
           const blobWeek1 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week1Header);
-          const nameWeek1 = `Toan11_Tuan ${sched1.week}_Tiet ${sched1.periodStr}_${currentFile.name}`;
+          const nameWeek1 = `Toan11_Tuan ${sched1.week}_Tiet ${sched1.periodDisplay.replace(/\s+/g, '')}_${currentFile.name}`;
 
-          // 2. File Tuần thứ hai (ví dụ: Tuần 2 dạy tiếp Tiết 4)
-          const week2Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched2.week} dạy tiếp Tiết ${sched2.periodStr} theo PPCT: ${ppctInfo.allPeriods})`;
+          // 2. File Tuần thứ hai (ví dụ: Tuần 3 dạy tiếp Tiết 7, 8)
+          const week2Header = `Thời gian thực hiện: 0${ppctInfo.totalPeriods} tiết (Tuần ${sched2.week} dạy tiếp Tiết ${sched2.periodDisplay} theo PPCT: ${ppctInfo.allPeriods})`;
           const blobWeek2 = await injectContentIntoDocx(currentFile, generatedContent, effectiveMode as any, addLog, highlightColor, week2Header);
-          const nameWeek2 = `Toan11_Tuan ${sched2.week}_Tiet ${sched2.periodStr}_${currentFile.name.replace(/\.docx$/i, '')} (tiep).docx`;
+          const nameWeek2 = `Toan11_Tuan ${sched2.week}_Tiet ${sched2.periodDisplay.replace(/\s+/g, '')}_${currentFile.name.replace(/\.docx$/i, '')} (tiep).docx`;
 
           const zipPackage = await createZipFromBlobs([
             { name: nameWeek1, blob: blobWeek1 },
@@ -749,11 +802,11 @@ const App: React.FC = () => {
             const bSched1 = batchPPCT.schedules[0];
             const bSched2 = batchPPCT.schedules[1];
 
-            const w1Blob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched1.week} dạy Tiết ${bSched1.periodStr} theo PPCT: ${batchPPCT.allPeriods})`);
-            const w2Blob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched2.week} dạy tiếp Tiết ${bSched2.periodStr} theo PPCT: ${batchPPCT.allPeriods})`);
+            const w1Blob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched1.week} dạy Tiết ${bSched1.periodDisplay} theo PPCT: ${batchPPCT.allPeriods})`);
+            const w2Blob = await injectContentIntoDocx(fileItem, itemContent, itemMode as any, addLog, highlightColor, `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tuần ${bSched2.week} dạy tiếp Tiết ${bSched2.periodDisplay} theo PPCT: ${batchPPCT.allPeriods})`);
 
-            outputBlobs.push({ name: `Toan11_Tuan ${bSched1.week}_Tiet ${bSched1.periodStr}_${fileItem.name}`, blob: w1Blob });
-            outputBlobs.push({ name: `Toan11_Tuan ${bSched2.week}_Tiet ${bSched2.periodStr}_${fileItem.name.replace(/\.docx$/i, '')} (tiep).docx`, blob: w2Blob });
+            outputBlobs.push({ name: `Toan11_Tuan ${bSched1.week}_Tiet ${bSched1.periodDisplay.replace(/\s+/g, '')}_${fileItem.name}`, blob: w1Blob });
+            outputBlobs.push({ name: `Toan11_Tuan ${bSched2.week}_Tiet ${bSched2.periodDisplay.replace(/\s+/g, '')}_${fileItem.name.replace(/\.docx$/i, '')} (tiep).docx`, blob: w2Blob });
           } else {
             if (outputFormat === 'APPENDIX_ONLY') {
               const appendixBlob = await createAppendixDocx(itemContent, state.subject, state.grade, itemMode as any);
