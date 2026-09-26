@@ -4,7 +4,7 @@ import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
-import mammoth from 'mammoth';
+
 
 // Import icons cho cột bên phải
 import { Sparkles, ShieldAlert, Cpu, CheckCircle } from 'lucide-react';
@@ -40,10 +40,7 @@ interface ParsedPPCTResult {
 }
 
 /**
- * HÀM CHUẨN HÓA BÓC TÁCH CỘT TIẾT (CỘT 2)
- * - "5" -> "5" (1 tiết)
- * - "7-8" -> "7, 8" (2 tiết)
- * - "1,2" -> "1, 2" (2 tiết)
+ * HÀM BÓC TÁCH CỘT TIẾT (CỘT 2)
  */
 function cleanPeriodEntry(raw: string): { display: string; count: number } {
   if (!raw) return { display: '', count: 1 };
@@ -75,95 +72,108 @@ function cleanPeriodEntry(raw: string): { display: string; count: number } {
 }
 
 /**
- * HÀM ĐỐI CHIẾU PPCT VẠN NĂNG:
- * Tự động nhận diện Tuần, Tiết, Tên bài dựa trên mẫu dữ liệu thực tế của từng ô,
- * không phụ thuộc vào việc ô có bị gộp dòng (rowspan) hay gộp cột hay không.
+ * HÀM ĐỐI CHIẾU DỮ LIỆU ĐỘNG VỚI PPCT:
+ * Duyệt theo dòng dữ liệu thực tế, theo dõi số tuần liên tục và bóc tách từng phân đoạn
  */
-async function parsePPCTRequirementFromHtml(ppctFile: File, lessonDocText: string): Promise<ParsedPPCTResult> {
-  // 1. Trích xuất và chuẩn hóa tên bài từ giáo án
+function parsePPCTRequirement(ppctText: string, lessonDocText: string): ParsedPPCTResult {
+  if (!ppctText || !ppctText.trim()) {
+    return {
+      hasPPCT: false,
+      lessonTitle: '',
+      schedules: [],
+      allPeriods: '',
+      totalPeriods: 1,
+      isMultiWeek: false,
+      weeksList: [],
+      integrationType: 'NONE',
+      requirementNote: ''
+    };
+  }
+
+  // 1. Trích xuất tên bài từ giáo án (Bỏ tiền tố BÀI, TÊN BÀI DẠY...)
   let lessonTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
   if (titleMatch && titleMatch[1]) {
     lessonTitle = titleMatch[1].replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  // Lấy cụm từ khóa cốt lõi (VD: "công thức lượng giác", "giá trị lượng giác", "hai đường thẳng song song")
   const cleanKeyword = (lessonTitle || '')
     .toLowerCase()
     .replace(/(bài\s*\d+[:\.]?|chương\s*[ivxlcdm\d]+[:\.]?|tiết\s*[\d-]+[:\.]?)/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 
-  const arrayBuffer = await ppctFile.arrayBuffer();
-  const htmlResult = await mammoth.convertToHtml({ arrayBuffer });
-  const html = htmlResult.value || '';
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const rows = Array.from(doc.querySelectorAll('tr'));
-
+  const lines = ppctText.split('\n').map(l => l.trim()).filter(Boolean);
   const schedules: PPCTLessonSchedule[] = [];
   let currentWeek = 1;
 
-  for (const row of rows) {
-    const cells = Array.from(row.querySelectorAll('td, th')).map(c => (c.textContent || '').trim());
-    if (cells.length < 2) continue;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
 
-    // BƯỚC 1: TỰ ĐỘNG CẬP NHẬT TUẦN (Quét ô đầu tiên xem có phải là ô Tuần không)
-    const firstCellText = cells[0].replace(/\s+/g, '');
-    const weekNum = parseInt(firstCellText.replace(/\D/g, ''), 10);
-    // Ô tuần thường là số đơn lẻ từ 1 đến 35, hoặc có chữ "Tuần X"
-    if (!isNaN(weekNum) && weekNum >= 1 && weekNum <= 35 && firstCellText.length <= 6 && !firstCellText.includes(',') && !firstCellText.includes('-')) {
-      currentWeek = weekNum;
+    // Phát hiện số tuần (ví dụ: dòng chỉ ghi số 1, 2... hoặc "Tuần 1", "Tuần 2")
+    const weekMatch = line.match(/^(?:tuần\s*)?(\d{1,2})$/i);
+    if (weekMatch && parseInt(weekMatch[1], 10) <= 35) {
+      currentWeek = parseInt(weekMatch[1], 10);
     }
 
-    // BƯỚC 2: TỰ ĐỘNG DÒ TÌM Ô TIẾT VÀ Ô TÊN BÀI THEO MẪU DỮ LIỆU
-    let detectedPeriodStr = '';
-    let isLessonMatched = false;
-    let noteText = '';
+    const lowerLine = line.toLowerCase().replace(/\s+/g, ' ');
 
-    for (let c = 0; c < cells.length; c++) {
-      const cellText = cells[c];
-      const lowerCell = cellText.toLowerCase().replace(/\s+/g, ' ');
-
-      // Kiểm tra ô có phải là Cột Tiết không (Mẫu: "5", "7-8", "1,2", "10-11")
-      if (!detectedPeriodStr) {
-        const isPeriodPattern = /^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(cellText) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(cellText);
-        // Tránh nhầm với số Tuần ở ô đầu tiên
-        if (isPeriodPattern && !(c === 0 && parseInt(cellText, 10) === currentWeek)) {
-          detectedPeriodStr = cellText;
-        }
-      }
-
-      // Kiểm tra ô có chứa tên bài học không
-      if (cleanKeyword && !isLessonMatched) {
-        if (cleanKeyword.includes('công thức') && lowerCell.includes('công thức lượng giác')) {
-          isLessonMatched = true;
-        } else if (cleanKeyword.includes('giá trị') && lowerCell.includes('giá trị lượng giác')) {
-          isLessonMatched = true;
-        } else if (cleanKeyword.includes('hàm số') && lowerCell.includes('hàm số lượng giác')) {
-          isLessonMatched = true;
-        } else if (cleanKeyword.includes('phương trình') && lowerCell.includes('phương trình lượng giác')) {
-          isLessonMatched = true;
-        } else if (!cleanKeyword.includes('lượng giác') && cleanKeyword.length >= 5 && lowerCell.includes(cleanKeyword)) {
-          isLessonMatched = true;
-        }
-      }
-
-      // Kiểm tra ô Ghi chú (chứa NLS, AI, STEM hoặc link học liệu)
-      if (/NLS|AI|STEM|GeoGebra|Desmos|Excel/i.test(cellText)) {
-        noteText = cellText;
+    // SO KHỚP CHÍNH XÁC TỪNG BÀI:
+    let isMatched = false;
+    if (cleanKeyword) {
+      if (cleanKeyword.includes('công thức') && lowerLine.includes('công thức lượng giác')) {
+        isMatched = true;
+      } else if (cleanKeyword.includes('giá trị') && lowerLine.includes('giá trị lượng giác')) {
+        isMatched = true;
+      } else if (cleanKeyword.includes('hàm số') && lowerLine.includes('hàm số lượng giác')) {
+        isMatched = true;
+      } else if (cleanKeyword.includes('phương trình') && lowerLine.includes('phương trình lượng giác')) {
+        isMatched = true;
+      } else if (!cleanKeyword.includes('lượng giác') && cleanKeyword.length >= 5 && lowerLine.includes(cleanKeyword)) {
+        isMatched = true;
       }
     }
 
-    // BƯỚC 3: GHI NHẬN NẾU HÀNG NÀY ĐÚNG LÀ BÀI ĐANG XÉT
-    if (isLessonMatched && detectedPeriodStr) {
-      const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(detectedPeriodStr);
+    if (isMatched) {
+      // Tìm số tiết thuộc hàng của bài này:
+      // Trong file PPCT dạng text, số tiết nằm ở các dòng lân cận ngay trước hoặc sau tên bài
+      let rawPeriod = '';
+      
+      // Quét lùi tối đa 3 dòng
+      for (let j = Math.max(0, i - 3); j < i; j++) {
+        const testLine = lines[j].trim();
+        if (/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(testLine) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(testLine)) {
+          // Bỏ qua nếu dòng này trùng số tuần hiện tại (ô Tuần)
+          if (parseInt(testLine, 10) === currentWeek && !testLine.includes(',') && !testLine.includes('-')) {
+            continue;
+          }
+          rawPeriod = testLine;
+          break;
+        }
+      }
 
-      let cleanNote = '';
-      const noteMatch = noteText.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
+      // Nếu không thấy ở trước, quét tiến tối đa 3 dòng
+      if (!rawPeriod) {
+        for (let j = i + 1; j < Math.min(lines.length, i + 4); j++) {
+          const testLine = lines[j].trim();
+          if (/^\d{1,2}(?:\s*,\s*\d{1,2})*$/.test(testLine) || /^\d{1,2}\s*-\s*\d{1,2}$/.test(testLine)) {
+            if (parseInt(testLine, 10) === currentWeek && !testLine.includes(',') && !testLine.includes('-')) {
+              continue;
+            }
+            rawPeriod = testLine;
+            break;
+          }
+        }
+      }
+
+      const { display: periodDisplay, count: periodCount } = cleanPeriodEntry(rawPeriod);
+
+      // Quét ghi chú NLS / AI / STEM
+      const surroundingChunk = lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 8)).join(' \n ');
+      let noteFound = '';
+      const noteMatch = surroundingChunk.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
       if (noteMatch) {
-        cleanNote = noteMatch[0].trim();
+        noteFound = noteMatch[0].trim();
       }
 
       const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplay);
@@ -172,16 +182,17 @@ async function parsePPCTRequirementFromHtml(ppctFile: File, lessonDocText: strin
           week: currentWeek,
           periodDisplay,
           periodCount,
-          hasIntegration: Boolean(cleanNote),
-          requirement: cleanNote
+          hasIntegration: Boolean(noteFound),
+          requirement: noteFound
         });
       }
     }
   }
 
-  // Tổng hợp dữ liệu đa tuần
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
+
+  // Ghép toàn bộ các tiết (ví dụ: "5, 7, 8" hoặc "1, 2, 4")
   const periodsCombined = schedules.map(s => s.periodDisplay).filter(Boolean).join(', ');
 
   let calculatedTotal = 0;
@@ -507,6 +518,12 @@ const App: React.FC = () => {
     addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
     try {
+      let ppctText = '';
+      if (ppctFile) {
+        addLog(`📖 Đang đối chiếu Phân phối chương trình: ${ppctFile.name}...`);
+        ppctText = await extractTextFromDocx(ppctFile);
+      }
+
       // TRƯỜNG HỢP 1: XỬ LÝ 1 FILE ĐƠN LẺ
       if (targetFiles.length === 1) {
         const currentFile = targetFiles[0];
@@ -517,17 +534,16 @@ const App: React.FC = () => {
         let effectiveStemTopic = stemTopic;
         let ppctInfo: ParsedPPCTResult | null = null;
 
-        // ĐỐI CHIẾU BẰNG BẢNG HTML CHÍNH XÁC THEO TỪNG CỘT
-        if (ppctFile) {
-          addLog(`📖 Đang đối chiếu Phân phối chương trình: ${ppctFile.name}...`);
-          ppctInfo = await parsePPCTRequirementFromHtml(ppctFile, textContext);
+        // ĐỐI CHIẾU THÔNG MINH THEO PPCT
+        if (ppctText) {
+          ppctInfo = parsePPCTRequirement(ppctText, textContext);
           addLog(`📋 Kết quả PPCT: Bài dạy ${ppctInfo.totalPeriods} tiết [Tiết PPCT: ${ppctInfo.allPeriods}] ${ppctInfo.isMultiWeek ? `(Vắt qua các tuần: ${ppctInfo.weeksList.join(', ')})` : ''}`);
 
           // KỊCH BẢN 1: BÀI TRUYỀN THỐNG (KHÔNG CÓ NLS/AI/STEM)
           if (ppctInfo.integrationType === 'NONE') {
             addLog(`🧹 PPCT quy định: Tiết học truyền thống. Tự động làm sạch mục tiêu cũ và đưa về chuẩn 5512...`);
 
-            // NẾU BÀI TRUYỀN THỐNG VẮT QUA 2 TUẦN -> TỰ ĐỘNG TÁCH 2 FILE THEO LỊCH TUẦN
+            // NẾU BÀI TRUYỀN THỐNG VẮT QUA 2 TUẦN -> TÁCH 2 FILE NỘP THEO TỪNG TUẦN
             if (ppctInfo.isMultiWeek && ppctInfo.schedules.length >= 2) {
               const sched1 = ppctInfo.schedules[0];
               const sched2 = ppctInfo.schedules[1];
@@ -704,8 +720,8 @@ const App: React.FC = () => {
         let isTraditionalLesson = false;
         let batchPPCT: ParsedPPCTResult | null = null;
 
-        if (ppctFile) {
-          batchPPCT = await parsePPCTRequirementFromHtml(ppctFile, fileText);
+        if (ppctText) {
+          batchPPCT = parsePPCTRequirement(ppctText, fileText);
           if (batchPPCT.integrationType === 'NONE') {
             isTraditionalLesson = true;
             addLog(`📋 PPCT quy định: Bài này dạy truyền thống (không NLS/AI). Tiến hành làm sạch...`);
@@ -781,6 +797,7 @@ const App: React.FC = () => {
         addLog(`✓ Đã hoàn thành [${i + 1}/${targetFiles.length}]: ${fileItem.name}`);
       }
 
+      // Đóng gói thành 1 file ZIP duy nhất
       addLog(`📦 Đang nén ${outputBlobs.length} file vào tệp ZIP...`);
       const zipBlob = await createZipFromBlobs(outputBlobs);
       const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_chuan_PPCT_${state.subject}_${state.grade}.zip`;
@@ -1055,7 +1072,7 @@ const App: React.FC = () => {
       
       <style>{`
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
         .animate-fade-in-left { animation: fadeInLeft 0.3s ease-out forwards; }
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }

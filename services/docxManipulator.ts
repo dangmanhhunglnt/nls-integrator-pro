@@ -46,7 +46,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * HÀM PHỤ TRỢ: CHUẨN HÓA DÒNG TIÊU ĐỀ TIẾT THEO PPCT - CĂN CHÍNH GIỮA TRANG (CENTER)
+ * HÀM PHỤ TRỢ: CHUẨN HÓA DÒNG TIÊU ĐỀ TIẾT THEO PPCT - CĂN CHÍNH GIỮA TRANG (CENTER TUYỆT ĐỐI)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -67,7 +67,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
       return `<w:p>
                 <w:pPr>
                   <w:jc w:val="center"/>
-                  <w:spacing w:before="60" w:after="140"/>
+                  <w:spacing w:before="100" w:after="140"/>
                 </w:pPr>
                 <w:r>
                   <w:rPr>
