@@ -67,7 +67,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
   const targetBaiNum = baiMatch ? baiMatch[1] : '';
 
   const schedules: PPCTLessonSchedule[] = [];
-  const matchedPeriodNumbers: string[] = [];
 
   try {
     const arrayBuffer = await ppctFile.arrayBuffer();
@@ -131,18 +130,11 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
       }
 
+      // THU THẬP TẤT CẢ CÁC DÒNG KHỚP (Mỗi dòng là một tiết độc lập)
       if (isMatched) {
         const periodCleanText = (rawPeriod || "1").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        const periodNums = periodCleanText.match(/\d{1,2}/g);
-        const periodDisplayStr = periodNums ? periodNums.join(',') : '1';
-
-        if (periodNums && periodNums.length > 0) {
-          periodNums.forEach(pNum => {
-            if (!matchedPeriodNumbers.includes(pNum)) {
-              matchedPeriodNumbers.push(pNum);
-            }
-          });
-        }
+        const periodNumMatch = periodCleanText.match(/\d{1,2}/);
+        const periodStr = periodNumMatch ? periodNumMatch[0] : '1';
 
         let noteFound = '';
         const noteMatch = noteContent.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
@@ -150,25 +142,24 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
           noteFound = noteMatch[0].trim();
         }
 
-        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplayStr);
-        if (!exists) {
-          schedules.push({
-            week: currentWeek,
-            periodDisplay: periodDisplayStr,
-            periodCount: periodNums ? periodNums.length : 1,
-            hasIntegration: Boolean(noteFound),
-            requirement: noteFound
-          });
-        }
+        schedules.push({
+          week: currentWeek,
+          periodDisplay: periodStr,
+          periodCount: 1,
+          hasIntegration: Boolean(noteFound),
+          requirement: noteFound
+        });
       }
     }
   } catch (err) {
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
-  matchedPeriodNumbers.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-  const periodsCombined = matchedPeriodNumbers.length > 0 ? matchedPeriodNumbers.join(',') : '1';
-  const totalCalculatedPeriods = schedules.length > 0 ? schedules.length : (matchedPeriodNumbers.length > 0 ? matchedPeriodNumbers.length : 1);
+  // Sắp xếp các tiết theo thứ tự tăng dần (ví dụ: tiết 2, tiết 3)
+  schedules.sort((a, b) => parseInt(a.periodDisplay, 10) - parseInt(b.periodDisplay, 10));
+
+  const allPeriodsJoined = schedules.map(s => s.periodDisplay).join(',');
+  const totalCalculatedPeriods = schedules.length > 0 ? schedules.length : 1;
 
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
@@ -197,7 +188,7 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     hasPPCT: true,
     lessonTitle: extractedTitle || fileName.replace(/\.docx$/i, ''),
     schedules,
-    allPeriods: periodsCombined,
+    allPeriods: allPeriodsJoined || '1',
     totalPeriods: totalCalculatedPeriods,
     isMultiWeek,
     weeksList: uniqueWeeks,
