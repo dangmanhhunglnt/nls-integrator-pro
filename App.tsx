@@ -130,12 +130,10 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
       }
 
-      // CHỈ LẤY ĐÚNG SỐ TIẾT TỪ CỘT TIẾT CỦA DÒNG ĐƯỢC KHỚP THỰC TẾ
       if (isMatched) {
         const periodCleanText = (rawPeriod || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const periodNumMatch = periodCleanText.match(/\d{1,2}/);
         
-        // Nếu dòng này có chứa số tiết rõ ràng trong bảng PPCT thì mới ghi nhận
         if (periodNumMatch) {
           const periodStr = periodNumMatch[0];
 
@@ -162,7 +160,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
-  // Sắp xếp các tiết tăng dần chính xác theo số tiết thực tế trong PPCT (VD: 2, rồi đến 3)
   schedules.sort((a, b) => parseInt(a.periodDisplay, 10) - parseInt(b.periodDisplay, 10));
 
   const allPeriodsJoined = schedules.map(s => s.periodDisplay).join(',');
@@ -523,8 +520,8 @@ const App: React.FC = () => {
 
               for (const schedule of ppctInfo.schedules) {
                 const periodNum = schedule.periodDisplay;
-                // SỬ DỤNG CHÍNH XÁC SCHEDULE.PERIODDISPLAY ĐỂ TẠO TÊN FILE RIÊNG BIỆT KHÔNG BỊ GỘP DẤU PHẨY
-                const specificFileName = `${subjectPrefix}_Tiết_${periodNum}_${cleanTitle}.docx`;
+                // SỬ DỤNG TIỀN TỐ TIET (KHÔNG DẤU) ĐỂ TRÁNH LỖI MÃ HÓA TÊN FILE TRÊN WORD
+                const specificFileName = `${subjectPrefix}_Tiet_${periodNum}_${cleanTitle}.docx`;
                 const headerText = `Thời gian thực hiện: 01 tiết (Tiết theo PPCT: ${periodNum})`;
                 const periodsArray = [periodNum];
 
@@ -563,7 +560,7 @@ const App: React.FC = () => {
             );
 
             const singleFileName = isChuyenDe
-              ? `${subjectPrefix}_Tiết_${ppctInfo.allPeriods}_${cleanTitle}.docx`
+              ? `${subjectPrefix}_Tiet_${ppctInfo.allPeriods.replace(/[^0-9]/g, '_')}_${cleanTitle}.docx`
               : `${subjectPrefix}_Tiet_${ppctInfo.allPeriods}_${cleanTitle}.docx`;
 
             setState(prev => ({
@@ -610,8 +607,8 @@ const App: React.FC = () => {
 
           for (const schedule of ppctInfo.schedules) {
             const periodNum = schedule.periodDisplay;
-            // ĐẶT TÊN TỪNG FILE ĐỘC LẬP THEO TỪNG TIẾT RIÊNG BIỆT TRONG SCHEDULE
-            const specificFileName = `${subjectPrefix}_Tiết_${periodNum}_${cleanTitle}.docx`;
+            // DÙNG TIỀN TỐ TIET (KHÔNG DẤU) CHO TÊN FILE XUẤT RA
+            const specificFileName = `${subjectPrefix}_Tiet_${periodNum}_${cleanTitle}.docx`;
             const headerText = `Thời gian thực hiện: 01 tiết (Tiết theo PPCT: ${periodNum})`;
             const periodsArray = [periodNum];
 
@@ -658,7 +655,7 @@ const App: React.FC = () => {
 
         const cleanTitle = ppctInfo ? formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, '')) : formatCleanFilenamePart(currentFile.name.replace(/\.docx$/i, ''));
         const singleFileName = isChuyenDe 
-          ? `${subjectPrefix}_Tiết_${ppctInfo ? ppctInfo.allPeriods : '1'}_${cleanTitle}.docx`
+          ? `${subjectPrefix}_Tiet_${ppctInfo ? ppctInfo.allPeriods.replace(/[^0-9]/g, '_') : '1'}_${cleanTitle}.docx`
           : `${subjectPrefix}_Tiet_${ppctInfo ? ppctInfo.allPeriods : '1'}_${cleanTitle}.docx`;
 
         const periodsArray = ppctInfo ? ppctInfo.allPeriods.split(/[,\s]+/).map(p => p.trim()).filter(Boolean) : [];
@@ -734,7 +731,7 @@ const App: React.FC = () => {
           if (isChuyenDe && batchPPCT && batchPPCT.schedules && batchPPCT.schedules.length > 0) {
             for (const schedule of batchPPCT.schedules) {
               const periodNum = schedule.periodDisplay;
-              const nameW = `${subjectPrefix}_Tiết_${periodNum}_${batchItemCleanTitle}.docx`;
+              const nameW = `${subjectPrefix}_Tiet_${periodNum}_${batchItemCleanTitle}.docx`;
               const wBlob = await injectContentIntoDocx(
                 fileItem,
                 { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] },
@@ -757,7 +754,7 @@ const App: React.FC = () => {
               batchPeriodsArray
             );
             const batchFileName = isChuyenDe
-              ? `${subjectPrefix}_Tiết_${batchPPCT ? batchPPCT.allPeriods : '1'}_${batchItemCleanTitle}.docx`
+              ? `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods.replace(/[^0-9]/g, '_') : '1'}_${batchItemCleanTitle}.docx`
               : `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods : '1'}_${batchItemCleanTitle}.docx`;
 
             outputBlobs.push({ name: batchFileName, blob: cleanBlob });
@@ -776,7 +773,7 @@ const App: React.FC = () => {
           if (isChuyenDe && batchPPCT && batchPPCT.schedules && batchPPCT.schedules.length > 0) {
             for (const schedule of batchPPCT.schedules) {
               const periodNum = schedule.periodDisplay;
-              const nameW = `${subjectPrefix}_Tiết_${periodNum}_${batchItemCleanTitle}.docx`;
+              const nameW = `${subjectPrefix}_Tiet_${periodNum}_${batchItemCleanTitle}.docx`;
               const wBlob = await injectContentIntoDocx(
                 fileItem,
                 itemContent,
@@ -794,7 +791,7 @@ const App: React.FC = () => {
               outputBlobs.push({ name: (itemMode as string) === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`, blob: appendixBlob });
             } else {
               const batchFileName = isChuyenDe
-                ? `${subjectPrefix}_Tiết_${batchPPCT ? batchPPCT.allPeriods : '1'}_${batchItemCleanTitle}.docx`
+                ? `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods.replace(/[^0-9]/g, '_') : '1'}_${batchItemCleanTitle}.docx`
                 : `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods : '1'}_${batchItemCleanTitle}.docx`;
 
               const finalBlob = await injectContentIntoDocx(
