@@ -17,35 +17,29 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 }
 
 /**
- * 2. HÀM QUÉT SẠCH 100% CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ RÁC FORMAT
+ * 2. HÀM QUÉT SẠCH NLS/AI CŨ (AN TOÀN XML 100%)
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  // 1. Quét sạch triệt để mọi đoạn chứa [NLS], [AI], [STEM], bao gồm cả [NLS]: Gemini
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS|AI|STEM)\][\s\S]*?<\/w:p>/gis, '');
+  // 1. Quét sạch các đoạn rác [NLS], [AI], [STEM], bao gồm cả [NLS]: Gemini
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
 
-  // 2. Quét sạch các chỉ thị tích hợp trong tiến trình bài dạy
+  // 2. Quét sạch các chỉ thị tích hợp trong các hoạt động
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
 
-  // 3. Quét sạch các mã chuẩn đầu ra cũ nếu có
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:\d\.\d\.[A-Z\d]+|[A-Z]{2,}\.[A-Z\d]+|\bGeoGebra\b|\bDesmos\b).*?<\/w:p>/gis, '');
-
-  // 4. Xóa các đoạn con chứa nội dung "Năng lực số" mà vẫn giữ nguyên khung bài
+  // 3. Quét sạch các đoạn liệt kê Năng lực số cũ mà không phá vỡ thẻ lồng
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):).*?<\/w:p>/gis, '');
 
-  // 5. Xóa các mục học liệu số cũ ở Mục II
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thiết bị dạy học và Học liệu số|Học liệu số).*?<\/w:p>/gis, '');
-
-  // 6. Xóa Bảng tổng hợp NLS/AI ở cuối bài
+  // 4. Xóa bảng tổng hợp NLS/AI cũ ở cuối bài nếu có
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
 
   return cleaned;
 }
 
 /**
- * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TIÊU ĐỀ TIẾT THEO PPCT (AN TOÀN TUYỆT ĐỐI CHO XML WORD)
+ * 3. HÀM CẬP NHẬT TIÊU ĐỀ PPCT AN TOÀN TUYỆT ĐỐI CHO BẢNG WORD
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -53,14 +47,14 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeText = escapeXml(ppctInfoText);
 
-  // Tìm đoạn paragraph chứa cụm "Thời gian thực hiện" hoặc "Số tiết dạy"
+  // 1. Cập nhật text mới vào paragraph chứa "Thời gian thực hiện" hoặc "Số tiết dạy"
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
   const match = result.match(pRegex);
 
   if (match) {
     let pXml = match[0];
 
-    // 1. Đảm bảo thuộc tính paragraph có căn giữa: <w:jc w:val="center"/>
+    // Đảm bảo paragraph có căn giữa
     if (pXml.includes('<w:pPr>')) {
       if (pXml.includes('<w:jc')) {
         pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
@@ -73,7 +67,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
       pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
     }
 
-    // 2. Cập nhật nội dung text an toàn: đưa chuỗi mới vào thẻ <w:t> đầu tiên, dọn rỗng các thẻ <w:t> còn lại
+    // Thay thế text trong thẻ <w:t> đầu tiên và làm rỗng các thẻ <w:t> còn lại (không xóa thẻ <w:p>)
     let isFirst = true;
     pXml = pXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
       if (isFirst) {
@@ -86,9 +80,11 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     result = result.replace(match[0], pXml);
   }
 
-  // Dọn sạch dòng rác "Tiết theo PPCT" cũ nếu có
-  const cleanOldPPCTRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis;
-  result = result.replace(cleanOldPPCTRegex, '');
+  // 2. Xóa chữ trong ô "Tiết theo PPCT" bằng cách làm rỗng thẻ <w:t>, tuyệt đối KHÔNG xóa thẻ <w:p>
+  const ppctCellRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gi;
+  result = result.replace(ppctCellRegex, (pMatch) => {
+    return pMatch.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gi, '<w:t></w:t>');
+  });
 
   return result;
 }
