@@ -62,8 +62,9 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     extractedTitle = titleMatch[1].trim();
   }
 
+  // TRích xuất số bài cực kỳ linh hoạt từ cả tên file, nội dung và tiêu đề
   const combinedSource = (extractedTitle + ' ' + lessonDocText + ' ' + fileName).toLowerCase();
-  const baiMatch = combinedSource.match(/bài\s*(\d+)/i);
+  const baiMatch = combinedSource.match(/(?:bài|b)\s*(\d+)/i);
   const targetBaiNum = baiMatch ? baiMatch[1] : '';
 
   const schedules: PPCTLessonSchedule[] = [];
@@ -118,18 +119,23 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
 
       let isMatched = false;
       if (targetBaiNum) {
-        const exactBaiRegex = new RegExp(`bài\\s*${targetBaiNum}(?!\\d)`, 'i');
-        if (exactBaiRegex.test(lessonNameLower)) {
-          isMatched = true;
-        }
-      } else {
-        const coreTarget = formatCleanFilenamePart(extractedTitle || fileName);
-        const coreRow = formatCleanFilenamePart(rawLessonName);
-        if (coreTarget.length >= 4 && coreRow.length >= 4 && (coreRow === coreTarget || coreRow.includes(coreTarget))) {
+        // Khớp chính xác số bài (VD: bài 2, b2) trong tên dòng của bảng PPCT
+        const rowBaiMatch = lessonNameLower.match(/(?:bài|b)\s*(\d+)/i);
+        if (rowBaiMatch && rowBaiMatch[1] === targetBaiNum) {
           isMatched = true;
         }
       }
 
+      // Nếu không bắt được theo số bài, thử khớp theo từ khóa tiêu đề
+      if (!isMatched) {
+        const coreTarget = formatCleanFilenamePart(extractedTitle || fileName);
+        const coreRow = formatCleanFilenamePart(rawLessonName);
+        if (coreTarget.length >= 4 && coreRow.length >= 4 && (coreRow === coreTarget || coreRow.includes(coreTarget) || coreTarget.includes(coreRow))) {
+          isMatched = true;
+        }
+      }
+
+      // NẾU KHỚP, LẤY CHÍNH XÁC SỐ TIẾT TỪ CỘT TIẾT CỦA BẢNG PPCT (VD: TIẾT 2, TIẾT 3)
       if (isMatched) {
         const periodCleanText = (rawPeriod || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const periodNumMatch = periodCleanText.match(/\d{1,2}/);
@@ -160,6 +166,7 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
+  // Sắp xếp các tiết theo thứ tự tăng dần (ví dụ: tiết 2, rồi đến tiết 3)
   schedules.sort((a, b) => parseInt(a.periodDisplay, 10) - parseInt(b.periodDisplay, 10));
 
   const allPeriodsJoined = schedules.map(s => s.periodDisplay).join(',');
