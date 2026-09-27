@@ -489,7 +489,7 @@ const App: React.FC = () => {
     const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
     addLog(`⚙️ Chiến lược: ${modelName}`);
     addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
-    addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
+    addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Den'}`);
 
     try {
       const isChuyenDe = state.lessonCategory === 'CHUYEN_DE' || 
@@ -519,9 +519,8 @@ const App: React.FC = () => {
           if (ppctInfo.integrationType === 'NONE') {
             addLog(`🧹 PPCT quy định: Tiết học truyền thống. Tự động xóa sạch 100% mục tiêu NLS/AI cũ ở giáo án gốc...`);
 
-            // Xử lý nhân bản file riêng biệt cho từng tiết nếu có từ 2 tiết trở lên
-            if (isChuyenDe && ppctInfo.schedules && ppctInfo.schedules.length > 1) {
-              addLog(`📦 Đang tự động nhân bản thành ${ppctInfo.schedules.length} file riêng biệt cho từng tiết...`);
+            if (isChuyenDe && ppctInfo.schedules && ppctInfo.schedules.length > 0) {
+              addLog(`📦 Đang tự động tách và nhân bản thành ${ppctInfo.schedules.length} file riêng biệt cho từng tiết...`);
               const zipFiles: { name: string; blob: Blob }[] = [];
 
               for (const schedule of ppctInfo.schedules) {
@@ -547,7 +546,7 @@ const App: React.FC = () => {
                 ...prev, 
                 isProcessing: false, 
                 step: 'done', 
-                result: { fileName: `[CHUYEN-DE-TET-${cleanTitle}].zip`, blob: zipPackage },
+                result: { fileName: `[CHUYEN-DE-TIET-${cleanTitle}].zip`, blob: zipPackage },
                 logs: [...prev.logs, `✨ Đã tách và nhân bản thành công ${zipFiles.length} file riêng biệt cho từng tiết!`] 
               }));
               return;
@@ -604,8 +603,7 @@ const App: React.FC = () => {
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
-        // Nếu là chuyên đề có nhiều tiết -> Tự động nhân bản thành các file riêng biệt cho từng tiết
-        if (isChuyenDe && ppctInfo && ppctInfo.schedules && ppctInfo.schedules.length > 1) {
+        if (isChuyenDe && ppctInfo && ppctInfo.schedules && ppctInfo.schedules.length > 0) {
           const cleanTitle = formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, ''));
           addLog(`📦 Đang nhân bản thành ${ppctInfo.schedules.length} file riêng biệt cho từng tiết chuyên đề...`);
 
@@ -733,7 +731,7 @@ const App: React.FC = () => {
         const batchPeriodsArray = batchPPCT ? batchPPCT.allPeriods.split(/[,\s]+/).map(p => p.trim()).filter(Boolean) : [];
 
         if (isTraditionalLesson) {
-          if (isChuyenDe && batchPPCT && batchPPCT.schedules && batchPPCT.schedules.length > 1) {
+          if (isChuyenDe && batchPPCT && batchPPCT.schedules && batchPPCT.schedules.length > 0) {
             for (const schedule of batchPPCT.schedules) {
               const periodNum = schedule.periodDisplay;
               const nameW = `${subjectPrefix}_Tiết_${periodNum}_${batchItemCleanTitle}.docx`;
@@ -775,7 +773,7 @@ const App: React.FC = () => {
             itemStem
           );
 
-          if (isChuyenDe && batchPPCT && batchPPCT.schedules && batchPPCT.schedules.length > 1) {
+          if (isChuyenDe && batchPPCT && batchPPCT.schedules && batchPPCT.schedules.length > 0) {
             for (const schedule of batchPPCT.schedules) {
               const periodNum = schedule.periodDisplay;
               const nameW = `${subjectPrefix}_Tiết_${periodNum}_${batchItemCleanTitle}.docx`;
