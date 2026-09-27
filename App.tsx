@@ -62,13 +62,14 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     extractedTitle = titleMatch[1].trim();
   }
 
-  // CHỈ trích xuất số thứ tự bài học (VD: "bài 1", "bài 2") từ nội dung hoặc tên file, TUYỆT ĐỐI KHÔNG đọc dải tiết cũ trong tên file
-  const combinedSource = (extractedTitle + ' ' + lessonDocText).toLowerCase();
-  const baiMatch = combinedSource.match(/bài\s*(\d+)/i) || fileName.toLowerCase().match(/bài\s*(\d+)/i);
+  // Ép lấy chính xác số bài từ tên file hoặc nội dung (VD: "bài 1")
+  const combinedSource = (extractedTitle + ' ' + lessonDocText + ' ' + fileName).toLowerCase();
+  const baiMatch = combinedSource.match(/bài\s*(\d+)/i);
   const targetBaiNum = baiMatch ? baiMatch[1] : '1';
 
   const schedules: PPCTLessonSchedule[] = [];
-  const matchedPeriodNumbers: string[] = [];
+  let exactPeriodStr = "1";
+  let totalPeriodsNum = 1;
 
   try {
     const arrayBuffer = await ppctFile.arrayBuffer();
@@ -118,25 +119,15 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
       const lessonNameLower = rawLessonName.toLowerCase().trim();
       if (!lessonNameLower || lessonNameLower.length < 2) continue;
 
-      let isMatched = false;
-
-      // KIỂM TRA KHỚP NGHIÊM NGẶT THEO ĐÚNG SỐ BÀI (VD: "bài 1" độc lập)
+      // CHỈ KHỚP ĐÚNG DÒNG CÓ CHỨA "bài X" (Ví dụ: bài 1)
       const exactBaiRegex = new RegExp(`bài\\s*${targetBaiNum}(?!\\d)`, 'i');
       if (exactBaiRegex.test(lessonNameLower)) {
-        isMatched = true;
-      }
-
-      // NẾU KHỚP ĐÚNG DÒNG: LẤY ĐÚNG SỐ TIẾT Ở CỘT TIẾT CỦA ĐÚNG DÒNG ĐÓ VÀ DỪNG NGAY
-      if (isMatched) {
         const periodCleanText = (rawPeriod || "1").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        const periodNums = periodCleanText.match(/\d{1,2}/g);
+        const periodNumMatch = periodCleanText.match(/\d{1,2}/);
         
-        if (periodNums && periodNums.length > 0) {
-          periodNums.forEach(pNum => {
-            if (!matchedPeriodNumbers.includes(pNum)) {
-              matchedPeriodNumbers.push(pNum);
-            }
-          });
+        if (periodNumMatch) {
+          exactPeriodStr = periodNumMatch[0];
+          totalPeriodsNum = 1; // Cố định mỗi bài chuyên đề tìm thấy chỉ nhận 1 tiết chuẩn xác cho dòng đó
         }
 
         let noteFound = '';
@@ -145,25 +136,20 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
           noteFound = noteMatch[0].trim();
         }
 
-        const periodDisplayStr = periodNums ? periodNums.join(',') : '1';
         schedules.push({
           week: currentWeek,
-          periodDisplay: periodDisplayStr,
-          periodCount: periodNums ? periodNums.length : 1,
+          periodDisplay: exactPeriodStr,
+          periodCount: 1,
           hasIntegration: Boolean(noteFound),
           requirement: noteFound
         });
 
-        break; // Dừng ngay lập tức sau khi lấy đúng tiết của bài học!
+        break; // TÌM THẤY LÀ DỪNG NGAY LẬP TỨC, TUYỆT ĐỐI KHÔNG ĐỂ QUÉT LAN!
       }
     }
   } catch (err) {
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
-
-  matchedPeriodNumbers.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-  const periodsCombined = matchedPeriodNumbers.length > 0 ? matchedPeriodNumbers.join(',') : '1';
-  const totalCalculatedPeriods = matchedPeriodNumbers.length > 0 ? matchedPeriodNumbers.length : 1;
 
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
@@ -192,8 +178,8 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     hasPPCT: true,
     lessonTitle: extractedTitle || fileName.replace(/\.docx$/i, ''),
     schedules,
-    allPeriods: periodsCombined,
-    totalPeriods: totalCalculatedPeriods,
+    allPeriods: exactPeriodStr,
+    totalPeriods: totalPeriodsNum,
     isMultiWeek,
     weeksList: uniqueWeeks,
     integrationType,
