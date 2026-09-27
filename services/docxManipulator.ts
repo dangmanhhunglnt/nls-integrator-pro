@@ -45,40 +45,22 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG
+ * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TIÊU ĐỀ TIẾT THEO PPCT (AN TOÀN TUYỆT ĐỐI CHO XML WORD)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
 
   let result = xmlContent;
-  const safeNewText = escapeXml(ppctInfoText);
+  const safeText = escapeXml(ppctInfoText);
 
-  // Tạo một paragraph độc lập chuẩn OpenXML căn giữa toàn trang
-  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
-
-  // 1. Nếu dòng chữ nằm trong 1 bảng (bảng 2 ô header), thay thế cả bảng bằng dòng căn giữa
-  const tblRegex = /<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
-  let replacedTable = false;
-
-  result = result.replace(tblRegex, (tblXml) => {
-    if (!replacedTable && (tblXml.includes("Thời gian thực hiện") || tblXml.includes("Số tiết dạy") || tblXml.includes("Tiết theo PPCT"))) {
-      replacedTable = true;
-      return centerParagraphXml;
-    }
-    return tblXml;
-  });
-
-  if (replacedTable) {
-    result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
-    return result;
-  }
-
-  // 2. Nếu nằm trong đoạn paragraph thông thường ngoài bảng
+  // Tìm đoạn paragraph chứa cụm "Thời gian thực hiện" hoặc "Số tiết dạy"
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
   const match = result.match(pRegex);
 
   if (match) {
     let pXml = match[0];
+
+    // 1. Đảm bảo thuộc tính paragraph có căn giữa: <w:jc w:val="center"/>
     if (pXml.includes('<w:pPr>')) {
       if (pXml.includes('<w:jc')) {
         pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
@@ -91,14 +73,23 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
       pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
     }
 
-    pXml = pXml.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/gi, '');
-    const newRun = `<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
-    pXml = pXml.replace(/<\/w:p>$/i, `${newRun}</w:p>`);
+    // 2. Cập nhật nội dung text an toàn: đưa chuỗi mới vào thẻ <w:t> đầu tiên, dọn rỗng các thẻ <w:t> còn lại
+    let isFirst = true;
+    pXml = pXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
+      if (isFirst) {
+        isFirst = false;
+        return `<w:t xml:space="preserve">${safeText}</w:t>`;
+      }
+      return `<w:t></w:t>`;
+    });
 
     result = result.replace(match[0], pXml);
   }
 
-  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
+  // Dọn sạch dòng rác "Tiết theo PPCT" cũ nếu có
+  const cleanOldPPCTRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis;
+  result = result.replace(cleanOldPPCTRegex, '');
+
   return result;
 }
 
