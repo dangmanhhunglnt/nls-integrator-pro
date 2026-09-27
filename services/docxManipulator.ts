@@ -57,40 +57,40 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeText = escapeXml(ppctInfoText);
 
-  // 1. Tìm và cập nhật text mới vào paragraph chứa "Thời gian thực hiện", "Số tiết dạy" hoặc "Số tiết"
-  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Số tiết)[\s\S]*?<\/w:p>/i;
-  const match = result.match(pRegex);
-
-  if (match) {
-    let pXml = match[0];
-
-    // Đảm bảo paragraph có căn giữa
-    if (pXml.includes('<w:pPr>')) {
-      if (pXml.includes('<w:jc')) {
-        pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
+  // 1. Quét và thay thế toàn bộ các đoạn văn chứa "Thời gian thực hiện", "Số tiết dạy" hoặc "Số tiết"
+  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Số tiết)[\s\S]*?<\/w:p>/gi;
+  
+  let firstMatch = true;
+  result = result.replace(pRegex, (matchP) => {
+    if (firstMatch) {
+      firstMatch = false;
+      // Cập nhật nội dung chuẩn vào dòng đầu tiên tìm thấy
+      let pXml = matchP;
+      if (pXml.includes('<w:pPr>')) {
+        if (pXml.includes('<w:jc')) {
+          pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
+        } else {
+          pXml = pXml.replace('<w:pPr>', '<w:pPr><w:jc w:val="center"/>');
+        }
       } else {
-        pXml = pXml.replace('<w:pPr>', '<w:pPr><w:jc w:val="center"/>');
+        pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
       }
-    } else if (pXml.includes('<w:pPr/>')) {
-      pXml = pXml.replace('<w:pPr/>', '<w:pPr><w:jc w:val="center"/></w:pPr>');
-    } else {
-      pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
+
+      let isFirstText = true;
+      pXml = pXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
+        if (isFirstText) {
+          isFirstText = false;
+          return `<w:t xml:space="preserve">${safeText}</w:t>`;
+        }
+        return `<w:t></w:t>`;
+      });
+      return pXml;
     }
+    // Xóa sạch các dòng thừa trùng lặp phía sau (nếu có) bằng cách làm rỗng thẻ text
+    return matchP.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gi, '<w:t></w:t>');
+  });
 
-    // Làm sạch toàn bộ các thẻ text cũ bên trong và đặt text chuẩn mới vào thẻ <w:t> đầu tiên
-    let isFirst = true;
-    pXml = pXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
-      if (isFirst) {
-        isFirst = false;
-        return `<w:t xml:space="preserve">${safeText}</w:t>`;
-      }
-      return `<w:t></w:t>`;
-    });
-
-    result = result.replace(match[0], pXml);
-  }
-
-  // 2. Quét và làm rỗng toàn bộ các dòng phụ chứa "Tiết theo PPCT" cũ một cách triệt để
+  // 2. Quét và làm rỗng triệt để các dòng "Tiết theo PPCT" cũ
   const ppctCellRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Tiết theo PPCT|Tiết PPCT)[\s\S]*?<\/w:p>/gi;
   result = result.replace(ppctCellRegex, (pMatch) => {
     return pMatch.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gi, '<w:t></w:t>');
