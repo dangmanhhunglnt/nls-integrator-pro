@@ -57,14 +57,12 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeText = escapeXml(ppctInfoText);
 
-  // 1. Quét và thay thế toàn bộ các đoạn văn chứa "Thời gian thực hiện", "Số tiết dạy" hoặc "Số tiết"
+  // 1. Quét và cập nhật thông tin vào đoạn văn bản thông thường
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Số tiết)[\s\S]*?<\/w:p>/gi;
-  
   let firstMatch = true;
   result = result.replace(pRegex, (matchP) => {
     if (firstMatch) {
       firstMatch = false;
-      // Cập nhật nội dung chuẩn vào dòng đầu tiên tìm thấy
       let pXml = matchP;
       if (pXml.includes('<w:pPr>')) {
         if (pXml.includes('<w:jc')) {
@@ -86,14 +84,20 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
       });
       return pXml;
     }
-    // Xóa sạch các dòng thừa trùng lặp phía sau (nếu có) bằng cách làm rỗng thẻ text
     return matchP.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gi, '<w:t></w:t>');
   });
 
-  // 2. Quét và làm rỗng triệt để các dòng "Tiết theo PPCT" cũ
-  const ppctCellRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Tiết theo PPCT|Tiết PPCT)[\s\S]*?<\/w:p>/gi;
-  result = result.replace(ppctCellRegex, (pMatch) => {
-    return pMatch.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gi, '<w:t></w:t>');
+  // 2. Quét và xử lý cả các ô trong BẢNG BIỂU (Table) chứa thông tin số tiết / tiết PPCT cũ
+  const cellRegex = /<w:tc\b[^>]*>[\s\S]*?(?:Số tiết|Tiết theo PPCT|Tiết PPCT)[\s\S]*?<\/w:tc>/gi;
+  result = result.replace(cellRegex, (cellXml) => {
+    let isFirstCellText = true;
+    return cellXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
+      if (isFirstCellText) {
+        isFirstCellText = false;
+        return `<w:t xml:space="preserve">${safeText}</w:t>`;
+      }
+      return `<w:t></w:t>`;
+    });
   });
 
   return result;
