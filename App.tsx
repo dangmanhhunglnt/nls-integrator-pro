@@ -71,6 +71,11 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     extractedTitle = titleMatch[1].trim();
   }
 
+  // Trích xuất số bài trực tiếp từ tên file hoặc nội dung (VD: "bài 1", "bài 2") để so khớp chính xác tuyệt đối
+  const combinedTextForNum = (fileName + ' ' + lessonDocText).toLowerCase();
+  const lessonNumMatch = combinedTextForNum.match(/bài\s*(\d+)/i);
+  const targetLessonNum = lessonNumMatch ? lessonNumMatch[1] : '';
+
   const rawTargetName = extractedTitle || fileName.replace(/\.docx$/i, '').replace(/^[A-Z0-9]+[-_]/i, '');
   const coreTargetLesson = extractCoreLessonTitle(rawTargetName);
   const schedules: PPCTLessonSchedule[] = [];
@@ -125,16 +130,23 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
       if (!col3LessonNorm || col3LessonNorm.length < 2) continue;
 
       let isMatched = false;
-      const coreCol3 = extractCoreLessonTitle(rawLessonName);
 
-      // So khớp nghiêm ngặt tên bài học
-      if (coreTargetLesson.length >= 3 && coreCol3.length >= 3) {
+      // Ưu tiên số 1: So khớp chính xác số bài (VD: "bài 1") từ tên file hoặc nội dung
+      if (targetLessonNum) {
+        const rowLessonLower = col3LessonNorm.toLowerCase();
+        if (rowLessonLower.includes(`bai ${targetLessonNum}`) || rowLessonLower.includes(`bai${targetLessonNum}`)) {
+          isMatched = true;
+        }
+      }
+
+      // Ưu tiên số 2: Fallback sang so khớp tên cốt lõi nếu không tìm thấy số bài
+      if (!isMatched && coreTargetLesson.length >= 3) {
+        const coreCol3 = extractCoreLessonTitle(rawLessonName);
         if (coreCol3 === coreTargetLesson || (coreCol3.includes(coreTargetLesson) && coreTargetLesson.length >= 5)) {
           isMatched = true;
         }
       }
 
-      // Nếu khớp chính xác dòng của bài học, lấy tiết và DỪNG NGAY LẬP TỨC
       if (isMatched) {
         const periodCleanText = (rawPeriod || "1").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const periodNums = periodCleanText.match(/\d{1,2}/g);
@@ -154,15 +166,16 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
 
         const periodDisplayStr = periodNums ? periodNums.join(',') : '1';
-        schedules.push({
-          week: currentWeek,
-          periodDisplay: periodDisplayStr,
-          periodCount: periodNums ? periodNums.length : 1,
-          hasIntegration: Boolean(noteFound),
-          requirement: noteFound
-        });
-        
-        break; // Dừng vòng lặp ngay khi đã tìm thấy đúng bài học, ngăn không quét sang bài khác!
+        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplayStr);
+        if (!exists) {
+          schedules.push({
+            week: currentWeek,
+            periodDisplay: periodDisplayStr,
+            periodCount: periodNums ? periodNums.length : 1,
+            hasIntegration: Boolean(noteFound),
+            requirement: noteFound
+          });
+        }
       }
     }
   } catch (err) {
