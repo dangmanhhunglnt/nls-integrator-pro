@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, Lightbulb } from 'lucide-react';
-import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor } from '../types';
+import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, LessonCategory } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
 
@@ -201,8 +201,8 @@ export default function ControlCenter({
                                 onClick={() => setLevel('STANDARD')}
                                 className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     level === 'STANDARD'
-                                    ? 'bg-white text-indigo-700 shadow-xs'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-indigo-700 shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
                                 🟢 Tiêu chuẩn
@@ -212,8 +212,8 @@ export default function ControlCenter({
                                 onClick={() => setLevel('INTENSIVE')}
                                 className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     level === 'INTENSIVE'
-                                    ? 'bg-white text-indigo-700 shadow-xs'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-indigo-700 shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
                                 🟡 Chuyên sâu
@@ -231,8 +231,8 @@ export default function ControlCenter({
                                 onClick={() => setOutputFormat('INJECT_DIRECT')}
                                 className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     outputFormat === 'INJECT_DIRECT'
-                                    ? 'bg-white text-indigo-700 shadow-xs'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-indigo-700 shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
                                 📄 Chèn vào gốc
@@ -242,8 +242,8 @@ export default function ControlCenter({
                                 onClick={() => setOutputFormat('APPENDIX_ONLY')}
                                 className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     outputFormat === 'APPENDIX_ONLY'
-                                    ? 'bg-white text-indigo-700 shadow-xs'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-indigo-700 shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
                                 📑 Phụ lục riêng
@@ -261,8 +261,8 @@ export default function ControlCenter({
                                 onClick={() => setHighlightColor('FF0000')}
                                 className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     highlightColor === 'FF0000'
-                                    ? 'bg-white text-red-600 shadow-xs'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-red-600 shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
                                 🔴 Đỏ
@@ -272,8 +272,8 @@ export default function ControlCenter({
                                 onClick={() => setHighlightColor('1D4ED8')}
                                 className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     highlightColor === '1D4ED8'
-                                    ? 'bg-white text-blue-600 shadow-xs'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-blue-600 shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
                                 🔵 Xanh
@@ -283,8 +283,8 @@ export default function ControlCenter({
                                 onClick={() => setHighlightColor('000000')}
                                 className={`py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer text-center ${
                                     highlightColor === '000000'
-                                    ? 'bg-white text-slate-900 shadow-xs'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-slate-900 shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-700'
                                 }`}
                             >
                                 ⚫ Đen
@@ -303,10 +303,41 @@ export default function ControlCenter({
                     </div>
                     <div>
                       <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide block">Thông tin Giáo án</span>
-                      <p className="text-[11px] text-slate-400">Cấu hình môn học và chiến lược trích xuất</p>
+                      <p className="text-[11px] text-slate-400">Cấu hình môn học, phân loại bài dạy và chiến lược trích xuất</p>
                     </div>
                 </div>
                 
+                {/* PHÂN LOẠI BÀI DẠY (CHÍNH KHÓA / CHUYÊN ĐỀ HỌC TẬP) */}
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-indigo-500" /> Phân loại bài dạy theo PPCT
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setState(prev => ({ ...prev, lessonCategory: 'MAIN' as LessonCategory }))}
+                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition cursor-pointer flex items-center justify-center gap-2 ${
+                            (state.lessonCategory || 'MAIN') === 'MAIN'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              : 'bg-slate-50/80 text-slate-700 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          📚 Chương trình chính khóa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setState(prev => ({ ...prev, lessonCategory: 'CHUYEN_DE' as LessonCategory }))}
+                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition cursor-pointer flex items-center justify-center gap-2 ${
+                            state.lessonCategory === 'CHUYEN_DE'
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                              : 'bg-slate-50/80 text-slate-700 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          🔬 Chuyên đề học tập (35 tiết)
+                        </button>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">

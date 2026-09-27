@@ -23,6 +23,9 @@ export type IntegrationMode = 'NLS_AI' | 'NLS' | 'NAI' | 'STEM';
 export type SubjectType = string;
 export type GradeType = string;
 
+// Bổ sung: Phân loại bài dạy (Chính khóa cơ bản hoặc Chuyên đề học tập 35 tiết)
+export type LessonCategory = 'MAIN' | 'CHUYEN_DE';
+
 // Bổ sung: Mức độ tích hợp (Tiêu chuẩn / Chuyên sâu thao giảng)
 export type IntegrationLevel = 'STANDARD' | 'INTENSIVE';
 
@@ -34,9 +37,10 @@ export type HighlightColor = 'FF0000' | '1D4ED8' | '000000';
 
 export interface AppState {
   file: File | null;
-  files: File[]; // Bổ sung: Hỗ trợ nạp và xử lý hàng loạt nhiều file giáo án
+  files: File[]; // Hỗ trợ nạp và xử lý hàng loạt nhiều file giáo án
   subject: SubjectType;
   grade: GradeType;
+  lessonCategory?: LessonCategory; // 'MAIN': Chính khóa (105 tiết) | 'CHUYEN_DE': Chuyên đề học tập (35 tiết)
   isProcessing: boolean;
   step: 'upload' | 'review' | 'done';
   logs: string[];
