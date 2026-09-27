@@ -29,7 +29,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
   // 2. Quét sạch các chỉ thị tích hợp trong các hoạt động
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
 
-  // 3. Quét sạch các đoạn liệt kê Năng lực số cũ mà không phá vỡ thẻ lồng
+  // 3. Quét sạch các đoạn liệt kê Năng lực số cũ mà không làm rách thẻ lồng
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):).*?<\/w:p>/gis, '');
 
   // 4. Xóa bảng tổng hợp NLS/AI cũ ở cuối bài nếu có
@@ -39,7 +39,17 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CẬP NHẬT TIÊU ĐỀ PPCT AN TOÀN TUYỆT ĐỐI CHO BẢNG WORD
+ * 3. HÀM DỌN DẸP TIÊU ĐỀ CHIA TIẾT CŨ ĐỂ TRÁNH LỆCH VÀ TRÙNG LẶP SỐ TIẾT
+ */
+export function removeOldPeriodHeaders(xmlContent: string): string {
+  let cleaned = xmlContent;
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\bTIẾT\s+\d+[\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết\s+theo\s+PPCT[\s\S]*?<\/w:p>/gis, '');
+  return cleaned;
+}
+
+/**
+ * 4. HÀM CẬP NHẬT TIÊU ĐỀ PPCT AN TOÀN TUYỆT ĐỐI CHO BẢNG WORD (TRÁNH LỖI HỎNG FILE)
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -54,7 +64,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   if (match) {
     let pXml = match[0];
 
-    // Đảm bảo paragraph có căn giữa
+    // Đảm bảo thuộc tính paragraph có căn giữa
     if (pXml.includes('<w:pPr>')) {
       if (pXml.includes('<w:jc')) {
         pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
@@ -90,7 +100,68 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
+ * 5. HÀM TỰ ĐỘNG CẮM MỐC RANH GIỚI TIẾT ĐỒNG NHẤT 100% VỚI SỐ TIẾT PPCT
+ */
+export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (number | string)[]): string {
+  if (!periodsList || periodsList.length === 0) return xmlContent;
+
+  let result = removeOldPeriodHeaders(xmlContent);
+
+  const createPeriodMarkerXml = (periodNum: number | string, subTitle: string = '') => {
+    const titleText = `TIẾT ${periodNum} (THEO PPCT)${subTitle ? ': ' + subTitle.toUpperCase() : ''}`;
+    return `<w:p>
+      <w:pPr>
+        <w:jc w:val="left"/>
+        <w:spacing w:before="240" w:after="120"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:b/>
+          <w:color w:val="1D4ED8"/>
+          <w:sz w:val="26"/>
+          <w:szCs w:val="26"/>
+        </w:rPr>
+        <w:t xml:space="preserve">▶ ${escapeXml(titleText)}</w:t>
+      </w:r>
+    </w:p>`;
+  };
+
+  // 1. Chèn TIẾT ĐẦU TIÊN vào trước Hoạt động 1 hoặc Mục B
+  const p1 = periodsList[0];
+  const bMatch = result.search(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:B\.\s*HÌNH THÀNH KIẾN THỨC|Hoạt động 1|HĐ1)[\s\S]*?<\/w:p>/i);
+  if (bMatch !== -1) {
+    const marker1 = createPeriodMarkerXml(p1);
+    result = result.substring(0, bMatch) + marker1 + result.substring(bMatch);
+  }
+
+  // 2. Chèn các TIẾT TIẾP THEO vào trước các hoạt động kế tiếp hoặc phần Luyện tập
+  if (periodsList.length >= 2) {
+    const actRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Hoạt động\s*([2-9]|\d{2})|C\.\s*HOẠT ĐỘNG LUYỆN TẬP|C\.\s*LUYỆN TẬP)[\s\S]*?<\/w:p>/gi;
+    const matches: { index: number; text: string }[] = [];
+    let m;
+    while ((m = actRegex.exec(result)) !== null) {
+      matches.push({ index: m.index, text: m[0] });
+    }
+
+    for (let i = 1; i < periodsList.length; i++) {
+      const pNext = periodsList[i];
+      const matchIdx = Math.min(Math.floor((i / periodsList.length) * matches.length), matches.length - 1);
+      if (matches[matchIdx]) {
+        const insertPos = matches[matchIdx].index;
+        const markerNext = createPeriodMarkerXml(pNext);
+        result = result.substring(0, insertPos) + markerNext + result.substring(insertPos);
+        for (let k = matchIdx; k < matches.length; k++) {
+          matches[k].index += markerNext.length;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 6. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -98,7 +169,8 @@ export const injectContentIntoDocx = async (
   mode: IntegrationMode,
   _log: (msg: string) => void,
   colorHex: HighlightColor = 'FF0000',
-  customHeaderPPCT?: string
+  customHeaderPPCT?: string,
+  allPeriodsList?: (number | string)[]
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -116,9 +188,14 @@ export const injectContentIntoDocx = async (
         // 1. Quét sạch toàn bộ các nội dung NLS/AI/STEM cũ
         docXml = cleanExistingNLSContent(docXml);
 
-        // 2. Căn giữa dòng tiêu đề thông tin PPCT
+        // 2. Căn giữa dòng tiêu đề thông tin PPCT an toàn
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
+        }
+
+        // 3. Tự động đồng bộ số tiết trong ruột bài khớp 100% với số tiết PPCT trên đầu bìa
+        if (allPeriodsList && allPeriodsList.length > 0) {
+          docXml = injectStandardPeriodMarkers(docXml, allPeriodsList);
         }
 
         // NẾU BÀI DẠY TRUYỀN THỐNG (content rỗng) -> XUẤT NGAY FILE SẠCH 5512
@@ -489,7 +566,7 @@ export const injectContentIntoDocx = async (
 };
 
 /**
- * 5. HÀM TẠO FILE PHỤ LỤC RIÊNG
+ * 7. HÀM TẠO FILE PHỤ LỤC RIÊNG
  */
 export const createAppendixDocx = async (
   content: GeneratedNLSContent,
@@ -572,7 +649,7 @@ export const createAppendixDocx = async (
 };
 
 /**
- * 6. HÀM ĐÓNG GÓI NHIỀU FILE THÀNH TỆP ZIP
+ * 8. HÀM ĐÓNG GÓI NHIỀU FILE THÀNH TỆP ZIP
  */
 export const createZipFromBlobs = async (
   files: { name: string; blob: Blob }[]
