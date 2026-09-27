@@ -72,9 +72,7 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
   const rawTargetName = extractedTitle || fileName.replace(/\.docx$/i, '').replace(/^[A-Z0-9]+[-_]/i, '');
   const coreTargetLesson = extractCoreLessonTitle(rawTargetName);
   const schedules: PPCTLessonSchedule[] = [];
-
-  let matchedPeriodDisplay = "1";
-  let matchedTotalPeriods = 1;
+  const matchedPeriodNumbers: string[] = [];
 
   try {
     const arrayBuffer = await ppctFile.arrayBuffer();
@@ -124,7 +122,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
       const col3LessonNorm = normalizeSearchText(rawLessonName);
       if (!col3LessonNorm || col3LessonNorm.length < 2) continue;
 
-      // So khớp tên bài học ở cột 3
       let isMatched = false;
       const coreCol3 = extractCoreLessonTitle(rawLessonName);
 
@@ -134,14 +131,17 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
       }
 
-      // Khi đã khớp đúng tên bài, chỉ trích xuất số tiết từ cột Tiết của đúng dòng đó
-      if (isMatched && rawPeriod) {
-        const periodCleanText = rawPeriod.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        // Lấy các con số xuất hiện ở cột tiết (ví dụ "1" hoặc "2, 3")
-        const numbersFound = periodCleanText.match(/\d{1,2}/g);
-        if (numbersFound && numbersFound.length > 0) {
-          matchedPeriodDisplay = numbersFound.join(',');
-          matchedTotalPeriods = numbersFound.length;
+      // THU THẬP TẤT CẢ CÁC DÒNG KHỚP TÊN BÀI ĐỂ ĐẾM ĐÚNG SỐ TIẾT THỰC TẾ
+      if (isMatched) {
+        const periodCleanText = (rawPeriod || "1").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        const periodNums = periodCleanText.match(/\d{1,2}/g);
+        
+        if (periodNums && periodNums.length > 0) {
+          periodNums.forEach(pNum => {
+            if (!matchedPeriodNumbers.includes(pNum)) {
+              matchedPeriodNumbers.push(pNum);
+            }
+          });
         }
 
         let noteFound = '';
@@ -150,12 +150,13 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
           noteFound = noteMatch[0].trim();
         }
 
-        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === matchedPeriodDisplay);
-        if (!exists && matchedPeriodDisplay) {
+        const periodDisplayStr = periodNums ? periodNums.join(',') : '1';
+        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplayStr);
+        if (!exists) {
           schedules.push({
             week: currentWeek,
-            periodDisplay: matchedPeriodDisplay,
-            periodCount: matchedTotalPeriods,
+            periodDisplay: periodDisplayStr,
+            periodCount: periodNums ? periodNums.length : 1,
             hasIntegration: Boolean(noteFound),
             requirement: noteFound
           });
@@ -166,6 +167,11 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
+  // Sắp xếp các tiết tăng dần để hiển thị chuẩn xác (ví dụ: tiết 2, tiết 3)
+  matchedPeriodNumbers.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+  const periodsCombined = matchedPeriodNumbers.length > 0 ? matchedPeriodNumbers.join(',') : '1';
+  const totalCalculatedPeriods = matchedPeriodNumbers.length > 0 ? matchedPeriodNumbers.length : 1;
+
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
 
@@ -175,7 +181,7 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
 
   if (noteUpper.includes('STEM')) {
     integrationType = 'STEM';
-  } else if ((noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA')) && noteUpper.includes('AI')) {
+  } else if ((noteUpper.includes('NLS' ) || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA')) && noteUpper.includes('AI')) {
     integrationType = 'NLS_AI';
   } else if (noteUpper.includes('AI')) {
     integrationType = 'NAI';
@@ -193,8 +199,8 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     hasPPCT: true,
     lessonTitle: extractedTitle || fileName.replace(/\.docx$/i, ''),
     schedules,
-    allPeriods: matchedPeriodDisplay,
-    totalPeriods: matchedTotalPeriods,
+    allPeriods: periodsCombined,
+    totalPeriods: totalCalculatedPeriods,
     isMultiWeek,
     weeksList: uniqueWeeks,
     integrationType,
