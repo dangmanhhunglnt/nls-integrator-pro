@@ -73,6 +73,9 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
   const coreTargetLesson = extractCoreLessonTitle(rawTargetName);
   const schedules: PPCTLessonSchedule[] = [];
 
+  let matchedPeriodDisplay = "1";
+  let matchedTotalPeriods = 1;
+
   try {
     const arrayBuffer = await ppctFile.arrayBuffer();
     const zip = new PizZip(arrayBuffer);
@@ -97,7 +100,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
 
       const rowFullText = normalizeSearchText(cellTexts.join(' '));
 
-      // Nhận diện tiêu đề bảng để gán đúng vị trí cột
       if (rowFullText.includes('tuan') && (rowFullText.includes('tiet') || rowFullText.includes('bai hoc') || rowFullText.includes('ten bai'))) {
         cellTexts.forEach((txt, idx) => {
           const tNorm = normalizeSearchText(txt);
@@ -122,7 +124,7 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
       const col3LessonNorm = normalizeSearchText(rawLessonName);
       if (!col3LessonNorm || col3LessonNorm.length < 2) continue;
 
-      // So khớp tên bài học
+      // So khớp tên bài học ở cột 3
       let isMatched = false;
       const coreCol3 = extractCoreLessonTitle(rawLessonName);
 
@@ -132,8 +134,15 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
       }
 
+      // Khi đã khớp đúng tên bài, chỉ trích xuất số tiết từ cột Tiết của đúng dòng đó
       if (isMatched && rawPeriod) {
-        const cleanPeriodStr = rawPeriod.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        const periodCleanText = rawPeriod.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        // Lấy các con số xuất hiện ở cột tiết (ví dụ "1" hoặc "2, 3")
+        const numbersFound = periodCleanText.match(/\d{1,2}/g);
+        if (numbersFound && numbersFound.length > 0) {
+          matchedPeriodDisplay = numbersFound.join(',');
+          matchedTotalPeriods = numbersFound.length;
+        }
 
         let noteFound = '';
         const noteMatch = noteContent.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
@@ -141,13 +150,12 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
           noteFound = noteMatch[0].trim();
         }
 
-        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === cleanPeriodStr);
-        if (!exists && cleanPeriodStr) {
-          const countNum = cleanPeriodStr.split(/[,\s]+/).filter(Boolean).length;
+        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === matchedPeriodDisplay);
+        if (!exists && matchedPeriodDisplay) {
           schedules.push({
             week: currentWeek,
-            periodDisplay: cleanPeriodStr,
-            periodCount: Math.max(1, countNum),
+            periodDisplay: matchedPeriodDisplay,
+            periodCount: matchedTotalPeriods,
             hasIntegration: Boolean(noteFound),
             requirement: noteFound
           });
@@ -160,14 +168,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
 
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
-
-  // Lấy chính xác giá trị tiết từ cột PPCT khớp với bài học
-  const matchedPeriods = schedules.map(s => s.periodDisplay).filter(Boolean);
-  const periodsCombined = matchedPeriods.length > 0 ? matchedPeriods[0] : '1';
-  
-  let calculatedTotal = 0;
-  schedules.forEach(s => { calculatedTotal += s.periodCount; });
-  if (calculatedTotal === 0) calculatedTotal = 1;
 
   const fullRequirement = schedules.map(s => s.requirement).filter(Boolean).join('; ');
   const noteUpper = fullRequirement.toUpperCase();
@@ -193,8 +193,8 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     hasPPCT: true,
     lessonTitle: extractedTitle || fileName.replace(/\.docx$/i, ''),
     schedules,
-    allPeriods: periodsCombined,
-    totalPeriods: calculatedTotal,
+    allPeriods: matchedPeriodDisplay,
+    totalPeriods: matchedTotalPeriods,
     isMultiWeek,
     weeksList: uniqueWeeks,
     integrationType,
