@@ -57,14 +57,14 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeText = escapeXml(ppctInfoText);
 
-  // 1. Cập nhật text mới vào paragraph chứa "Thời gian thực hiện" hoặc "Số tiết dạy"
-  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
+  // 1. Tìm và cập nhật text mới vào paragraph chứa "Thời gian thực hiện", "Số tiết dạy" hoặc "Số tiết"
+  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Số tiết)[\s\S]*?<\/w:p>/i;
   const match = result.match(pRegex);
 
   if (match) {
     let pXml = match[0];
 
-    // Đảm bảo thuộc tính paragraph có căn giữa
+    // Đảm bảo paragraph có căn giữa
     if (pXml.includes('<w:pPr>')) {
       if (pXml.includes('<w:jc')) {
         pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
@@ -77,7 +77,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
       pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
     }
 
-    // Thay thế text trong thẻ <w:t> đầu tiên và làm rỗng các thẻ <w:t> còn lại (không xóa thẻ <w:p>)
+    // Làm sạch toàn bộ các thẻ text cũ bên trong và đặt text chuẩn mới vào thẻ <w:t> đầu tiên
     let isFirst = true;
     pXml = pXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
       if (isFirst) {
@@ -90,8 +90,8 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     result = result.replace(match[0], pXml);
   }
 
-  // 2. Xóa chữ trong ô "Tiết theo PPCT" bằng cách làm rỗng thẻ <w:t>, tuyệt đối KHÔNG xóa thẻ <w:p>
-  const ppctCellRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gi;
+  // 2. Quét và làm rỗng toàn bộ các dòng phụ chứa "Tiết theo PPCT" cũ một cách triệt để
+  const ppctCellRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Tiết theo PPCT|Tiết PPCT)[\s\S]*?<\/w:p>/gi;
   result = result.replace(ppctCellRegex, (pMatch) => {
     return pMatch.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gi, '<w:t></w:t>');
   });
