@@ -57,9 +57,11 @@ function formatCleanFilenamePart(str: string): string {
 
 function extractCoreLessonTitle(rawTitle: string): string {
   let cleaned = normalizeSearchText(rawTitle);
-  cleaned = cleaned.replace(/^(bai|chuong|tiet|chuyen de)\s+\d+[\s:\.-]*/gi, '');
+  cleaned = cleaned.replace(/^(bai|chuong|tiet|chuyen de|phan)\s+\d+[\s:\.-]*/gi, '');
   cleaned = cleaned.replace(/^(toan|van|ly|hoa|sinh|su|dia|tin|anh|gdcd)\s+\d+[\s:\.-]*/gi, '');
-  return cleaned.trim();
+  // Loại bỏ các từ đơn quá ngắn không đủ định danh để tránh quét nhầm bài khác
+  const words = cleaned.split(' ').filter(w => w.length > 2);
+  return words.length > 0 ? words.join(' ') : cleaned.trim();
 }
 
 async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fileName: string = ''): Promise<ParsedPPCTResult> {
@@ -125,13 +127,14 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
       let isMatched = false;
       const coreCol3 = extractCoreLessonTitle(rawLessonName);
 
+      // So khớp nghiêm ngặt tên bài học
       if (coreTargetLesson.length >= 3 && coreCol3.length >= 3) {
-        if (coreCol3 === coreTargetLesson || coreCol3.includes(coreTargetLesson) || coreTargetLesson.includes(coreCol3)) {
+        if (coreCol3 === coreTargetLesson || (coreCol3.includes(coreTargetLesson) && coreTargetLesson.length >= 5)) {
           isMatched = true;
         }
       }
 
-      // THU THẬP TẤT CẢ CÁC DÒNG KHỚP TÊN BÀI ĐỂ ĐẾM ĐÚNG SỐ TIẾT THỰC TẾ
+      // Nếu khớp chính xác dòng của bài học, lấy tiết và DỪNG NGAY LẬP TỨC
       if (isMatched) {
         const periodCleanText = (rawPeriod || "1").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const periodNums = periodCleanText.match(/\d{1,2}/g);
@@ -151,23 +154,21 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
 
         const periodDisplayStr = periodNums ? periodNums.join(',') : '1';
-        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplayStr);
-        if (!exists) {
-          schedules.push({
-            week: currentWeek,
-            periodDisplay: periodDisplayStr,
-            periodCount: periodNums ? periodNums.length : 1,
-            hasIntegration: Boolean(noteFound),
-            requirement: noteFound
-          });
-        }
+        schedules.push({
+          week: currentWeek,
+          periodDisplay: periodDisplayStr,
+          periodCount: periodNums ? periodNums.length : 1,
+          hasIntegration: Boolean(noteFound),
+          requirement: noteFound
+        });
+        
+        break; // Dừng vòng lặp ngay khi đã tìm thấy đúng bài học, ngăn không quét sang bài khác!
       }
     }
   } catch (err) {
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
-  // Sắp xếp các tiết tăng dần để hiển thị chuẩn xác (ví dụ: tiết 2, tiết 3)
   matchedPeriodNumbers.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
   const periodsCombined = matchedPeriodNumbers.length > 0 ? matchedPeriodNumbers.join(',') : '1';
   const totalCalculatedPeriods = matchedPeriodNumbers.length > 0 ? matchedPeriodNumbers.length : 1;
@@ -181,7 +182,7 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
 
   if (noteUpper.includes('STEM')) {
     integrationType = 'STEM';
-  } else if ((noteUpper.includes('NLS' ) || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA')) && noteUpper.includes('AI')) {
+  } else if ((noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA')) && noteUpper.includes('AI')) {
     integrationType = 'NLS_AI';
   } else if (noteUpper.includes('AI')) {
     integrationType = 'NAI';
