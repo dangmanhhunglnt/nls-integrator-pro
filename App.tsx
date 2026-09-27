@@ -492,7 +492,7 @@ const App: React.FC = () => {
 
       const gradeNum = (state.grade || '11').replace(/\D/g, '');
       const subjectPrefix = isChuyenDe 
-        ? `CĐ${gradeNum}` 
+        ? `CD${gradeNum}` // Đổi từ CĐ thành CD không dấu
         : formatCleanFilenamePart(`${state.subject || 'Mon'}${state.grade || ''}`);
 
       if (targetFiles.length === 1) {
