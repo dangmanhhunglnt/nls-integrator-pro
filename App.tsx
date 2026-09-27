@@ -130,32 +130,39 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
       }
 
-      // THU THẬP TẤT CẢ CÁC DÒNG KHỚP (Mỗi dòng là một tiết độc lập)
+      // CHỈ LẤY ĐÚNG SỐ TIẾT TỪ CỘT TIẾT CỦA DÒNG ĐƯỢC KHỚP THỰC TẾ
       if (isMatched) {
-        const periodCleanText = (rawPeriod || "1").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        const periodCleanText = (rawPeriod || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const periodNumMatch = periodCleanText.match(/\d{1,2}/);
-        const periodStr = periodNumMatch ? periodNumMatch[0] : '1';
+        
+        // Nếu dòng này có chứa số tiết rõ ràng trong bảng PPCT thì mới ghi nhận
+        if (periodNumMatch) {
+          const periodStr = periodNumMatch[0];
 
-        let noteFound = '';
-        const noteMatch = noteContent.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
-        if (noteMatch) {
-          noteFound = noteMatch[0].trim();
+          let noteFound = '';
+          const noteMatch = noteContent.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
+          if (noteMatch) {
+            noteFound = noteMatch[0].trim();
+          }
+
+          const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodStr);
+          if (!exists) {
+            schedules.push({
+              week: currentWeek,
+              periodDisplay: periodStr,
+              periodCount: 1,
+              hasIntegration: Boolean(noteFound),
+              requirement: noteFound
+            });
+          }
         }
-
-        schedules.push({
-          week: currentWeek,
-          periodDisplay: periodStr,
-          periodCount: 1,
-          hasIntegration: Boolean(noteFound),
-          requirement: noteFound
-        });
       }
     }
   } catch (err) {
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
-  // Sắp xếp các tiết theo thứ tự tăng dần (ví dụ: tiết 2, tiết 3)
+  // Sắp xếp các tiết tăng dần chính xác theo số tiết thực tế trong PPCT (VD: 2, rồi đến 3)
   schedules.sort((a, b) => parseInt(a.periodDisplay, 10) - parseInt(b.periodDisplay, 10));
 
   const allPeriodsJoined = schedules.map(s => s.periodDisplay).join(',');
