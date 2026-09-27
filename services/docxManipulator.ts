@@ -22,14 +22,14 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  // 1. Quét sạch các đoạn rác [NLS], [AI], [STEM], bao gồm cả [NLS]: Gemini
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
+  // 1. Quét sạch các đoạn rác [NLS], [AI], [STEM]
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\Vert{}AI\Vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
 
   // 2. Quét sạch các chỉ thị tích hợp trong các hoạt động
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
 
-  // 3. Quét sạch các đoạn liệt kê Năng lực số cũ mà không làm rách thẻ lồng
+  // 3. Quét sạch các đoạn liệt kê Năng lực số cũ
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):).*?<\/w:p>/gis, '');
 
   // 4. Xóa bảng tổng hợp NLS/AI cũ ở cuối bài nếu có
@@ -49,7 +49,7 @@ export function removeOldPeriodHeaders(xmlContent: string): string {
 }
 
 /**
- * 4. HÀM CẬP NHẬT TIÊU ĐỀ PPCT AN TOÀN TUYỆT ĐỐI CHO BẢNG WORD (TRÁNH LỖI HỎNG FILE)
+ * 4. HÀM CẬP NHẬT TIÊU ĐỀ PPCT AN TOÀN TUYỆT ĐỐI CHO BẢNG WORD
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -57,7 +57,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeText = escapeXml(ppctInfoText);
 
-  // 1. Quét và cập nhật thông tin vào đoạn văn bản thông thường
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Số tiết)[\s\S]*?<\/w:p>/gi;
   let firstMatch = true;
   result = result.replace(pRegex, (matchP) => {
@@ -87,7 +86,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     return matchP.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gi, '<w:t></w:t>');
   });
 
-  // 2. Quét và xử lý cả các ô trong BẢNG BIỂU (Table) chứa thông tin số tiết / tiết PPCT cũ
   const cellRegex = /<w:tc\b[^>]*>[\s\S]*?(?:Số tiết|Tiết theo PPCT|Tiết PPCT)[\s\S]*?<\/w:tc>/gi;
   result = result.replace(cellRegex, (cellXml) => {
     let isFirstCellText = true;
@@ -130,7 +128,6 @@ export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (nu
     </w:p>`;
   };
 
-  // 1. Chèn TIẾT ĐẦU TIÊN vào trước Hoạt động 1 hoặc Mục B
   const p1 = periodsList[0];
   const bMatch = result.search(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:B\.\s*HÌNH THÀNH KIẾN THỨC|Hoạt động 1|HĐ1)[\s\S]*?<\/w:p>/i);
   if (bMatch !== -1) {
@@ -138,7 +135,6 @@ export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (nu
     result = result.substring(0, bMatch) + marker1 + result.substring(bMatch);
   }
 
-  // 2. Chèn các TIẾT TIẾP THEO vào trước các hoạt động kế tiếp hoặc phần Luyện tập
   if (periodsList.length >= 2) {
     const actRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Hoạt động\s*([2-9]|\d{2})|C\.\s*HOẠT ĐỘNG LUYỆN TẬP|C\.\s*LUYỆN TẬP)[\s\S]*?<\/w:p>/gi;
     const matches: { index: number; text: string }[] = [];
@@ -165,7 +161,7 @@ export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (nu
 }
 
 /**
- * 6. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
+ * 6. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (ĐÃ VÁ LỖI XML AN TOÀN)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -189,20 +185,19 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. Quét sạch toàn bộ các nội dung NLS/AI/STEM cũ
+        // 1. Quét sạch toàn bộ nội dung cũ
         docXml = cleanExistingNLSContent(docXml);
 
-        // 2. Căn giữa dòng tiêu đề thông tin PPCT an toàn
+        // 2. Cập nhật thông tin PPCT an toàn
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
-        // 3. Tự động đồng bộ số tiết trong ruột bài khớp 100% với số tiết PPCT trên đầu bìa
+        // 3. Cắm mốc ranh giới tiết đồng nhất
         if (allPeriodsList && allPeriodsList.length > 0) {
           docXml = injectStandardPeriodMarkers(docXml, allPeriodsList);
         }
 
-        // NẾU BÀI DẠY TRUYỀN THỐNG (content rỗng) -> XUẤT NGAY FILE SẠCH 5512
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
@@ -210,7 +205,6 @@ export const injectContentIntoDocx = async (
           return;
         }
 
-        // NẾU BÀI CÓ CHỈ ĐỊNH TÍCH HỢP -> CHÈN NỘI DUNG MỚI
         let label = "Tích hợp NLS & AI";
         if ((mode as string) === 'STEM') label = "Giáo dục STEM";
         else if (mode === 'NLS') label = "Tích hợp NLS";
