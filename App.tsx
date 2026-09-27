@@ -516,6 +516,7 @@ const App: React.FC = () => {
 
               for (const schedule of ppctInfo.schedules) {
                 const periodNum = schedule.periodDisplay;
+                // SỬ DỤNG CHÍNH XÁC SCHEDULE.PERIODDISPLAY ĐỂ TẠO TÊN FILE RIÊNG BIỆT KHÔNG BỊ GỘP DẤU PHẨY
                 const specificFileName = `${subjectPrefix}_Tiết_${periodNum}_${cleanTitle}.docx`;
                 const headerText = `Thời gian thực hiện: 01 tiết (Tiết theo PPCT: ${periodNum})`;
                 const periodsArray = [periodNum];
@@ -602,6 +603,7 @@ const App: React.FC = () => {
 
           for (const schedule of ppctInfo.schedules) {
             const periodNum = schedule.periodDisplay;
+            // ĐẶT TÊN TỪNG FILE ĐỘC LẬP THEO TỪNG TIẾT RIÊNG BIỆT TRONG SCHEDULE
             const specificFileName = `${subjectPrefix}_Tiết_${periodNum}_${cleanTitle}.docx`;
             const headerText = `Thời gian thực hiện: 01 tiết (Tiết theo PPCT: ${periodNum})`;
             const periodsArray = [periodNum];
