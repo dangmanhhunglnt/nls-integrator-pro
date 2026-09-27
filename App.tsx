@@ -71,13 +71,11 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     extractedTitle = titleMatch[1].trim();
   }
 
-  // Trích xuất số bài trực tiếp từ tên file hoặc nội dung (VD: "bài 1", "bài 2") để so khớp chính xác tuyệt đối
-  const combinedTextForNum = (fileName + ' ' + lessonDocText).toLowerCase();
-  const lessonNumMatch = combinedTextForNum.match(/bài\s*(\d+)/i);
-  const targetLessonNum = lessonNumMatch ? lessonNumMatch[1] : '';
+  // Lấy chính xác số bài từ tên file hoặc nội dung (Ví dụ: "Bài 1", "Bài 2")
+  const combinedSource = (fileName + ' ' + extractedTitle + ' ' + lessonDocText).toLowerCase();
+  const baiMatch = combinedSource.match(/bài\s*(\d+)/i);
+  const targetBaiNum = baiMatch ? baiMatch[1] : '';
 
-  const rawTargetName = extractedTitle || fileName.replace(/\.docx$/i, '').replace(/^[A-Z0-9]+[-_]/i, '');
-  const coreTargetLesson = extractCoreLessonTitle(rawTargetName);
   const schedules: PPCTLessonSchedule[] = [];
   const matchedPeriodNumbers: string[] = [];
 
@@ -126,27 +124,28 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
       const rawLessonName = cellTexts[colLessonIdx] || '';
       const noteContent = cellTexts[colNoteIdx] || cellTexts[cellTexts.length - 1] || '';
 
-      const col3LessonNorm = normalizeSearchText(rawLessonName);
-      if (!col3LessonNorm || col3LessonNorm.length < 2) continue;
+      const lessonNameLower = rawLessonName.toLowerCase().trim();
+      if (!lessonNameLower || lessonNameLower.length < 2) continue;
 
       let isMatched = false;
 
-      // Ưu tiên số 1: So khớp chính xác số bài (VD: "bài 1") từ tên file hoặc nội dung
-      if (targetLessonNum) {
-        const rowLessonLower = col3LessonNorm.toLowerCase();
-        if (rowLessonLower.includes(`bai ${targetLessonNum}`) || rowLessonLower.includes(`bai${targetLessonNum}`)) {
+      // KIỂM TRA KHỚP NGHIÊM NGẶT THEO SỐ BÀI (VD: "bài 1" phải đứng độc lập, không bắt nhầm bài 10, 11...)
+      if (targetBaiNum) {
+        // Regex kiểm tra từ "bài X" với ranh giới từ rõ ràng
+        const exactBaiRegex = new RegExp(`bài\\s*${targetBaiNum}(?!\\d)`, 'i');
+        if (exactBaiRegex.test(lessonNameLower)) {
+          isMatched = true;
+        }
+      } else {
+        // Nếu không tìm thấy số bài, so khớp chuỗi tên rút gọn an toàn
+        const coreTarget = extractCoreLessonTitle(extractedTitle || fileName);
+        const coreRow = extractCoreLessonTitle(rawLessonName);
+        if (coreTarget.length >= 4 && coreRow.length >= 4 && (coreRow === coreTarget || coreRow.includes(coreTarget))) {
           isMatched = true;
         }
       }
 
-      // Ưu tiên số 2: Fallback sang so khớp tên cốt lõi nếu không tìm thấy số bài
-      if (!isMatched && coreTargetLesson.length >= 3) {
-        const coreCol3 = extractCoreLessonTitle(rawLessonName);
-        if (coreCol3 === coreTargetLesson || (coreCol3.includes(coreTargetLesson) && coreTargetLesson.length >= 5)) {
-          isMatched = true;
-        }
-      }
-
+      // NẾU KHỚP ĐÚNG BÀI: Lấy thông tin tiết và DỪNG NGAY LẬP TỨC CHO DÒNG ĐÓ
       if (isMatched) {
         const periodCleanText = (rawPeriod || "1").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const periodNums = periodCleanText.match(/\d{1,2}/g);
