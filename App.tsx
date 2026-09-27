@@ -55,15 +55,6 @@ function formatCleanFilenamePart(str: string): string {
     .trim();
 }
 
-function extractCoreLessonTitle(rawTitle: string): string {
-  let cleaned = normalizeSearchText(rawTitle);
-  cleaned = cleaned.replace(/^(bai|chuong|tiet|chuyen de|phan)\s+\d+[\s:\.-]*/gi, '');
-  cleaned = cleaned.replace(/^(toan|van|ly|hoa|sinh|su|dia|tin|anh|gdcd)\s+\d+[\s:\.-]*/gi, '');
-  // Loại bỏ các từ đơn quá ngắn không đủ định danh để tránh quét nhầm bài khác
-  const words = cleaned.split(' ').filter(w => w.length > 2);
-  return words.length > 0 ? words.join(' ') : cleaned.trim();
-}
-
 async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fileName: string = ''): Promise<ParsedPPCTResult> {
   let extractedTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
@@ -71,10 +62,10 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     extractedTitle = titleMatch[1].trim();
   }
 
-  // Lấy chính xác số bài từ tên file hoặc nội dung (Ví dụ: "Bài 1", "Bài 2")
-  const combinedSource = (fileName + ' ' + extractedTitle + ' ' + lessonDocText).toLowerCase();
-  const baiMatch = combinedSource.match(/bài\s*(\d+)/i);
-  const targetBaiNum = baiMatch ? baiMatch[1] : '';
+  // CHỈ trích xuất số thứ tự bài học (VD: "bài 1", "bài 2") từ nội dung hoặc tên file, TUYỆT ĐỐI KHÔNG đọc dải tiết cũ trong tên file
+  const combinedSource = (extractedTitle + ' ' + lessonDocText).toLowerCase();
+  const baiMatch = combinedSource.match(/bài\s*(\d+)/i) || fileName.toLowerCase().match(/bài\s*(\d+)/i);
+  const targetBaiNum = baiMatch ? baiMatch[1] : '1';
 
   const schedules: PPCTLessonSchedule[] = [];
   const matchedPeriodNumbers: string[] = [];
@@ -129,23 +120,13 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
 
       let isMatched = false;
 
-      // KIỂM TRA KHỚP NGHIÊM NGẶT THEO SỐ BÀI (VD: "bài 1" phải đứng độc lập, không bắt nhầm bài 10, 11...)
-      if (targetBaiNum) {
-        // Regex kiểm tra từ "bài X" với ranh giới từ rõ ràng
-        const exactBaiRegex = new RegExp(`bài\\s*${targetBaiNum}(?!\\d)`, 'i');
-        if (exactBaiRegex.test(lessonNameLower)) {
-          isMatched = true;
-        }
-      } else {
-        // Nếu không tìm thấy số bài, so khớp chuỗi tên rút gọn an toàn
-        const coreTarget = extractCoreLessonTitle(extractedTitle || fileName);
-        const coreRow = extractCoreLessonTitle(rawLessonName);
-        if (coreTarget.length >= 4 && coreRow.length >= 4 && (coreRow === coreTarget || coreRow.includes(coreTarget))) {
-          isMatched = true;
-        }
+      // KIỂM TRA KHỚP NGHIÊM NGẶT THEO ĐÚNG SỐ BÀI (VD: "bài 1" độc lập)
+      const exactBaiRegex = new RegExp(`bài\\s*${targetBaiNum}(?!\\d)`, 'i');
+      if (exactBaiRegex.test(lessonNameLower)) {
+        isMatched = true;
       }
 
-      // NẾU KHỚP ĐÚNG BÀI: Lấy thông tin tiết và DỪNG NGAY LẬP TỨC CHO DÒNG ĐÓ
+      // NẾU KHỚP ĐÚNG DÒNG: LẤY ĐÚNG SỐ TIẾT Ở CỘT TIẾT CỦA ĐÚNG DÒNG ĐÓ VÀ DỪNG NGAY
       if (isMatched) {
         const periodCleanText = (rawPeriod || "1").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const periodNums = periodCleanText.match(/\d{1,2}/g);
@@ -165,16 +146,15 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
 
         const periodDisplayStr = periodNums ? periodNums.join(',') : '1';
-        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodDisplayStr);
-        if (!exists) {
-          schedules.push({
-            week: currentWeek,
-            periodDisplay: periodDisplayStr,
-            periodCount: periodNums ? periodNums.length : 1,
-            hasIntegration: Boolean(noteFound),
-            requirement: noteFound
-          });
-        }
+        schedules.push({
+          week: currentWeek,
+          periodDisplay: periodDisplayStr,
+          periodCount: periodNums ? periodNums.length : 1,
+          hasIntegration: Boolean(noteFound),
+          requirement: noteFound
+        });
+
+        break; // Dừng ngay lập tức sau khi lấy đúng tiết của bài học!
       }
     }
   } catch (err) {
