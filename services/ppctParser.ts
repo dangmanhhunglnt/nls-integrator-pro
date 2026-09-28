@@ -119,7 +119,20 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
 
       if (isMatched) {
         const periodCleanText = (rawPeriod || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        const periodMatches = periodCleanText.match(/\d{1,2}/g);
+        let periodMatches: string[] = [];
+        const rangeMatch = periodCleanText.match(/(\d+)\s*[-–]\s*(\d+)/);
+        if (rangeMatch) {
+          const start = parseInt(rangeMatch[1], 10);
+          const end = parseInt(rangeMatch[2], 10);
+          for (let p = start; p <= end; p++) {
+            periodMatches.push(String(p));
+          }
+        } else {
+          const nums = periodCleanText.match(/\d{1,2}/g);
+          if (nums) {
+            periodMatches = nums;
+          }
+        }
         
         if (periodMatches && periodMatches.length > 0) {
           const periodStr = periodMatches.join(',');
