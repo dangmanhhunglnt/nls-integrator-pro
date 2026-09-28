@@ -555,32 +555,23 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* Nút Kích hoạt AI */}
-            <div className="col-span-1 md:col-span-2 mt-2">
-                <button 
-                  disabled={fileCount === 0 || state.isProcessing} 
-                  onClick={handleAnalyze} 
-                  className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
-                        state.isProcessing
-                        ? 'bg-slate-800 text-slate-300 cursor-wait shadow-none'
-                        : fileCount === 0 
-                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                        : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
-                    }`}
-                >
-                  {state.isProcessing ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" /> 
-                        Đang xử lý dữ liệu giáo án...
-                      </>
-                  ) : (
-                      <>
-                        <Wand2 className="w-4 h-4 text-amber-300" /> 
-                        {fileCount > 1 ? `Kích hoạt AI xử lý ${fileCount} giáo án` : 'Kích hoạt AI'}
-                      </>
-                  )}
-                </button>
-            </div>
+            {/* Nút Kích hoạt AI (Ẩn đi khi đang xử lý để nhường không gian cho bảng thông báo bên phải) */}
+            {!state.isProcessing && (
+              <div className="col-span-1 md:col-span-2 mt-2 animate-fade-in-up">
+                  <button 
+                    disabled={fileCount === 0} 
+                    onClick={handleAnalyze} 
+                    className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
+                          fileCount === 0 
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                          : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
+                      }`}
+                  >
+                      <Wand2 className="w-4 h-4 text-amber-300" /> 
+                      {fileCount > 1 ? `Kích hoạt AI xử lý ${fileCount} giáo án` : 'Kích hoạt AI'}
+                  </button>
+              </div>
+            )}
 
         </div>
       )}
