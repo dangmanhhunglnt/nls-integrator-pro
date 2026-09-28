@@ -359,17 +359,21 @@ const App: React.FC = () => {
 
         if (ppctInfo && ppctInfo.schedules && ppctInfo.schedules.length > 0) {
           const cleanTitle = formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, ''));
-          addLog(`📦 Đang tự động phân tách thành các file riêng biệt ứng với ${ppctInfo.schedules.length} tuần theo PPCT...`);
+          addLog(`📦 Bài học kéo dài qua ${ppctInfo.schedules.length} tuần. Đang nhân bản và cập nhật thời gian thực hiện theo tuần...`);
 
           const zipFiles: { name: string; blob: Blob }[] = [];
 
+          // Duyệt qua từng tuần để nhân bản giáo án gốc và ghi rõ thời gian thực hiện của tuần đó
           for (const schedule of ppctInfo.schedules) {
-            const periodNum = schedule.periodDisplay;
-            const weekNum = schedule.week;
+            const periodNum = schedule.periodDisplay; // Ví dụ: "1, 2" hoặc "3"
+            const weekNum = schedule.week; // Số tuần (VD: 1 hoặc 2)
             const specificFileName = `${subjectPrefix}_Tuan_${weekNum}_Tiet_${periodNum}_${cleanTitle}.docx`;
+            
+            // Dòng hiển thị chuẩn bên trong giáo án cho từng tuần
             const headerText = `Tiết ${periodNum} (Tuần ${weekNum} theo PPCT)`;
             const periodsArray = periodNum.split(',').map((p: string) => p.trim()).filter(Boolean);
 
+            // Nhân bản từ file giáo án gốc với nội dung đầy đủ, chỉ cập nhật lại phần thời gian tiết/tuần
             const blobItem = await injectContentIntoDocx(
               currentFile,
               generatedContent,
@@ -404,8 +408,8 @@ const App: React.FC = () => {
             ...prev, 
             isProcessing: false, 
             step: 'done', 
-            result: { fileName: `[GIAO-AN-TICH-HOP-${cleanTitle}].zip`, blob: zipPackage },
-            logs: [...prev.logs, `✨ Đã đóng gói thành công tệp ZIP chứa ${zipFiles.length} file theo từng tuần!`] 
+            result: { fileName: `[GIAO-AN-${cleanTitle}].zip`, blob: zipPackage },
+            logs: [...prev.logs, `✨ Đã đóng gói thành công file ZIP chứa ${zipFiles.length} bản tương ứng với các tuần!`] 
           }));
           return;
         }
