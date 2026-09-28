@@ -37,11 +37,14 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     extractedTitle = titleMatch[1].trim();
   }
 
-  // Lấy các từ khóa chính từ tên file hoặc tên bài để tìm kiếm linh hoạt trong PPCT
   const rawSearchName = extractedTitle || fileName.replace(/\.docx$/i, '');
   const normalizedTarget = normalizeSearchText(rawSearchName);
-  const keywordTokens = normalizedTarget.split(' ').filter(w => w.length > 2); // Lấy các từ dài hơn 2 ký tự
+  
+  // Trích xuất số bài từ tên file hoặc tên bài dạy (VD: "Bài 1" -> "1")
+  const baiMatch = normalizedTarget.match(/bai\s*([0-9]+)/i);
+  const targetLessonNum = baiMatch ? baiMatch[1] : '';
 
+  const keywordTokens = normalizedTarget.split(' ').filter(w => w.length > 3);
   const schedules: PPCTLessonSchedule[] = [];
 
   try {
@@ -63,12 +66,12 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
 
       const rowFullText = normalizeSearchText(cellTexts.join(' '));
 
-      // Bỏ qua dòng tiêu đề bảng PPCT
-      if (rowFullText.includes('tuan') && (rowFullText.includes('tiet') || rowFullText.includes('bai hoc') || rowFullText.includes('ten bai'))) {
+      // Bỏ qua dòng tiêu đề bảng
+      if (rowFullText.includes('tuan') && (rowFullText.includes('tiet') || rowFullText.includes('ten bai'))) {
         continue;
       }
 
-      // Nhận diện cột Tuần (thường nằm ở cột đầu tiên)
+      // Cập nhật số tuần nếu ô đầu tiên chứa số tuần hợp lệ
       const firstCellClean = (cellTexts[0] || '').replace(/\D/g, '');
       const potentialWeek = parseInt(firstCellClean, 10);
       if (!isNaN(potentialWeek) && potentialWeek >= 1 && potentialWeek <= 35) {
@@ -79,14 +82,23 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
       let matchedPeriodRaw = '';
       let matchedNoteRaw = '';
 
-      // Kiểm tra xem dòng này có chứa từ khóa của bài học không
       for (let i = 0; i < cellTexts.length; i++) {
         const txt = cellTexts[i];
         const normalizedCell = normalizeSearchText(txt);
+        if (!normalizedCell || normalizedCell.length < 2) continue;
 
-        if (!normalizedCell || normalizedCell.length < 3) continue;
+        // Ưu tiên khớp chính xác số bài nếu có (VD: dòng trong PPCT chứa "Bài 1" và đúng bài 1 đang xử lý)
+        if (targetLessonNum) {
+          const rowHasBaiNum = new RegExp(`\\bbai\\s*${targetLessonNum}\\b`, 'i').test(normalizedCell);
+          if (rowHasBaiNum) {
+            isMatched = true;
+            matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || cellTexts[0] || '';
+            matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
+            break;
+          }
+        }
 
-        // Đếm số lượng từ khóa trùng khớp giữa tên bài dạy và dòng trong PPCT
+        // Khớp theo từ khóa đặc trưng của tên bài
         let matchCount = 0;
         for (const token of keywordTokens) {
           if (normalizedCell.includes(token)) {
@@ -94,10 +106,8 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
           }
         }
 
-        // Nếu khớp từ 50% số từ khóa trở lên hoặc chứa trọn vẹn cụm từ chính
-        if ((keywordTokens.length > 0 && matchCount >= Math.min(2, keywordTokens.length)) || normalizedCell.includes(normalizedTarget)) {
+        if (keywordTokens.length > 0 && matchCount >= Math.max(1, Math.floor(keywordTokens.length * 0.7))) {
           isMatched = true;
-          // Dò tìm cột chứa số tiết (thường là cột đứng trước hoặc cột số 1, 2)
           matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || cellTexts[0] || '';
           matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
           break;
@@ -105,7 +115,6 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
       }
 
       if (isMatched) {
-        // Quét toàn bộ các con số xuất hiện trong dòng hoặc ô tiết để trích xuất chính xác các tiết học
         const searchPool = [matchedPeriodRaw, cellTexts[1], cellTexts[0]].join(' ');
         const periodMatches = searchPool.match(/\d{1,2}/g) || ['1'];
         const uniquePeriods = Array.from(new Set(periodMatches.map(p => parseInt(p, 10)))).filter(p => p > 0 && p <= 150).map(String);
@@ -117,7 +126,6 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
           noteFound = noteMatch[0].trim();
         }
 
-        // Phân tách ghi nhận theo tuần thực tế trong PPCT
         const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodStr);
         if (!exists) {
           schedules.push({
@@ -134,7 +142,7 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
-  // Nếu vẫn không khớp được dòng nào từ bảng PPCT, cố gắng tách dựa trên tên file hoặc cấu trúc mặc định phân bổ 2 tuần nếu bài có nhiều tiết
+  // Nếu file PPCT không khớp được dòng nào, mặc định phân bổ chuẩn 2 tuần cho bài 3 tiết
   if (schedules.length === 0) {
     schedules.push(
       { week: 1, periodDisplay: '1, 2', periodCount: 2, hasIntegration: false, requirement: '' },
