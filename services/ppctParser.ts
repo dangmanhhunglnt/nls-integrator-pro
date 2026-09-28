@@ -61,11 +61,6 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     const rowMatches = docXml.match(/<w:tr\b[^>]*>[\s\S]*?<\/w:tr>/gis) || [];
     let currentWeek = 1;
 
-    let colWeekIdx = 0;
-    let colPeriodIdx = 1; 
-    let colLessonIdx = 2; 
-    let colNoteIdx = 4;   
-
     for (const rowXml of rowMatches) {
       const cellMatches = rowXml.match(/<w:tc\b[^>]*>[\s\S]*?<\/w:tc>/gis) || [];
       if (cellMatches.length < 2) continue;
@@ -78,81 +73,66 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
       const rowFullText = normalizeSearchText(cellTexts.join(' '));
 
       if (rowFullText.includes('tuan') && (rowFullText.includes('tiet') || rowFullText.includes('bai hoc') || rowFullText.includes('ten bai'))) {
-        cellTexts.forEach((txt, idx) => {
-          const tNorm = normalizeSearchText(txt);
-          if (tNorm.includes('tuan')) colWeekIdx = idx;
-          else if (tNorm.includes('tiet')) colPeriodIdx = idx;
-          else if (tNorm.includes('bai hoc') || tNorm.includes('ten bai') || tNorm.includes('noi dung bai')) colLessonIdx = idx;
-          else if (tNorm.includes('ghi chu') || tNorm.includes('tich hop')) colNoteIdx = idx;
-        });
         continue;
       }
 
-      const firstCellClean = (cellTexts[colWeekIdx] || cellTexts[0] || '').replace(/\D/g, '');
+      const firstCellClean = (cellTexts[0] || '').replace(/\D/g, '');
       const potentialWeek = parseInt(firstCellClean, 10);
       if (!isNaN(potentialWeek) && potentialWeek >= 1 && potentialWeek <= 35) {
         currentWeek = potentialWeek;
       }
 
-      const rawPeriod = cellTexts[colPeriodIdx] || '';
-      const rawLessonName = cellTexts[colLessonIdx] || '';
-      const noteContent = cellTexts[colNoteIdx] || cellTexts[cellTexts.length - 1] || '';
-
-      const lessonNameLower = rawLessonName.toLowerCase().trim();
-      if (!lessonNameLower || lessonNameLower.length < 2) continue;
-
       let isMatched = false;
-      if (targetBaiNum) {
-        const rowBaiMatch = lessonNameLower.match(/(?:bài|b)\s*(\d+)/i);
-        if (rowBaiMatch && rowBaiMatch[1] === targetBaiNum) {
-          isMatched = true;
-        }
-      }
+      let matchedPeriodRaw = '';
+      let matchedNoteRaw = '';
 
-      if (!isMatched) {
+      for (let i = 0; i < cellTexts.length; i++) {
+        const txt = cellTexts[i];
+        const txtLower = txt.toLowerCase();
+
+        if (!txtLower || txtLower.length < 2) continue;
+
+        if (targetBaiNum) {
+          const rowBaiMatch = txtLower.match(/(?:bài|b)\s*(\d+)/i);
+          if (rowBaiMatch && rowBaiMatch[1] === targetBaiNum) {
+            isMatched = true;
+            matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || '';
+            matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
+            break;
+          }
+        }
+
         const coreTarget = formatCleanFilenamePart(extractedTitle || fileName);
-        const coreRow = formatCleanFilenamePart(rawLessonName);
+        const coreRow = formatCleanFilenamePart(txt);
         if (coreTarget.length >= 4 && coreRow.length >= 4 && (coreRow === coreTarget || coreRow.includes(coreTarget) || coreTarget.includes(coreRow))) {
           isMatched = true;
+          matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || '';
+          matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
+          break;
         }
       }
 
       if (isMatched) {
-        const periodCleanText = (rawPeriod || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        let periodMatches: string[] = [];
-        const rangeMatch = periodCleanText.match(/(\d+)\s*[-–]\s*(\d+)/);
-        if (rangeMatch) {
-          const start = parseInt(rangeMatch[1], 10);
-          const end = parseInt(rangeMatch[2], 10);
-          for (let p = start; p <= end; p++) {
-            periodMatches.push(String(p));
-          }
-        } else {
-          const nums = periodCleanText.match(/\d{1,2}/g);
-          if (nums) {
-            periodMatches = nums;
-          }
+        const searchPool = [matchedPeriodRaw, cellTexts[1], cellTexts[0]].join(' ');
+        const periodMatches = searchPool.match(/\d{1,2}/g) || ['1'];
+        const uniquePeriods = Array.from(new Set(periodMatches));
+        const periodStr = uniquePeriods.join(',');
+
+        let noteFound = '';
+        const noteMatch = matchedNoteRaw.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
+        if (noteMatch) {
+          noteFound = noteMatch[0].trim();
         }
-        
-        if (periodMatches && periodMatches.length > 0) {
-          const periodStr = periodMatches.join(',');
 
-          let noteFound = '';
-          const noteMatch = noteContent.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
-          if (noteMatch) {
-            noteFound = noteMatch[0].trim();
-          }
-
-          const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodStr);
-          if (!exists) {
-            schedules.push({
-              week: currentWeek,
-              periodDisplay: periodStr,
-              periodCount: periodMatches.length,
-              hasIntegration: Boolean(noteFound),
-              requirement: noteFound
-            });
-          }
+        const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodStr);
+        if (!exists) {
+          schedules.push({
+            week: currentWeek,
+            periodDisplay: periodStr,
+            periodCount: uniquePeriods.length,
+            hasIntegration: Boolean(noteFound),
+            requirement: noteFound
+          });
         }
       }
     }
@@ -160,10 +140,20 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
+  if (schedules.length === 0) {
+    schedules.push({
+      week: 1,
+      periodDisplay: '1,2,3',
+      periodCount: 3,
+      hasIntegration: false,
+      requirement: ''
+    });
+  }
+
   schedules.sort((a, b) => a.week - b.week);
 
   const allPeriodsJoined = schedules.map(s => s.periodDisplay).join(',');
-  const totalCalculatedPeriods = schedules.reduce((sum, s) => sum + s.periodCount, 0) || 1;
+  const totalCalculatedPeriods = schedules.reduce((sum, s) => sum + s.periodCount, 0) || 3;
 
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
@@ -192,7 +182,7 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     hasPPCT: true,
     lessonTitle: extractedTitle || fileName.replace(/\.docx$/i, ''),
     schedules,
-    allPeriods: allPeriodsJoined || '1',
+    allPeriods: allPeriodsJoined || '1,2,3',
     totalPeriods: totalCalculatedPeriods,
     isMultiWeek,
     weeksList: uniqueWeeks,
