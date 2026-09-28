@@ -268,12 +268,12 @@ export const injectContentIntoDocx = async (
 
             if (cleanLine) {
               xmlBlock += `<w:p>
-                             <w:pPr><w:ind w:left="720"/></w:pPr>
-                             <w:r>
-                               <w:rPr>${rPrBody}</w:rPr>
-                               <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                             </w:r>
-                           </w:p>`;
+                           <w:pPr><w:ind w:left="720"/></w:pPr>
+                           <w:r>
+                             <w:rPr>${rPrBody}</w:rPr>
+                             <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                           </w:r>
+                         </w:p>`;
             }
           });
 
