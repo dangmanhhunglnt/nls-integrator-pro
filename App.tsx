@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
+import { parsePPCTDirectFromZip } from './services/ppctParser';
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
@@ -307,7 +308,7 @@ const App: React.FC = () => {
     const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
     addLog(`⚙️ Chiến lược: ${modelName}`);
     addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
-    addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Den'}`);
+    addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
     try {
       const isChuyenDe = state.lessonCategory === 'CHUYEN_DE' || 
@@ -325,9 +326,59 @@ const App: React.FC = () => {
 
         let effectiveMode = mode;
         let effectiveStemTopic = stemTopic;
+        let ppctInfo: any = null;
 
         if (ppctFile) {
-          addLog(`📖 Đã nhận diện File PPCT đính kèm.`);
+          addLog(`📖 Đang bóc tách ma trận phân phối chương trình: ${ppctFile.name}...`);
+          ppctInfo = await parsePPCTDirectFromZip(ppctFile, textContext, currentFile.name);
+          addLog(`📋 Kết quả PPCT: Bài dạy gồm tổng ${ppctInfo.totalPeriods} tiết [Các tiết: ${ppctInfo.allPeriods}]`);
+
+          const cleanTitle = formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, ''));
+
+          if (ppctInfo.integrationType === 'NONE') {
+            addLog(`🧹 PPCT quy định: Tiết học truyền thống. Tự động xóa sạch 100% mục tiêu NLS/AI cũ ở giáo án gốc...`);
+
+            if (ppctInfo.schedules && ppctInfo.schedules.length > 1) {
+              addLog(`📦 Đang tự động phân tách thành ${ppctInfo.schedules.length} file riêng biệt ứng với các tiết theo PPCT...`);
+              const zipFiles: { name: string; blob: Blob }[] = [];
+
+              for (const schedule of ppctInfo.schedules) {
+                const periodNum = schedule.periodDisplay;
+                const weekNum = schedule.week;
+                const specificFileName = `${subjectPrefix}_Tuan_${weekNum}_Tiet_${periodNum}_${cleanTitle}.docx`;
+                const headerText = `${schedule.periodCount} (Tiết theo PPCT: ${periodNum})`;
+                const periodsArray = periodNum.split(',').map((p: string) => p.trim()).filter(Boolean);
+
+                const blobItem = await injectContentIntoDocx(
+                  currentFile,
+                  { objectives_addition: '', materials_addition: '', activities_enhancement: [], summary_table: [] },
+                  'NLS',
+                  addLog,
+                  highlightColor,
+                  headerText,
+                  periodsArray
+                );
+                zipFiles.push({ name: specificFileName, blob: blobItem });
+              }
+
+              const zipPackage = await createZipFromBlobs(zipFiles);
+              setState(prev => ({ 
+                ...prev, 
+                isProcessing: false, 
+                step: 'done', 
+                result: { fileName: `[GIAO-AN-TRUYEN-THONG-${cleanTitle}].zip`, blob: zipPackage },
+                logs: [...prev.logs, `✨ Đã tách thành công ${zipFiles.length} file riêng biệt cho từng tiết theo PPCT!`] 
+              }));
+              return;
+            }
+          }
+
+          if (ppctInfo.integrationType === 'STEM') {
+            effectiveMode = 'STEM' as any;
+            effectiveStemTopic = ppctInfo.requirementNote || 'Thiết kế mô hình & sản phẩm học tập STEM thực tế';
+          } else {
+            effectiveMode = ppctInfo.integrationType as any;
+          }
         } else {
           effectiveMode = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
         }
@@ -346,15 +397,72 @@ const App: React.FC = () => {
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
-        const cleanTitle = formatCleanFilenamePart(currentFile.name.replace(/\.docx$/i, ''));
+        if (ppctInfo && ppctInfo.schedules && ppctInfo.schedules.length > 1) {
+          const cleanTitle = formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, ''));
+          addLog(`📦 Đang tự động phân tách thành ${ppctInfo.schedules.length} file riêng biệt ứng với các tiết theo PPCT...`);
+
+          const zipFiles: { name: string; blob: Blob }[] = [];
+
+          for (const schedule of ppctInfo.schedules) {
+            const periodNum = schedule.periodDisplay;
+            const weekNum = schedule.week;
+            const specificFileName = `${subjectPrefix}_Tuan_${weekNum}_Tiet_${periodNum}_${cleanTitle}.docx`;
+            const headerText = `${ppctInfo.totalPeriods} (Tiết theo PPCT: ${periodNum})`;
+            const periodsArray = periodNum.split(',').map((p: string) => p.trim()).filter(Boolean);
+
+            const blobItem = await injectContentIntoDocx(
+              currentFile,
+              generatedContent,
+              effectiveMode as any,
+              addLog,
+              highlightColor,
+              headerText,
+              periodsArray
+            );
+
+            zipFiles.push({ name: specificFileName, blob: blobItem });
+          }
+
+          const zipPackage = await createZipFromBlobs(zipFiles);
+
+          if (user.plan !== 'PRO') {
+            const nextUsage = (user.usageCount || 0) + 1;
+            await supabase
+              .from('profiles')
+              .upsert({ 
+                id: user.uid, 
+                email: user.email, 
+                full_name: user.displayName, 
+                usage_count: nextUsage,
+                max_usage: user.maxUsage,
+                role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
+              });
+            setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
+          }
+
+          setState(prev => ({ 
+            ...prev, 
+            isProcessing: false, 
+            step: 'done', 
+            result: { fileName: `[GIAO-AN-TICH-HOP-${cleanTitle}].zip`, blob: zipPackage },
+            logs: [...prev.logs, `✨ Đã tạo trọn bộ ${zipFiles.length} file riêng biệt cho từng tiết thành công!`] 
+          }));
+          return;
+        }
+
+        const cleanTitle = ppctInfo ? formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, '')) : formatCleanFilenamePart(currentFile.name.replace(/\.docx$/i, ''));
         const singleFileName = `${subjectPrefix}_${cleanTitle}.docx`;
+        const headerText = ppctInfo ? `${ppctInfo.totalPeriods} (Tiết theo PPCT: ${ppctInfo.allPeriods})` : undefined;
+        const periodsArray = ppctInfo ? ppctInfo.allPeriods.split(/[,\s]+/).map((p: string) => p.trim()).filter(Boolean) : [];
 
         const finalBlob = await injectContentIntoDocx(
           currentFile,
           generatedContent,
           effectiveMode as any,
           addLog,
-          highlightColor
+          highlightColor,
+          headerText,
+          periodsArray
         );
 
         if (user.plan !== 'PRO') {
@@ -370,7 +478,6 @@ const App: React.FC = () => {
               role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
             });
           setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
-          addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
         }
 
         setState(prev => ({ 
@@ -394,8 +501,17 @@ const App: React.FC = () => {
         const fileText = await extractTextFromDocx(fileItem);
         let itemMode = mode;
         let itemStem = stemTopic;
+        let batchPPCT: any = null;
 
-        if (!ppctFile) {
+        if (ppctFile) {
+          batchPPCT = await parsePPCTDirectFromZip(ppctFile, fileText, fileItem.name);
+          if (batchPPCT.integrationType === 'STEM') {
+            itemMode = 'STEM' as any;
+            itemStem = batchPPCT.requirementNote || 'Chế tạo mô hình STEM';
+          } else {
+            itemMode = batchPPCT.integrationType as any;
+          }
+        } else {
           itemMode = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
         }
 
@@ -409,21 +525,45 @@ const App: React.FC = () => {
           itemStem
         );
 
-        const batchItemCleanTitle = formatCleanFilenamePart(fileItem.name.replace(/\.docx$/i, ''));
+        const batchItemCleanTitle = formatCleanFilenamePart(batchPPCT?.lessonTitle || fileItem.name.replace(/\.docx$/i, ''));
 
-        if (outputFormat === 'APPENDIX_ONLY') {
-          const appendixBlob = await createAppendixDocx(itemContent, state.subject, state.grade, itemMode as any);
-          outputBlobs.push({ name: (itemMode as string) === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`, blob: appendixBlob });
+        if (batchPPCT && batchPPCT.schedules && batchPPCT.schedules.length > 1) {
+          for (const schedule of batchPPCT.schedules) {
+            const periodNum = schedule.periodDisplay;
+            const weekNum = schedule.week;
+            const nameW = `${subjectPrefix}_Tuan_${weekNum}_Tiet_${periodNum}_${batchItemCleanTitle}.docx`;
+            const headerText = `${batchPPCT.totalPeriods} (Tiết theo PPCT: ${periodNum})`;
+            const wBlob = await injectContentIntoDocx(
+              fileItem,
+              itemContent,
+              itemMode as any,
+              addLog,
+              highlightColor,
+              headerText,
+              periodNum.split(',').map((p: string) => p.trim()).filter(Boolean)
+            );
+            outputBlobs.push({ name: nameW, blob: wBlob });
+          }
         } else {
-          const batchFileName = `${subjectPrefix}_${batchItemCleanTitle}.docx`;
-          const finalBlob = await injectContentIntoDocx(
-            fileItem, 
-            itemContent, 
-            itemMode as any, 
-            addLog, 
-            highlightColor
-          );
-          outputBlobs.push({ name: batchFileName, blob: finalBlob });
+          if (outputFormat === 'APPENDIX_ONLY') {
+            const appendixBlob = await createAppendixDocx(itemContent, state.subject, state.grade, itemMode as any);
+            outputBlobs.push({ name: (itemMode as string) === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`, blob: appendixBlob });
+          } else {
+            const batchFileName = `${subjectPrefix}_${batchItemCleanTitle}.docx`;
+            const headerText = batchPPCT ? `${batchPPCT.totalPeriods} (Tiết theo PPCT: ${batchPPCT.allPeriods})` : undefined;
+            const periodsArray = batchPPCT ? batchPPCT.allPeriods.split(/[,\s]+/).map((p: string) => p.trim()).filter(Boolean) : [];
+
+            const finalBlob = await injectContentIntoDocx(
+              fileItem, 
+              itemContent, 
+              itemMode as any, 
+              addLog, 
+              highlightColor,
+              headerText,
+              periodsArray
+            );
+            outputBlobs.push({ name: batchFileName, blob: finalBlob });
+          }
         }
 
         addLog(`✓ Đã hoàn thành [${i + 1}/${targetFiles.length}]: ${fileItem.name}`);
@@ -433,23 +573,6 @@ const App: React.FC = () => {
       const zipBlob = await createZipFromBlobs(outputBlobs);
       const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_${subjectPrefix}.zip`;
 
-      if (user.plan !== 'PRO') {
-        const nextUsage = (user.usageCount || 0) + targetFiles.length;
-        await supabase
-          .from('profiles')
-          .upsert({ 
-            id: user.uid, 
-            email: user.email, 
-            full_name: user.displayName, 
-            usage_count: nextUsage,
-            max_usage: user.maxUsage,
-            role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
-          });
-        setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
-        addLog(`⚡ Đã sử dụng lượt: ${nextUsage}/${user.maxUsage}`);
-      }
-
-      addLog(`✨ Đã đóng gói thành công tệp ZIP!`);
       setState(prev => ({ 
         ...prev, 
         isProcessing: false, 
