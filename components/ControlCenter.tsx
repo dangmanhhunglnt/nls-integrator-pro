@@ -141,7 +141,7 @@ export default function ControlCenter({
                             isStemActive 
                                 ? 'bg-emerald-600 text-white' 
                                 : 'bg-indigo-600 text-white animate-pulse'
-                            }`}>
+                        }`}>
                             {isStemActive ? 'ĐÃ BẬT' : 'MỚI'}
                         </span>
                         <span className="flex items-center gap-1.5">
@@ -465,23 +465,36 @@ export default function ControlCenter({
                         }`}>
                             <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
                                 {fileCount > 0 ? (
-                                    <div className="flex items-center gap-3 w-full px-2">
+                                    <div className="flex items-center gap-2 w-full px-2">
                                         <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
                                             {fileCount > 1 ? <Files className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                                         </div>
                                         <div className="min-w-0 flex-1 text-left">
                                             <div className="flex items-center gap-1.5">
-                                              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
-                                                {fileCount > 1 ? `Đã nạp ${fileCount} file` : 'Đã nạp 1 file'}
-                                              </span>
+                                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
+                                                    {fileCount > 1 ? `Đã nạp ${fileCount} file` : 'Đã nạp 1 file'}
+                                                </span>
                                             </div>
                                             <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
-                                              {fileCount > 1 ? state.files.map(f => f.name).join(', ') : state.file?.name}
+                                                {fileCount > 1 ? state.files.map(f => f.name).join(', ') : state.file?.name}
                                             </p>
                                         </div>
-                                        <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 shrink-0 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                                          <RefreshCw className="w-3 h-3" /> Đổi
-                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 cursor-pointer">
+                                                <RefreshCw className="w-3 h-3" /> Đổi
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setState(prev => ({ ...prev, file: null, files: [], result: null, generatedContent: null }));
+                                                }}
+                                                className="text-[10px] text-red-600 font-bold hover:bg-red-50 flex items-center gap-0.5 bg-white px-2 py-1 rounded-lg border border-red-200 cursor-pointer transition"
+                                                title="Xóa file giáo án"
+                                            >
+                                                ✕ Xóa
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <>
@@ -508,23 +521,39 @@ export default function ControlCenter({
                         }`}>
                             <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
                                 {selectedPpctName ? (
-                                    <div className="flex items-center gap-3 w-full px-2">
+                                    <div className="flex items-center gap-2 w-full px-2">
                                         <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
                                             <CheckCircle2 className="w-5 h-5" />
                                         </div>
                                         <div className="min-w-0 flex-1 text-left">
                                             <div className="flex items-center gap-1.5">
-                                              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
-                                                Đã nạp PPCT
-                                              </span>
+                                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
+                                                    Đã nạp PPCT
+                                                </span>
                                             </div>
                                             <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
-                                              {selectedPpctName}
+                                                {selectedPpctName}
                                             </p>
                                         </div>
-                                        <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 shrink-0 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                                          <RefreshCw className="w-3 h-3" /> Đổi
-                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 cursor-pointer">
+                                                <RefreshCw className="w-3 h-3" /> Đổi
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedPpctName('');
+                                                    if (handlePpctFileChange) {
+                                                        handlePpctFileChange(null);
+                                                    }
+                                                }}
+                                                className="text-[10px] text-red-600 font-bold hover:bg-red-50 flex items-center gap-0.5 bg-white px-2 py-1 rounded-lg border border-red-200 cursor-pointer transition"
+                                                title="Xóa file PPCT"
+                                            >
+                                                ✕ Xóa
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <>
