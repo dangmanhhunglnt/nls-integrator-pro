@@ -30,16 +30,6 @@ function normalizeSearchText(str: string): string {
     .trim();
 }
 
-function formatCleanFilenamePart(str: string): string {
-  return (str || '')
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '')
-    .trim();
-}
-
 export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fileName: string = ''): Promise<ParsedPPCTResult> {
   let extractedTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
@@ -47,9 +37,10 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     extractedTitle = titleMatch[1].trim();
   }
 
-  const combinedSource = (extractedTitle + ' ' + lessonDocText + ' ' + fileName).toLowerCase();
-  const baiMatch = combinedSource.match(/(?:bài|b)\s*(\d+)/i);
-  const targetBaiNum = baiMatch ? baiMatch[1] : '';
+  // Lấy các từ khóa chính từ tên file hoặc tên bài để tìm kiếm linh hoạt trong PPCT
+  const rawSearchName = extractedTitle || fileName.replace(/\.docx$/i, '');
+  const normalizedTarget = normalizeSearchText(rawSearchName);
+  const keywordTokens = normalizedTarget.split(' ').filter(w => w.length > 2); // Lấy các từ dài hơn 2 ký tự
 
   const schedules: PPCTLessonSchedule[] = [];
 
@@ -72,10 +63,12 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
 
       const rowFullText = normalizeSearchText(cellTexts.join(' '));
 
+      // Bỏ qua dòng tiêu đề bảng PPCT
       if (rowFullText.includes('tuan') && (rowFullText.includes('tiet') || rowFullText.includes('bai hoc') || rowFullText.includes('ten bai'))) {
         continue;
       }
 
+      // Nhận diện cột Tuần (thường nằm ở cột đầu tiên)
       const firstCellClean = (cellTexts[0] || '').replace(/\D/g, '');
       const potentialWeek = parseInt(firstCellClean, 10);
       if (!isNaN(potentialWeek) && potentialWeek >= 1 && potentialWeek <= 35) {
@@ -86,50 +79,51 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
       let matchedPeriodRaw = '';
       let matchedNoteRaw = '';
 
+      // Kiểm tra xem dòng này có chứa từ khóa của bài học không
       for (let i = 0; i < cellTexts.length; i++) {
         const txt = cellTexts[i];
-        const txtLower = txt.toLowerCase();
+        const normalizedCell = normalizeSearchText(txt);
 
-        if (!txtLower || txtLower.length < 2) continue;
+        if (!normalizedCell || normalizedCell.length < 3) continue;
 
-        if (targetBaiNum) {
-          const rowBaiMatch = txtLower.match(/(?:bài|b)\s*(\d+)/i);
-          if (rowBaiMatch && rowBaiMatch[1] === targetBaiNum) {
-            isMatched = true;
-            matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || '';
-            matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
-            break;
+        // Đếm số lượng từ khóa trùng khớp giữa tên bài dạy và dòng trong PPCT
+        let matchCount = 0;
+        for (const token of keywordTokens) {
+          if (normalizedCell.includes(token)) {
+            matchCount++;
           }
         }
 
-        const coreTarget = formatCleanFilenamePart(extractedTitle || fileName);
-        const coreRow = formatCleanFilenamePart(txt);
-        if (coreTarget.length >= 4 && coreRow.length >= 4 && (coreRow === coreTarget || coreRow.includes(coreTarget) || coreTarget.includes(coreRow))) {
+        // Nếu khớp từ 50% số từ khóa trở lên hoặc chứa trọn vẹn cụm từ chính
+        if ((keywordTokens.length > 0 && matchCount >= Math.min(2, keywordTokens.length)) || normalizedCell.includes(normalizedTarget)) {
           isMatched = true;
-          matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || '';
+          // Dò tìm cột chứa số tiết (thường là cột đứng trước hoặc cột số 1, 2)
+          matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || cellTexts[0] || '';
           matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
           break;
         }
       }
 
       if (isMatched) {
+        // Quét toàn bộ các con số xuất hiện trong dòng hoặc ô tiết để trích xuất chính xác các tiết học
         const searchPool = [matchedPeriodRaw, cellTexts[1], cellTexts[0]].join(' ');
         const periodMatches = searchPool.match(/\d{1,2}/g) || ['1'];
-        const uniquePeriods = Array.from(new Set(periodMatches));
-        const periodStr = uniquePeriods.join(',');
+        const uniquePeriods = Array.from(new Set(periodMatches.map(p => parseInt(p, 10)))).filter(p => p > 0 && p <= 150).map(String);
+        const periodStr = uniquePeriods.length > 0 ? uniquePeriods.join(',') : '1';
 
         let noteFound = '';
-        const noteMatch = matchedNoteRaw.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]+|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
+        const noteMatch = matchedNoteRaw.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]*|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
         if (noteMatch) {
           noteFound = noteMatch[0].trim();
         }
 
+        // Phân tách ghi nhận theo tuần thực tế trong PPCT
         const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodStr);
         if (!exists) {
           schedules.push({
             week: currentWeek,
             periodDisplay: periodStr,
-            periodCount: uniquePeriods.length,
+            periodCount: uniquePeriods.length || 1,
             hasIntegration: Boolean(noteFound),
             requirement: noteFound
           });
@@ -140,14 +134,12 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
+  // Nếu vẫn không khớp được dòng nào từ bảng PPCT, cố gắng tách dựa trên tên file hoặc cấu trúc mặc định phân bổ 2 tuần nếu bài có nhiều tiết
   if (schedules.length === 0) {
-    schedules.push({
-      week: 1,
-      periodDisplay: '1,2,3',
-      periodCount: 3,
-      hasIntegration: false,
-      requirement: ''
-    });
+    schedules.push(
+      { week: 1, periodDisplay: '1, 2', periodCount: 2, hasIntegration: false, requirement: '' },
+      { week: 2, periodDisplay: '3', periodCount: 1, hasIntegration: false, requirement: '' }
+    );
   }
 
   schedules.sort((a, b) => a.week - b.week);
@@ -180,7 +172,7 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
 
   return {
     hasPPCT: true,
-    lessonTitle: extractedTitle || fileName.replace(/\.docx$/i, ''),
+    lessonTitle: extractedTitle || rawSearchName,
     schedules,
     allPeriods: allPeriodsJoined || '1,2,3',
     totalPeriods: totalCalculatedPeriods,
