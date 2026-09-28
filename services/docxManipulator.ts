@@ -15,7 +15,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\Vert{}AI\Vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):).*?<\/w:p>/gis, '');
@@ -36,6 +36,9 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeText = escapeXml(ppctInfoText);
 
+  // Xóa bỏ hoàn toàn các khung bảng (<w:tbl>) thừa nằm ở phần đầu giáo án gây lỗi khung xám
+  result = result.replace(/<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>/gi, '');
+
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Số tiết)[\s\S]*?<\/w:p>/gi;
   let firstMatch = true;
   result = result.replace(pRegex, (matchP) => {
@@ -52,17 +55,20 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
         pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
       }
 
+      // Xóa bỏ nền xám hoặc shading cũ nếu có trong đoạn văn
+      pXml = pXml.replace(/<w:shd\b[^>]*\/>/gi, '');
+
       let isFirstText = true;
       pXml = pXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
         if (isFirstText) {
           isFirstText = false;
-          return `<w:t xml:space="preserve">${safeText}</w:t>`;
+          return `<w:t xml:space="preserve">Thời gian thực hiện: ${safeText}</w:t>`;
         }
         return `<w:t></w:t>`;
       });
       return pXml;
     }
-    return matchP.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gi, '<w:t></w:t>');
+    return ''; // Xóa các dòng trùng lặp thừa thãi phía dưới
   });
 
   const cellRegex = /<w:tc\b[^>]*>[\s\S]*?(?:Số tiết|Tiết theo PPCT|Tiết PPCT)[\s\S]*?<\/w:tc>/gi;
@@ -71,7 +77,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     return cellXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
       if (isFirstCellText) {
         isFirstCellText = false;
-        return `<w:t xml:space="preserve">${safeText}</w:t>`;
+        return `<w:t xml:space="preserve">Thời gian thực hiện: ${safeText}</w:t>`;
       }
       return `<w:t></w:t>`;
     });
