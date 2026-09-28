@@ -62,7 +62,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     extractedTitle = titleMatch[1].trim();
   }
 
-  // TRích xuất số bài cực kỳ linh hoạt từ cả tên file, nội dung và tiêu đề
   const combinedSource = (extractedTitle + ' ' + lessonDocText + ' ' + fileName).toLowerCase();
   const baiMatch = combinedSource.match(/(?:bài|b)\s*(\d+)/i);
   const targetBaiNum = baiMatch ? baiMatch[1] : '';
@@ -78,9 +77,9 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     let currentWeek = 1;
 
     let colWeekIdx = 0;
-    let colPeriodIdx = 1; // Cột Tiết
-    let colLessonIdx = 2; // Cột Tên bài học
-    let colNoteIdx = 4;   // Cột Ghi chú
+    let colPeriodIdx = 1; 
+    let colLessonIdx = 2; 
+    let colNoteIdx = 4;   
 
     for (const rowXml of rowMatches) {
       const cellMatches = rowXml.match(/<w:tc\b[^>]*>[\s\S]*?<\/w:tc>/gis) || [];
@@ -119,14 +118,12 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
 
       let isMatched = false;
       if (targetBaiNum) {
-        // Khớp chính xác số bài (VD: bài 2, b2) trong tên dòng của bảng PPCT
         const rowBaiMatch = lessonNameLower.match(/(?:bài|b)\s*(\d+)/i);
         if (rowBaiMatch && rowBaiMatch[1] === targetBaiNum) {
           isMatched = true;
         }
       }
 
-      // Nếu không bắt được theo số bài, thử khớp theo từ khóa tiêu đề
       if (!isMatched) {
         const coreTarget = formatCleanFilenamePart(extractedTitle || fileName);
         const coreRow = formatCleanFilenamePart(rawLessonName);
@@ -135,7 +132,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
         }
       }
 
-      // NẾU KHỚP, LẤY CHÍNH XÁC SỐ TIẾT TỪ CỘT TIẾT CỦA BẢNG PPCT (VD: TIẾT 2, TIẾT 3)
       if (isMatched) {
         const periodCleanText = (rawPeriod || "").replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const periodNumMatch = periodCleanText.match(/\d{1,2}/);
@@ -166,7 +162,6 @@ async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fil
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
-  // Sắp xếp các tiết theo thứ tự tăng dần (ví dụ: tiết 2, rồi đến tiết 3)
   schedules.sort((a, b) => parseInt(a.periodDisplay, 10) - parseInt(b.periodDisplay, 10));
 
   const allPeriodsJoined = schedules.map(s => s.periodDisplay).join(',');
@@ -499,7 +494,7 @@ const App: React.FC = () => {
 
       const gradeNum = (state.grade || '11').replace(/\D/g, '');
       const subjectPrefix = isChuyenDe 
-        ? `CD${gradeNum}` // Đổi từ CĐ thành CD không dấu
+        ? `CD${gradeNum}` 
         : formatCleanFilenamePart(`${state.subject || 'Mon'}${state.grade || ''}`);
 
       if (targetFiles.length === 1) {
@@ -521,13 +516,13 @@ const App: React.FC = () => {
           if (ppctInfo.integrationType === 'NONE') {
             addLog(`🧹 PPCT quy định: Tiết học truyền thống. Tự động xóa sạch 100% mục tiêu NLS/AI cũ ở giáo án gốc...`);
 
+            // CHỈ ÁP DỤNG TÁCH FILE RIÊNG NẾU LÀ CHUYÊN ĐỀ VÀ CÓ NHIỀU TIẾT/LỊCH TRÌNH
             if (isChuyenDe && ppctInfo.schedules && ppctInfo.schedules.length > 0) {
-              addLog(`📦 Đang tự động tách và nhân bản thành ${ppctInfo.schedules.length} file riêng biệt cho từng tiết...`);
+              addLog(`📦 Đang tự động tách và nhân bản thành ${ppctInfo.schedules.length} file riêng biệt cho từng tiết chuyên đề...`);
               const zipFiles: { name: string; blob: Blob }[] = [];
 
               for (const schedule of ppctInfo.schedules) {
                 const periodNum = schedule.periodDisplay;
-                // SỬ DỤNG TIỀN TỐ TIET (KHÔNG DẤU) ĐỂ TRÁNH LỖI MÃ HÓA TÊN FILE TRÊN WORD
                 const specificFileName = `${subjectPrefix}_Tiet_${periodNum}_${cleanTitle}.docx`;
                 const headerText = `Thời gian thực hiện: 01 tiết (Tiết theo PPCT: ${periodNum})`;
                 const periodsArray = [periodNum];
@@ -550,11 +545,12 @@ const App: React.FC = () => {
                 isProcessing: false, 
                 step: 'done', 
                 result: { fileName: `[CHUYEN-DE-TIET-${cleanTitle}].zip`, blob: zipPackage },
-                logs: [...prev.logs, `✨ Đã tách và nhân bản thành công ${zipFiles.length} file riêng biệt cho từng tiết!`] 
+                logs: [...prev.logs, `✨ Đã tách và nhân bản thành công ${zipFiles.length} file riêng biệt cho từng tiết chuyên đề!`] 
               }));
               return;
             }
 
+            // CHÍNH KHÓA: GIỮ NGUYÊN 1 FILE DUY NHẤT
             const periodsArray = ppctInfo.allPeriods.split(/[,\s]+/).map(p => p.trim()).filter(Boolean);
             const cleanBlob = await injectContentIntoDocx(
               currentFile, 
@@ -566,9 +562,7 @@ const App: React.FC = () => {
               periodsArray
             );
 
-            const singleFileName = isChuyenDe
-              ? `${subjectPrefix}_Tiet_${ppctInfo.allPeriods.replace(/[^0-9]/g, '_')}_${cleanTitle}.docx`
-              : `${subjectPrefix}_Tiet_${ppctInfo.allPeriods}_${cleanTitle}.docx`;
+            const singleFileName = `${subjectPrefix}_Tiet_${ppctInfo.allPeriods}_${cleanTitle}.docx`;
 
             setState(prev => ({
               ...prev,
@@ -606,6 +600,7 @@ const App: React.FC = () => {
         );
         addLog(`✓ Hoàn tất thiết kế.`);
 
+        // NẾU LÀ CHUYÊN ĐỀ VÀ CÓ PPCT -> TÁCH VÀ NHÂN BẢN THÀNH CÁC FILE ĐỘC LẬP
         if (isChuyenDe && ppctInfo && ppctInfo.schedules && ppctInfo.schedules.length > 0) {
           const cleanTitle = formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, ''));
           addLog(`📦 Đang nhân bản thành ${ppctInfo.schedules.length} file riêng biệt cho từng tiết chuyên đề...`);
@@ -614,7 +609,6 @@ const App: React.FC = () => {
 
           for (const schedule of ppctInfo.schedules) {
             const periodNum = schedule.periodDisplay;
-            // DÙNG TIỀN TỐ TIET (KHÔNG DẤU) CHO TÊN FILE XUẤT RA
             const specificFileName = `${subjectPrefix}_Tiet_${periodNum}_${cleanTitle}.docx`;
             const headerText = `Thời gian thực hiện: 01 tiết (Tiết theo PPCT: ${periodNum})`;
             const periodsArray = [periodNum];
@@ -660,10 +654,9 @@ const App: React.FC = () => {
           return;
         }
 
+        // CHÍNH KHÓA: XUẤT 1 FILE DUY NHẤT NHƯ CŨ
         const cleanTitle = ppctInfo ? formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, '')) : formatCleanFilenamePart(currentFile.name.replace(/\.docx$/i, ''));
-        const singleFileName = isChuyenDe 
-          ? `${subjectPrefix}_Tiet_${ppctInfo ? ppctInfo.allPeriods.replace(/[^0-9]/g, '_') : '1'}_${cleanTitle}.docx`
-          : `${subjectPrefix}_Tiet_${ppctInfo ? ppctInfo.allPeriods : '1'}_${cleanTitle}.docx`;
+        const singleFileName = `${subjectPrefix}_Tiet_${ppctInfo ? ppctInfo.allPeriods : '1'}_${cleanTitle}.docx`;
 
         const periodsArray = ppctInfo ? ppctInfo.allPeriods.split(/[,\s]+/).map(p => p.trim()).filter(Boolean) : [];
         const finalBlob = await injectContentIntoDocx(
@@ -760,9 +753,7 @@ const App: React.FC = () => {
               batchPPCT ? `Thời gian thực hiện: 0${batchPPCT.totalPeriods} tiết (Tiết theo PPCT: ${batchPPCT.allPeriods.replace(',', ', ')})` : undefined,
               batchPeriodsArray
             );
-            const batchFileName = isChuyenDe
-              ? `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods.replace(/[^0-9]/g, '_') : '1'}_${batchItemCleanTitle}.docx`
-              : `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods : '1'}_${batchItemCleanTitle}.docx`;
+            const batchFileName = `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods : '1'}_${batchItemCleanTitle}.docx`;
 
             outputBlobs.push({ name: batchFileName, blob: cleanBlob });
           }
@@ -797,9 +788,7 @@ const App: React.FC = () => {
               const appendixBlob = await createAppendixDocx(itemContent, state.subject, state.grade, itemMode as any);
               outputBlobs.push({ name: (itemMode as string) === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`, blob: appendixBlob });
             } else {
-              const batchFileName = isChuyenDe
-                ? `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods.replace(/[^0-9]/g, '_') : '1'}_${batchItemCleanTitle}.docx`
-                : `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods : '1'}_${batchItemCleanTitle}.docx`;
+              const batchFileName = `${subjectPrefix}_Tiet_${batchPPCT ? batchPPCT.allPeriods : '1'}_${batchItemCleanTitle}.docx`;
 
               const finalBlob = await injectContentIntoDocx(
                 fileItem, 
