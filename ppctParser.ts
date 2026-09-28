@@ -40,9 +40,6 @@ function formatCleanFilenamePart(str: string): string {
     .trim();
 }
 
-/**
- * Hàm phân tích file PPCT (.docx) độc lập, chuyên nghiệp và an toàn tuyệt đối
- */
 export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fileName: string = ''): Promise<ParsedPPCTResult> {
   let extractedTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);

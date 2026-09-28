@@ -2,9 +2,6 @@ import PizZip from 'pizzip';
 import mammoth from 'mammoth';
 import { GeneratedNLSContent, IntegrationMode, HighlightColor } from '../types';
 
-/**
- * 1. HÀM ĐỌC VĂN BẢN TỪ FILE WORD (.DOCX)
- */
 export async function extractTextFromDocx(file: File): Promise<string> {
   try {
     const arrayBuffer = await file.arrayBuffer();
@@ -16,31 +13,16 @@ export async function extractTextFromDocx(file: File): Promise<string> {
   }
 }
 
-/**
- * 2. HÀM QUÉT SẠCH NLS/AI CŨ (AN TOÀN XML 100%)
- */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
-
-  // 1. Quét sạch các đoạn rác [NLS], [AI], [STEM]
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\Vert{}AI\Vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
-
-  // 2. Quét sạch các chỉ thị tích hợp trong các hoạt động
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
-
-  // 3. Quét sạch các đoạn liệt kê Năng lực số cũ
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):).*?<\/w:p>/gis, '');
-
-  // 4. Xóa bảng tổng hợp NLS/AI cũ ở cuối bài nếu có
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
-
   return cleaned;
 }
 
-/**
- * 3. HÀM DỌN DẸP TIÊU ĐỀ CHIA TIẾT CŨ ĐỂ TRÁNH LỆCH VÀ TRÙNG LẶP SỐ TIẾT
- */
 export function removeOldPeriodHeaders(xmlContent: string): string {
   let cleaned = xmlContent;
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\bTIẾT\s+\d+[\s\S]*?<\/w:p>/gis, '');
@@ -48,9 +30,6 @@ export function removeOldPeriodHeaders(xmlContent: string): string {
   return cleaned;
 }
 
-/**
- * 4. HÀM CẬP NHẬT TIÊU ĐỀ PPCT AN TOÀN TUYỆT ĐỐI CHO BẢNG WORD
- */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
 
@@ -101,9 +80,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   return result;
 }
 
-/**
- * 5. HÀM TỰ ĐỘNG CẮM MỐC RANH GIỚI TIẾT ĐỒNG NHẤT 100% VỚI SỐ TIẾT PPCT
- */
 export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (number | string)[]): string {
   if (!periodsList || periodsList.length === 0) return xmlContent;
 
@@ -160,9 +136,6 @@ export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (nu
   return result;
 }
 
-/**
- * 6. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (ĐÃ VÁ LỖI XML AN TOÀN)
- */
 export const injectContentIntoDocx = async (
   file: File,
   content: GeneratedNLSContent,
@@ -185,15 +158,12 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. Quét sạch toàn bộ nội dung cũ
         docXml = cleanExistingNLSContent(docXml);
 
-        // 2. Cập nhật thông tin PPCT an toàn
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
-        // 3. Cắm mốc ranh giới tiết đồng nhất
         if (allPeriodsList && allPeriodsList.length > 0) {
           docXml = injectStandardPeriodMarkers(docXml, allPeriodsList);
         }
@@ -563,9 +533,6 @@ export const injectContentIntoDocx = async (
   });
 };
 
-/**
- * 7. HÀM TẠO FILE PHỤ LỤC RIÊNG
- */
 export const createAppendixDocx = async (
   content: GeneratedNLSContent,
   subject: string,
@@ -646,9 +613,6 @@ export const createAppendixDocx = async (
   return zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" });
 };
 
-/**
- * 8. HÀM ĐÓNG GÓI NHIỀU FILE THÀNH TỆP ZIP
- */
 export const createZipFromBlobs = async (
   files: { name: string; blob: Blob }[]
 ): Promise<Blob> => {
