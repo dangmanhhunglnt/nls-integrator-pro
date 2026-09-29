@@ -114,7 +114,6 @@ export const injectContentIntoDocx = async (
 ): Promise<Blob> => {
   return new Promise(async (resolve, reject) => {
     try {
-      // Đọc trực tiếp văn bản từ file gốc của thầy để giữ lại toàn bộ nội dung gốc
       const originalText = await extractTextFromDocx(file);
 
       const zip = new PizZip();
@@ -154,7 +153,6 @@ export const injectContentIntoDocx = async (
         });
       }
 
-      // Chuyển đổi văn bản gốc thành các đoạn XML an toàn để ghép vào document
       const originalParagraphsXml = originalText
         .split('\n')
         .map(p => p.trim())
@@ -208,8 +206,22 @@ export const injectContentIntoDocx = async (
           </w:body>
         </w:document>`;
 
-      zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/vnd.openxmlformats-package.relationships+xml"/></Types>`);
-      zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+      // Đầy đủ các tệp tiêu chuẩn OpenXML bắt buộc để Microsoft Word nhận diện và mở trực tiếp
+      zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+          <Default Extension="xml" ContentType="application/xml"/>
+          <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+        </Types>`);
+
+      zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+          <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+        </Relationships>`);
+
+      zip.file("word/_rels/document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <Relationships xmlns="http://schemas.openxmlformats.org/relationships/2006/relationships"/>`);
+
       zip.file("word/document.xml", fullDocXml);
 
       const out = zip.generate({ type: "uint8array", compression: "DEFLATE" });
