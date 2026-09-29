@@ -638,8 +638,8 @@ export const createZipFromBlobs = async (
   const zip = new PizZip();
   for (const item of files) {
     const arrayBuffer = await item.blob.arrayBuffer();
-    // Thêm từng file vào PizZip với định dạng kiểu nhị phân (binary/uint8array) để đảm bảo không bị lỗi cấu trúc
-    zip.file(item.name, new Uint8Array(arrayBuffer));
+    // Bắt buộc phải có { binary: true } để PizZip xử lý chính xác định dạng nhị phân của file Word
+    zip.file(item.name, arrayBuffer, { binary: true });
   }
   return zip.generate({
     type: "blob",
