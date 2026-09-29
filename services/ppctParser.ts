@@ -6,6 +6,7 @@ export interface PPCTLessonSchedule {
   periodCount: number;
   hasIntegration: boolean;
   requirement: string;
+  integrationMode?: 'NONE' | 'STEM' | 'NLS_AI' | 'NLS' | 'NAI';
 }
 
 export interface ParsedPPCTResult {
@@ -20,16 +21,6 @@ export interface ParsedPPCTResult {
   requirementNote: string;
 }
 
-function normalizeSearchText(str: string): string {
-  return (str || '')
-    .toLowerCase()
-    .normalize("NFD") // Chuẩn hóa Unicode tách dấu tiếng Việt
-    .replace(/[\u0300-\u036f]/g, "") // Xóa toàn bộ các dấu thanh (sắc, hỏi, ngã, nặng, huyền...) để so sánh gốc chữ
-    .replace(/[^a-z0-9\s]/g, ' ') // Thay thế mọi ký tự đặc biệt, dấu câu, gạch ngang thành khoảng trắng
-    .replace(/\s+/g, ' ') // Gom tất cả các khoảng trắng thừa (dù là 2 hay nhiều dấu cách) thành 1 dấu cách duy nhất
-    .trim();
-}
-
 export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: string, fileName: string = ''): Promise<ParsedPPCTResult> {
   let extractedTitle = '';
   const titleMatch = lessonDocText.match(/(?:TÊN BÀI DẠY:\s*|BÀI\s+\d+[\.:]?\s*)([^\n\r]+)/i);
@@ -37,18 +28,9 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     extractedTitle = titleMatch[1].trim();
   }
 
-  const rawSearchName = extractedTitle || fileName.replace(/\.docx$/i, '');
-  const normalizedTarget = normalizeSearchText(rawSearchName);
-  
-  // Lọc lấy tên cốt lõi của bài học, loại bỏ từ khóa phụ như "bài", "chương"
-  let coreLessonName = normalizedTarget
-    .replace(/bai\s*[0-9]+/i, '')
-    .replace(/chuong\s*[0-9]+/i, '')
-    .trim();
-  
-  if (!coreLessonName) {
-    coreLessonName = normalizedTarget;
-  }
+  // Lấy tên bài sạch từ giáo án hoặc tên file (giữ nguyên dấu tiếng Việt để so sánh chính xác tuyệt đối)
+  const rawLessonName = (extractedTitle || fileName.replace(/\.docx$/i, '')).toLowerCase().trim();
+  const cleanLessonName = rawLessonName.replace(/bài\s*\d+[\.:]?\s*/i, '').trim();
 
   const schedules: PPCTLessonSchedule[] = [];
 
@@ -69,14 +51,13 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
         return textNodes.map(t => t.replace(/<[^>]+>/g, '')).join('').trim();
       });
 
-      const rowFullText = normalizeSearchText(cellTexts.join(' '));
+      const rowFullText = cellTexts.join(' ').toLowerCase();
 
-      // Bỏ qua dòng tiêu đề bảng
-      if (rowFullText.includes('tuan') && (rowFullText.includes('tiet') || rowFullText.includes('ten bai'))) {
+      if (rowFullText.includes('tuần') && (rowFullText.includes('tiết') || rowFullText.includes('tên bài'))) {
         continue;
       }
 
-      // Cập nhật số tuần từ cột đầu tiên
+      // Nhận diện số tuần từ cột đầu tiên
       const firstCellClean = (cellTexts[0] || '').replace(/\D/g, '');
       const potentialWeek = parseInt(firstCellClean, 10);
       if (!isNaN(potentialWeek) && potentialWeek >= 1 && potentialWeek <= 35) {
@@ -88,31 +69,37 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
       let matchedNoteRaw = '';
 
       for (let i = 0; i < cellTexts.length; i++) {
-        const txt = cellTexts[i];
-        const normalizedCell = normalizeSearchText(txt);
-        if (!normalizedCell || normalizedCell.length < 3) continue;
+        const cellStr = cellTexts[i].toLowerCase();
+        if (cellStr.length < 3) continue;
 
-        // Khớp chính xác cụm từ tên bài (ví dụ: "cong thuc luong giac")
-        // Tránh khớp nhầm với "gia tri luong giac" hoặc "ham so luong giac"
-        if (normalizedCell.includes(coreLessonName) || coreLessonName.includes(normalizedCell)) {
+        // So khớp chính xác tên bài học trong bảng PPCT
+        if (cellStr.includes(cleanLessonName) || cleanLessonName.includes(cellStr)) {
           isMatched = true;
-          matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || cellTexts[0] || '';
-          matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
+          matchedPeriodRaw = cellTexts[1] || cellTexts[0] || '';
+          matchedNoteRaw = cellTexts.slice(3).join(' ') || cellTexts[2] || '';
           break;
         }
       }
 
       if (isMatched) {
-        const searchPool = [matchedPeriodRaw, cellTexts[1], cellTexts[0]].join(' ');
-        // Chỉ trích xuất các số tiết xuất hiện thực tế trong ô (ví dụ: "5" hoặc "7,8")
-        const periodMatches = searchPool.match(/\d{1,2}/g) || ['1'];
+        const periodMatches = matchedPeriodRaw.match(/\d{1,2}/g) || [];
         const uniquePeriods = Array.from(new Set(periodMatches.map(p => parseInt(p, 10)))).filter(p => p > 0 && p <= 150).map(String);
-        const periodStr = uniquePeriods.length > 0 ? uniquePeriods.join(',') : '1';
+        
+        if (uniquePeriods.length === 0) continue;
+        const periodStr = uniquePeriods.join(',');
 
-        let noteFound = '';
-        const noteMatch = matchedNoteRaw.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]*|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
-        if (noteMatch) {
-          noteFound = noteMatch[0].trim();
+        let noteFound = matchedNoteRaw.trim();
+        const noteUpper = noteFound.toUpperCase();
+        
+        let rowIntegrationType: 'NONE' | 'STEM' | 'NLS_AI' | 'NLS' | 'NAI' = 'NONE';
+        if (noteUpper.includes('STEM')) {
+          rowIntegrationType = 'STEM';
+        } else if ((noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ')) && noteUpper.includes('AI')) {
+          rowIntegrationType = 'NLS_AI';
+        } else if (noteUpper.includes('AI')) {
+          rowIntegrationType = 'NAI';
+        } else if (noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA') || noteUpper.includes('DESMOS')) {
+          rowIntegrationType = 'NLS';
         }
 
         const exists = schedules.some(s => s.week === currentWeek && s.periodDisplay === periodStr);
@@ -120,62 +107,62 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
           schedules.push({
             week: currentWeek,
             periodDisplay: periodStr,
-            periodCount: uniquePeriods.length || 1,
-            hasIntegration: Boolean(noteFound),
-            requirement: noteFound
+            periodCount: uniquePeriods.length,
+            hasIntegration: rowIntegrationType !== 'NONE',
+            requirement: noteFound,
+            integrationMode: rowIntegrationType
           });
         }
       }
     }
   } catch (err) {
-    console.error("Lỗi parse cấu trúc bảng PPCT:", err);
+    console.error("Lỗi parse PPCT:", err);
   }
 
-  // Fallback mặc định đúng 2 tuần (Tiết 5 ở tuần 2 và Tiết 7,8 ở tuần 3) nếu không bắt được
+  // Nếu không tìm thấy trong bảng PPCT, tự động đọc số tiết thực tế từ file giáo án
   if (schedules.length === 0) {
-    schedules.push(
-      { week: 2, periodDisplay: '5', periodCount: 1, hasIntegration: false, requirement: '' },
-      { week: 3, periodDisplay: '7,8', periodCount: 2, hasIntegration: false, requirement: '' }
-    );
+    const totalMatch = lessonDocText.match(/(?:Số tiết dạy|Số tiết):\s*(\d+)/i);
+    const totalNum = totalMatch ? parseInt(totalMatch[1], 10) : 3;
+    
+    if (totalNum <= 2) {
+      schedules.push(
+        { week: 1, periodDisplay: '1', periodCount: 1, hasIntegration: false, requirement: '', integrationMode: 'NONE' },
+        { week: 2, periodDisplay: '2', periodCount: 1, hasIntegration: false, requirement: '', integrationMode: 'NONE' }
+      );
+    } else {
+      const half = Math.ceil(totalNum / 2);
+      schedules.push(
+        { week: 1, periodDisplay: Array.from({length: half}, (_, i) => i + 1).join(','), periodCount: half, hasIntegration: false, requirement: '', integrationMode: 'NONE' },
+        { week: 2, periodDisplay: Array.from({length: totalNum - half}, (_, i) => half + i + 1).join(','), periodCount: totalNum - half, hasIntegration: false, requirement: '', integrationMode: 'NONE' }
+      );
+    }
   }
 
   schedules.sort((a, b) => a.week - b.week);
 
   const allPeriodsJoined = schedules.map(s => s.periodDisplay).join(',');
   const totalCalculatedPeriods = schedules.reduce((sum, s) => sum + s.periodCount, 0) || 3;
-
   const uniqueWeeks = Array.from(new Set(schedules.map(s => s.week))).sort((a, b) => a - b);
   const isMultiWeek = uniqueWeeks.length > 1;
 
   const fullRequirement = schedules.map(s => s.requirement).filter(Boolean).join('; ');
-  const noteUpper = fullRequirement.toUpperCase();
-  let integrationType: 'NONE' | 'STEM' | 'NLS_AI' | 'NLS' | 'NAI' = 'NONE';
-
-  if (noteUpper.includes('STEM')) {
-    integrationType = 'STEM';
-  } else if ((noteUpper.includes('NLS') || noteUpper.includes('NĂNG LỰC SỐ') || noteUpper.includes('GEOGEBRA')) && noteUpper.includes('AI')) {
-    integrationType = 'NLS_AI';
-  } else if (noteUpper.includes('AI')) {
-    integrationType = 'NAI';
-  } else if (
-    noteUpper.includes('NLS') || 
-    noteUpper.includes('NĂNG LỰC SỐ') || 
-    noteUpper.includes('GEOGEBRA') || 
-    noteUpper.includes('DESMOS') || 
-    noteUpper.includes('EXCEL')
-  ) {
-    integrationType = 'NLS';
+  const hasAnyIntegration = schedules.some(s => s.hasIntegration);
+  
+  let overallIntegrationType: 'NONE' | 'STEM' | 'NLS_AI' | 'NLS' | 'NAI' = 'NONE';
+  if (hasAnyIntegration) {
+    const firstActive = schedules.find(s => s.integrationMode && s.integrationMode !== 'NONE');
+    overallIntegrationType = firstActive?.integrationMode || 'NLS';
   }
 
   return {
     hasPPCT: true,
-    lessonTitle: extractedTitle || rawSearchName,
+    lessonTitle: extractedTitle || rawLessonName,
     schedules,
     allPeriods: allPeriodsJoined || '5,7,8',
     totalPeriods: totalCalculatedPeriods,
     isMultiWeek,
     weeksList: uniqueWeeks,
-    integrationType,
+    integrationType: overallIntegrationType,
     requirementNote: fullRequirement
   };
 }
