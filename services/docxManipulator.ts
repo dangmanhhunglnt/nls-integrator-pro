@@ -638,7 +638,8 @@ export const createZipFromBlobs = async (
   const zip = new PizZip();
   for (const item of files) {
     const arrayBuffer = await item.blob.arrayBuffer();
-    zip.file(item.name, arrayBuffer);
+    // Thêm từng file vào PizZip với định dạng kiểu nhị phân (binary/uint8array) để đảm bảo không bị lỗi cấu trúc
+    zip.file(item.name, new Uint8Array(arrayBuffer));
   }
   return zip.generate({
     type: "blob",
