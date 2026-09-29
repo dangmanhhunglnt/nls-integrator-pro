@@ -23,10 +23,10 @@ export interface ParsedPPCTResult {
 function normalizeSearchText(str: string): string {
   return (str || '')
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .normalize("NFD") // Chuẩn hóa Unicode tách dấu tiếng Việt
+    .replace(/[\u0300-\u036f]/g, "") // Xóa toàn bộ các dấu thanh (sắc, hỏi, ngã, nặng, huyền...) để so sánh gốc chữ
+    .replace(/[^a-z0-9\s]/g, ' ') // Thay thế mọi ký tự đặc biệt, dấu câu, gạch ngang thành khoảng trắng
+    .replace(/\s+/g, ' ') // Gom tất cả các khoảng trắng thừa (dù là 2 hay nhiều dấu cách) thành 1 dấu cách duy nhất
     .trim();
 }
 
