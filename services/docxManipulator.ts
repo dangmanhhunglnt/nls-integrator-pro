@@ -190,8 +190,12 @@ export const injectContentIntoDocx = async (
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
-          resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
-          return;
+        const finalBlob = zip.generate({ 
+          type: "blob", 
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+          compression: "DEFLATE" 
+        });
+        resolve(finalBlob);
         }
 
         let label = "Tích hợp NLS & AI";
