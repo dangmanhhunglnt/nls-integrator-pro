@@ -600,13 +600,13 @@ export const createZipFromBlobs = async (
   const zip = new PizZip();
   for (const item of files) {
     const arrayBuffer = await item.blob.arrayBuffer();
-    zip.file(item.name, arrayBuffer, { binary: true });
+    zip.file(item.name, new Uint8Array(arrayBuffer), { binary: true });
   }
-  return zip.generate({
-    type: "blob",
-    mimeType: "application/zip",
+  const out = zip.generate({
+    type: "uint8array",
     compression: "DEFLATE",
-  }) as unknown as Blob;
+  });
+  return new Blob([out as any], { type: "application/zip" });
 };
 
 const escapeRegex = (string: string) => {
