@@ -142,7 +142,7 @@ export const injectContentIntoDocx = async (
             type: "blob", 
             mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
             compression: "DEFLATE" 
-          });
+          }) as unknown as Blob;
           resolve(finalBlob);
           return;
         }
@@ -497,7 +497,12 @@ export const injectContentIntoDocx = async (
         }
 
         zip.file("word/document.xml", docXml);
-        resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
+        const finalBlob = zip.generate({ 
+          type: "blob", 
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+          compression: "DEFLATE" 
+        }) as unknown as Blob;
+        resolve(finalBlob);
 
       } catch (err) { reject(err); }
     };
@@ -582,7 +587,11 @@ export const createAppendixDocx = async (
   zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
   zip.file("word/document.xml", fullDocXml);
 
-  return zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" });
+  return zip.generate({ 
+    type: "blob", 
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+    compression: "DEFLATE" 
+  }) as unknown as Blob;
 };
 
 export const createZipFromBlobs = async (
@@ -597,7 +606,7 @@ export const createZipFromBlobs = async (
     type: "blob",
     mimeType: "application/zip",
     compression: "DEFLATE",
-  });
+  }) as unknown as Blob;
 };
 
 const escapeRegex = (string: string) => {
