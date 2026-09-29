@@ -112,401 +112,113 @@ export const injectContentIntoDocx = async (
   customHeaderPPCT?: string,
   allPeriodsList?: (number | string)[]
 ): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const binaryString = e.target?.result;
-        if (!binaryString) throw new Error("Lỗi đọc file");
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Đọc trực tiếp văn bản từ file gốc của thầy để giữ lại toàn bộ nội dung gốc
+      const originalText = await extractTextFromDocx(file);
 
-        const zip = new PizZip(binaryString as ArrayBuffer);
-        const docFile = zip.file("word/document.xml");
-        if (!docFile) throw new Error("File Word không hợp lệ (thiếu document.xml)");
+      const zip = new PizZip();
 
-        let docXml = docFile.asText();
+      let label = "KẾ HOẠCH TÍCH HỢP NĂNG LỰC SỐ VÀ GIÁO DỤC AI";
+      if (mode === 'STEM') label = "GIÁO DỤC STEM";
+      else if (mode === 'NLS') label = "KẾ HOẠCH TÍCH HỢP NĂNG LỰC SỐ (TT 02/2025/TT-BGDĐT)";
+      else if (mode === 'NAI') label = "KẾ HOẠCH TÍCH HỢP GIÁO DỤC AI (QĐ 2422/QĐ-BGDĐT)";
 
-        docXml = cleanExistingNLSContent(docXml);
+      const periodTitleStr = allPeriodsList && allPeriodsList.length > 0 
+        ? `TIẾT THEO PPCT: TIẾT ${allPeriodsList.join(', ')}` 
+        : '';
+      const timeHeaderStr = customHeaderPPCT ? `Thời gian thực hiện: ${customHeaderPPCT}` : '';
 
-        if (customHeaderPPCT) {
-          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
-        }
-
-        if (allPeriodsList && allPeriodsList.length > 0) {
-          docXml = injectStandardPeriodMarkers(docXml, allPeriodsList);
-        }
-
-        const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
-        if (!hasNewContent) {
-          zip.file("word/document.xml", docXml);
-          const finalBlob = zip.generate({ 
-            type: "blob", 
-            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
-            compression: "DEFLATE" 
-          }) as unknown as Blob;
-          resolve(finalBlob);
-          return;
-        }
-
-        let label = "Tích hợp NLS & AI";
-        if ((mode as string) === 'STEM') label = "Giáo dục STEM";
-        else if (mode === 'NLS') label = "Tích hợp NLS";
-        else if (mode === 'NAI') label = "Tích hợp AI";
-
-        const detectStyle = (xml: string, index: number) => {
-          const chunk = xml.substring(Math.max(0, index - 10000), index);
-          let fontSize = null;
-          const szMatch = chunk.match(/<w:sz\s+w:val=["'](\d+)["'][^>]*\/>/g);
-          if (szMatch && szMatch.length > 0) {
-            const last = szMatch[szMatch.length - 1];
-            const m = last.match(/val=["'](\d+)["']/);
-            if (m) fontSize = m[1];
-          }
-
-          let fontTag = "";
-          const fontMatch = chunk.match(/<w:rFonts\s+[^>]*\/>/g);
-          if (fontMatch && fontMatch.length > 0) {
-            fontTag = fontMatch[fontMatch.length - 1];
-          }
-
-          return { fontSize, fontTag };
-        };
-
-        const createXmlBlock = (text: string, style: { fontSize: string | null, fontTag: string }, customPrefix?: string) => {
-          if (!text) return "";
-          const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-          if (lines.length === 0) return "";
-
-          let rPrHeader = `<w:b/><w:color w:val="${colorHex}"/>`;
-          let rPrBody = `<w:color w:val="${colorHex}"/>`;
-
-          if (style.fontSize) {
-            const szTag = `<w:sz w:val="${style.fontSize}"/><w:szCs w:val="${style.fontSize}"/>`;
-            rPrHeader += szTag;
-            rPrBody += szTag;
-          }
-
-          if (style.fontTag) {
-            rPrHeader += style.fontTag;
-            rPrBody += style.fontTag;
-          }
-
-          const headerTitle = customPrefix || `👉 ${label}:`;
-
-          let xmlBlock = `<w:p>
-                            <w:pPr><w:ind w:left="360"/></w:pPr>
-                            <w:r>
-                              <w:rPr>${rPrHeader}</w:rPr>
-                              <w:t>${escapeXml(headerTitle)}</w:t>
-                            </w:r>
-                          </w:p>`;
-
-          lines.forEach(line => {
-            let cleanLine = line
-              .replace(/\*\*/g, "")
-              .replace(/__/, "")
-              .replace(/^\s*[-•+]\s*/, "")
-              .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
-              .trim();
-
-            if (cleanLine) {
-              xmlBlock += `<w:p>
-                           <w:pPr><w:ind w:left="720"/></w:pPr>
-                           <w:r>
-                             <w:rPr>${rPrBody}</w:rPr>
-                             <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                           </w:r>
-                         </w:p>`;
-            }
-          });
-
-          return xmlBlock;
-        };
-
-        const findFuzzyIndex = (xml: string, keyword: string, startIndex = 0) => {
-          if (!keyword) return -1;
-          let directIdx = xml.indexOf(keyword, startIndex);
-          if (directIdx !== -1) return directIdx;
-
-          const chars = keyword.split('').map(c => {
-            if (/\s/.test(c)) return '[\\s\\u00A0]+';
-            return escapeRegex(c);
-          });
-          const patternStr = chars.join('(?:<[^>]+>)*');
-          const regex = new RegExp(patternStr, 'gi');
-          regex.lastIndex = startIndex;
-
-          const match = regex.exec(xml);
-          return match ? match.index : -1;
-        };
-
-        const createSummaryTableXml = (tableData: Array<any>) => {
-          if (!Array.isArray(tableData) || tableData.length === 0) return "";
-
-          let rowsXml = "";
-          rowsXml += `
+      let tableRowsXml = "";
+      if (content.summary_table && Array.isArray(content.summary_table)) {
+        content.summary_table.forEach(item => {
+          tableRowsXml += `
             <w:tr>
-              <w:trPr><w:tblHeader/></w:trPr>
-              <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.stt || ''))}</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>${escapeXml(String(item.code || ''))}</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.component || ''))}</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.expression || ''))}</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.activity || ''))}</w:t></w:r></w:p></w:tc>
             </w:tr>`;
+        });
+      }
 
-          tableData.forEach((item) => {
-            rowsXml += `
-              <w:tr>
-                <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.stt || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>${escapeXml(String(item.code || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.component || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.expression || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.activity || ''))}</w:t></w:r></w:p></w:tc>
-              </w:tr>`;
-          });
+      let actXml = "";
+      if (content.activities_enhancement && Array.isArray(content.activities_enhancement)) {
+        content.activities_enhancement.forEach(act => {
+          const actName = (act as any).activity_name || (act as any).activity_title || "Hoạt động";
+          const actCont = (act as any).enhanced_content || (act as any).content || "";
+          actXml += `
+            <w:p><w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1D4ED8"/></w:rPr><w:t>▶ ${escapeXml(actName)}:</w:t></w:r></w:p>
+            <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:rPr><w:color w:val="334155"/></w:rPr><w:t>${escapeXml(actCont)}</w:t></w:r></w:p>`;
+        });
+      }
 
-          return `
-            <w:p>
-              <w:pPr><w:jc w:val="center"/><w:spacing w:before="300" w:after="150"/></w:pPr>
-              <w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t>BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC</w:t></w:r>
-            </w:p>
-            <w:tbl>
-              <w:tblPr>
-                <w:tblW w:w="0" w:type="auto"/>
-                <w:tblBorders>
-                  <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-                  <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-                  <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-                  <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-                  <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-                  <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-                </w:tblBorders>
-              </w:tblPr>
-              ${rowsXml}
-            </w:tbl>
-            <w:p/>`;
-        };
+      // Chuyển đổi văn bản gốc thành các đoạn XML an toàn để ghép vào document
+      const originalParagraphsXml = originalText
+        .split('\n')
+        .map(p => p.trim())
+        .filter(p => p.length > 0)
+        .map(p => `<w:p><w:r><w:t>${escapeXml(p)}</w:t></w:r></w:p>`)
+        .join('');
 
-        const endKeywords = [
-          "3. Phẩm chất", "3. Về phẩm chất", "III. Phẩm chất", "1.3. Phẩm chất", "1.3. Về phẩm chất",
-          "Phẩm chất:", "PHẨM CHẤT:", "Về phẩm chất", "- Phẩm chất:", "II. ĐỒ DÙNG DẠY HỌC",
-          "II. ĐỒ DÙNG DẠY - HỌC", "II. THIẾT BỊ DẠY HỌC", "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU"
-        ];
+      const fullDocXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+          <w:body>
+            <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/><w:color w:val="1E293B"/></w:rPr><w:t>${escapeXml(label)}</w:t></w:r></w:p>
+            ${timeHeaderStr ? `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="2563EB"/></w:rPr><w:t>${escapeXml(timeHeaderStr)}</w:t></w:r></w:p>` : ''}
+            ${periodTitleStr ? `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="300"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="059669"/></w:rPr><w:t>${escapeXml(periodTitleStr)}</w:t></w:r></w:p>` : ''}
 
-        let insertAnchorPos = -1;
-        let isBeforeKeyword = false;
+            <w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="0F172A"/></w:rPr><w:t>I. MỤC TIÊU BỔ SUNG (${escapeXml(label)})</w:t></w:r></w:p>
+            <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:rPr><w:color w:val="${colorHex}"/></w:rPr><w:t>${escapeXml(content.objectives_addition || '')}</w:t></w:r></w:p>
 
-        for (const kw of endKeywords) {
-          const idx = findFuzzyIndex(docXml, kw, 0);
-          if (idx !== -1) {
-            insertAnchorPos = idx;
-            isBeforeKeyword = true;
-            break;
-          }
-        }
+            <w:p><w:pPr><w:spacing w:before="240"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="0F172A"/></w:rPr><w:t>II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU SỐ</w:t></w:r></w:p>
+            <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:rPr><w:color w:val="${colorHex}"/></w:rPr><w:t>${escapeXml(content.materials_addition || '')}</w:t></w:r></w:p>
 
-        if (insertAnchorPos === -1) {
-          const fallbackKeywords = ["2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "Về năng lực", "NĂNG LỰC:"];
-          for (const kw of fallbackKeywords) {
-            const idx = findFuzzyIndex(docXml, kw, 0);
-            if (idx !== -1) {
-              insertAnchorPos = idx;
-              isBeforeKeyword = false;
-              break;
-            }
-          }
-        }
+            <w:p><w:pPr><w:spacing w:before="240"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="0F172A"/></w:rPr><w:t>III. HOẠT ĐỘNG TÍCH HỢP SỐ &amp; AI</w:t></w:r></w:p>
+            ${actXml}
 
-        let newXml = docXml;
-        if (insertAnchorPos !== -1 && content.objectives_addition) {
-          const currentStyle = detectStyle(newXml, insertAnchorPos);
-          const xmlBlock = createXmlBlock(content.objectives_addition, currentStyle);
+            ${tableRowsXml ? `
+              <w:p><w:pPr><w:spacing w:before="300" w:after="150"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="0F172A"/></w:rPr><w:t>IV. BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC</w:t></w:r></w:p>
+              <w:tbl>
+                <w:tblPr>
+                  <w:tblW w:w="0" w:type="auto"/>
+                  <w:tblBorders>
+                    <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                    <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                    <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                    <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                    <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                    <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+                  </w:tblBorders>
+                </w:tblPr>
+                <w:tr>
+                  <w:trPr><w:tblHeader/></w:trPr>
+                  <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
+                  <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
+                  <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
+                  <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
+                  <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
+                </w:tr>
+                ${tableRowsXml}
+              </w:tbl>` : ''}
 
-          if (xmlBlock) {
-            if (isBeforeKeyword) {
-              let pStart = -1;
-              let searchIndex = insertAnchorPos;
-              while (searchIndex >= 0) {
-                const found = newXml.lastIndexOf("<w:p", searchIndex);
-                if (found === -1) break;
-                const charAfter = newXml.charAt(found + 4);
-                if (charAfter === " " || charAfter === ">") {
-                  pStart = found;
-                  break;
-                }
-                searchIndex = found - 1;
-              }
+            <w:p><w:pPr><w:spacing w:before="300" w:after="150"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="0F172A"/></w:rPr><w:t>V. NỘI DUNG GIÁO ÁN GỐC</w:t></w:r></w:p>
+            ${originalParagraphsXml}
+          </w:body>
+        </w:document>`;
 
-              if (pStart !== -1) {
-                newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
-              }
-            } else {
-              const pEnd = newXml.indexOf("</w:p>", insertAnchorPos);
-              if (pEnd !== -1) {
-                const splitPos = pEnd + "</w:p>".length;
-                newXml = newXml.substring(0, splitPos) + xmlBlock + newXml.substring(splitPos);
-              }
-            }
-          }
-        }
-        docXml = newXml;
+      zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/vnd.openxmlformats-package.relationships+xml"/></Types>`);
+      zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+      zip.file("word/document.xml", fullDocXml);
 
-        if (content.materials_addition) {
-          const matKeywords = [
-            "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", "II. THIẾT BỊ DẠY HỌC",
-            "2. Thiết bị dạy học và học liệu", "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU"
-          ];
+      const out = zip.generate({ type: "uint8array", compression: "DEFLATE" });
+      const finalBlob = new Blob([out as any], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      resolve(finalBlob);
 
-          let matIndex = -1;
-          for (const mkw of matKeywords) {
-            const idx = findFuzzyIndex(docXml, mkw, 0);
-            if (idx !== -1) {
-              matIndex = idx;
-              break;
-            }
-          }
-
-          if (matIndex !== -1) {
-            const currentStyle = detectStyle(docXml, matIndex);
-            let rPrBody = `<w:color w:val="${colorHex}"/>`;
-            if (currentStyle.fontSize) rPrBody += `<w:sz w:val="${currentStyle.fontSize}"/><w:szCs w:val="${currentStyle.fontSize}"/>`;
-            if (currentStyle.fontTag) rPrBody += currentStyle.fontTag;
-
-            let cleanMat = content.materials_addition.replace(/\*\*/g, "").replace(/^[-•+]\s*/, "").trim();
-            const matBlockXml = `<w:p>
-                                   <w:pPr><w:ind w:left="360"/></w:pPr>
-                                   <w:r>
-                                     <w:rPr>${rPrBody}</w:rPr>
-                                     <w:t xml:space="preserve">- ${escapeXml(cleanMat)}</w:t>
-                                   </w:r>
-                                 </w:p>`;
-
-            const pEnd = docXml.indexOf("</w:p>", matIndex);
-            if (pEnd !== -1) {
-              const splitPos = pEnd + "</w:p>".length;
-              docXml = docXml.substring(0, splitPos) + matBlockXml + docXml.substring(splitPos);
-            }
-          }
-        }
-
-        if (Array.isArray(content.activities_enhancement)) {
-          content.activities_enhancement.forEach((item, index) => {
-            const actName = (item as any).activity_name || (item as any).activity_title || "";
-            const actContent = (item as any).enhanced_content || (item as any).content || "";
-            if (!actName && !actContent) return;
-
-            let safeName = escapeXml(actName);
-            let actIndex = findFuzzyIndex(docXml, safeName, 0);
-
-            if (actIndex === -1 && safeName) {
-              const coreKeywords = [
-                "KHỞI ĐỘNG", "MỞ ĐẦU", "XÁC ĐỊNH VẤN ĐỀ",
-                "HÌNH THÀNH KIẾN THỨC", "KHÁM PHÁ", "TÌM HIỂU KIẾN THỨC",
-                "LUYỆN TẬP", "THỰC HÀNH", "VẬN DỤNG"
-              ];
-              for (const key of coreKeywords) {
-                if (safeName.toUpperCase().includes(key)) {
-                  const variants = [`HOẠT ĐỘNG ${key.toUpperCase()}`, `HOẠT ĐỘNG ${key}`, `${key.toUpperCase()}`];
-                  for (const v of variants) {
-                    const found = findFuzzyIndex(docXml, v, 0);
-                    if (found !== -1) { actIndex = found; break; }
-                  }
-                  if (actIndex === -1) {
-                    const found = findFuzzyIndex(docXml, key, 0);
-                    if (found !== -1) { actIndex = found; }
-                  }
-                  if (actIndex !== -1) break;
-                }
-              }
-            }
-
-            if (actIndex === -1) {
-              const matchNum = safeName ? safeName.match(/\d+/) : null;
-              const num = matchNum ? matchNum[0] : String(index + 1);
-              const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`];
-              for (const v of variants) {
-                const found = findFuzzyIndex(docXml, v, 0);
-                if (found !== -1) { actIndex = found; break; }
-              }
-            }
-
-            if (actIndex !== -1) {
-              const currentStyle = detectStyle(docXml, actIndex);
-              const xmlBlock = createXmlBlock(actContent, currentStyle);
-
-              if (xmlBlock) {
-                const tblPos = docXml.indexOf("<w:tbl>", actIndex);
-                let targetCellPos = -1;
-
-                if (tblPos !== -1 && tblPos - actIndex < 20000) {
-                  const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
-                  if (hsHeaderPos !== -1) {
-                    const contentRowPos = docXml.indexOf("<w:tr>", tblPos + hsHeaderPos);
-                    if (contentRowPos !== -1 && contentRowPos - tblPos < 10000) {
-                      const firstCell = docXml.indexOf("<w:tc>", contentRowPos);
-                      if (firstCell !== -1) {
-                        const secondCell = docXml.indexOf("<w:tc>", firstCell + 6);
-                        if (secondCell !== -1) {
-                          targetCellPos = secondCell;
-                        }
-                      }
-                    }
-                  }
-                }
-
-                if (targetCellPos === -1) {
-                  const cellKeywords = [
-                    "- HS tiến hành", "- HS sử dụng", "- Quan sát, trả lời", "HS thực hiện nhiệm vụ",
-                    "HS thực hiện", "Học sinh thực hiện", "Báo cáo kết quả", "c) Sản phẩm"
-                  ];
-                  for (const cKey of cellKeywords) {
-                    const foundPos = findFuzzyIndex(docXml, cKey, actIndex);
-                    if (foundPos !== -1 && foundPos - actIndex < 18000) {
-                      targetCellPos = foundPos;
-                      break;
-                    }
-                  }
-                }
-
-                if (targetCellPos !== -1) {
-                  const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
-                  if (cellInsertPos !== -1) {
-                    const splitPos = cellInsertPos + "</w:p>".length;
-                    docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
-                  }
-                } else {
-                  const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
-                  if (headerInsertPos !== -1) {
-                    const splitPos = headerInsertPos + "</w:p>".length;
-                    docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
-                  }
-                }
-              }
-            }
-          });
-        }
-
-        if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
-          const tableXml = createSummaryTableXml(content.summary_table);
-          if (tableXml) {
-            const bodyEndTag = "</w:body>";
-            const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
-            if (bodyEndIndex !== -1) {
-              docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
-            }
-          }
-        }
-
-        zip.file("word/document.xml", docXml);
-        const finalBlob = zip.generate({ 
-          type: "blob", 
-          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
-          compression: "DEFLATE" 
-        }) as unknown as Blob;
-        resolve(finalBlob);
-
-      } catch (err) { reject(err); }
-    };
-    reader.readAsArrayBuffer(file);
+    } catch (err) {
+      reject(err);
+    }
   });
 };
 
@@ -607,10 +319,6 @@ export const createZipFromBlobs = async (
     compression: "DEFLATE",
   });
   return new Blob([out as any], { type: "application/zip" });
-};
-
-const escapeRegex = (string: string) => {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
 
 const escapeXml = (unsafe: string): string => {
