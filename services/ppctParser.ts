@@ -104,9 +104,10 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
 
       if (isMatched) {
         const searchPool = [matchedPeriodRaw, cellTexts[1], cellTexts[0]].join(' ');
+        // Chỉ trích xuất các số tiết xuất hiện thực tế trong ô (ví dụ: "5" hoặc "7,8")
         const periodMatches = searchPool.match(/\d{1,2}/g) || ['1'];
         const uniquePeriods = Array.from(new Set(periodMatches.map(p => parseInt(p, 10)))).filter(p => p > 0 && p <= 150).map(String);
-        const periodStr = uniquePeriods.length > 0 ? uniquePeriods.join(',') : '5';
+        const periodStr = uniquePeriods.length > 0 ? uniquePeriods.join(',') : '1';
 
         let noteFound = '';
         const noteMatch = matchedNoteRaw.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]*|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
