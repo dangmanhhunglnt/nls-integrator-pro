@@ -2,6 +2,9 @@ import PizZip from 'pizzip';
 import mammoth from 'mammoth';
 import { GeneratedNLSContent, IntegrationMode, HighlightColor } from '../types';
 
+/**
+ * 1. HÀM ĐỌC VĂN BẢN TỪ FILE WORD (.DOCX)
+ */
 export async function extractTextFromDocx(file: File): Promise<string> {
   try {
     const arrayBuffer = await file.arrayBuffer();
@@ -13,90 +16,102 @@ export async function extractTextFromDocx(file: File): Promise<string> {
   }
 }
 
+/**
+ * 2. HÀM QUÉT SẠCH 100% CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ RÁC FORMAT
+ */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\Vert{}AI\Vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
+
+  // 1. Quét sạch triệt để mọi đoạn chứa [NLS], [AI], [STEM], bao gồm cả [NLS]: Gemini
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS|AI|STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
+
+  // 2. Quét sạch các chỉ thị tích hợp trong tiến trình bài dạy
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
+
+  // 3. Quét sạch các mã chuẩn đầu ra cũ nếu có
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:\d\.\d\.[A-Z\d]+|[A-Z]{2,}\.[A-Z\d]+|\bGeoGebra\b|\bDesmos\b).*?<\/w:p>/gis, '');
+
+  // 4. Xóa các đoạn con chứa nội dung "Năng lực số" mà vẫn giữ nguyên khung bài
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):).*?<\/w:p>/gis, '');
+
+  // 5. Xóa các mục học liệu số cũ ở Mục II
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thiết bị dạy học và Học liệu số|Học liệu số).*?<\/w:p>/gis, '');
+
+  // 6. Xóa Bảng tổng hợp NLS/AI ở cuối bài
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
+
   return cleaned;
 }
 
-export function removeOldPeriodHeaders(xmlContent: string): string {
-  let cleaned = xmlContent;
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\bTIẾT\s+\d+[\s\S]*?<\/w:p>/gis, '');
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết\s+theo\s+PPCT[\s\S]*?<\/w:p>/gis, '');
-  return cleaned;
-}
-
+/**
+ * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG
+ */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
 
   let result = xmlContent;
-  const safeText = escapeXml(ppctInfoText);
+  const safeNewText = escapeXml(ppctInfoText);
 
-  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Số tiết)[\s\S]*?<\/w:p>/gi;
-  let firstMatch = true;
-  result = result.replace(pRegex, (matchP) => {
-    if (firstMatch) {
-      firstMatch = false;
-      let pXml = matchP;
-      if (pXml.includes('<w:pPr>')) {
-        if (pXml.includes('<w:jc')) {
-          pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
-        } else {
-          pXml = pXml.replace('<w:pPr>', '<w:pPr><w:jc w:val="center"/>');
-        }
-      } else {
-        pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
-      }
+  // Tạo một paragraph độc lập chuẩn OpenXML căn giữa toàn trang
+  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-      pXml = pXml.replace(/<w:shd\b[^>]*\/>/gi, '');
+  // 1. Nếu dòng chữ nằm trong 1 bảng (bảng 2 ô header), thay thế cả bảng bằng dòng căn giữa
+  const tblRegex = /<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
+  let replacedTable = false;
 
-      let isFirstText = true;
-      pXml = pXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi, () => {
-        if (isFirstText) {
-          isFirstText = false;
-          return `<w:t xml:space="preserve">Thời gian thực hiện: ${safeText}</w:t>`;
-        }
-        return `<w:t></w:t>`;
-      });
-      return pXml;
+  result = result.replace(tblRegex, (tblXml) => {
+    if (!replacedTable && (tblXml.includes("Thời gian thực hiện") || tblXml.includes("Số tiết dạy") || tblXml.includes("Tiết theo PPCT"))) {
+      replacedTable = true;
+      return centerParagraphXml;
     }
-    return '';
+    return tblXml;
   });
 
+  if (replacedTable) {
+    result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
+    return result;
+  }
+
+  // 2. Nếu nằm trong đoạn paragraph thông thường ngoài bảng
+  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
+  const match = result.match(pRegex);
+
+  if (match) {
+    let pXml = match[0];
+    if (pXml.includes('<w:pPr>')) {
+      if (pXml.includes('<w:jc')) {
+        pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
+      } else {
+        pXml = pXml.replace('<w:pPr>', '<w:pPr><w:jc w:val="center"/>');
+      }
+    } else if (pXml.includes('<w:pPr/>')) {
+      pXml = pXml.replace('<w:pPr/>', '<w:pPr><w:jc w:val="center"/></w:pPr>');
+    } else {
+      pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
+    }
+
+    pXml = pXml.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/gi, '');
+    const newRun = `<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
+    pXml = pXml.replace(/<\/w:p>$/i, `${newRun}</w:p>`);
+
+    result = result.replace(match[0], pXml);
+  }
+
+  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
   return result;
 }
 
-export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (number | string)[]): string {
-  if (!periodsList || periodsList.length === 0) return xmlContent;
-
-  let result = removeOldPeriodHeaders(xmlContent);
-
-  periodsList.forEach((pNum, idx) => {
-    const oldNum = idx + 1;
-    const regex1 = new RegExp(`TIẾT\\s+${oldNum}\\b`, 'gi');
-    const regex2 = new RegExp(`Tiết\\s+${oldNum}\\b`, 'gi');
-    const regex3 = new RegExp(`T\\s*${oldNum}\\b`, 'gi');
-
-    result = result.replace(regex1, `TIẾT ${pNum} (THEO PPCT)`);
-    result = result.replace(regex2, `Tiết ${pNum} (theo PPCT)`);
-    result = result.replace(regex3, `Tiết ${pNum}`);
-  });
-
-  return result;
-}
-
+/**
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
+ */
 export const injectContentIntoDocx = async (
   file: File,
   content: GeneratedNLSContent,
   mode: IntegrationMode,
   _log: (msg: string) => void,
   colorHex: HighlightColor = 'FF0000',
-  customHeaderPPCT?: string,
-  allPeriodsList?: (number | string)[]
+  customHeaderPPCT?: string
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -111,28 +126,23 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. Làm sạch nội dung tích hợp cũ
+        // 1. Quét sạch toàn bộ các nội dung NLS/AI/STEM cũ
         docXml = cleanExistingNLSContent(docXml);
 
-        // 2. Cập nhật thông tin PPCT
+        // 2. Căn giữa dòng tiêu đề thông tin PPCT
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
-        // 3. Cập nhật nhãn tiết PPCT
-        if (allPeriodsList && allPeriodsList.length > 0) {
-          docXml = injectStandardPeriodMarkers(docXml, allPeriodsList);
-        }
-
-        const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0) || (content.summary_table && content.summary_table.length > 0)));
-        
+        // NẾU BÀI DẠY TRUYỀN THỐNG (content rỗng) -> XUẤT NGAY FILE SẠCH 5512
+        const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
-          const out = zip.generate({ type: "uint8array", compression: "DEFLATE" });
-          resolve(new Blob([out as any], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }));
+          resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
           return;
         }
 
+        // NẾU BÀI CÓ CHỈ ĐỊNH TÍCH HỢP -> CHÈN NỘI DUNG MỚI
         let label = "Tích hợp NLS & AI";
         if ((mode as string) === 'STEM') label = "Giáo dục STEM";
         else if (mode === 'NLS') label = "Tích hợp NLS";
@@ -196,12 +206,12 @@ export const injectContentIntoDocx = async (
 
             if (cleanLine) {
               xmlBlock += `<w:p>
-                           <w:pPr><w:ind w:left="720"/></w:pPr>
-                           <w:r>
-                             <w:rPr>${rPrBody}</w:rPr>
-                             <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                           </w:r>
-                         </w:p>`;
+                             <w:pPr><w:ind w:left="720"/></w:pPr>
+                             <w:r>
+                               <w:rPr>${rPrBody}</w:rPr>
+                               <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                             </w:r>
+                           </w:p>`;
             }
           });
 
@@ -272,28 +282,205 @@ export const injectContentIntoDocx = async (
             <w:p/>`;
         };
 
-        // 4. Chèn mục tiêu bổ sung vào file gốc
-        const endKeywords = ["3. Phẩm chất", "3. Về phẩm chất", "III. Phẩm chất", "2. Về năng lực", "2. Năng lực"];
+        const endKeywords = [
+          "3. Phẩm chất", "3. Về phẩm chất", "III. Phẩm chất", "1.3. Phẩm chất", "1.3. Về phẩm chất",
+          "Phẩm chất:", "PHẨM CHẤT:", "Về phẩm chất", "- Phẩm chất:", "II. ĐỒ DÙNG DẠY HỌC",
+          "II. ĐỒ DÙNG DẠY - HỌC", "II. THIẾT BỊ DẠY HỌC", "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU"
+        ];
+
         let insertAnchorPos = -1;
+        let isBeforeKeyword = false;
+
         for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw, 0);
           if (idx !== -1) {
             insertAnchorPos = idx;
+            isBeforeKeyword = true;
             break;
           }
         }
 
-        if (insertAnchorPos !== -1 && content.objectives_addition) {
-          const currentStyle = detectStyle(docXml, insertAnchorPos);
-          const xmlBlock = createXmlBlock(content.objectives_addition, currentStyle);
-          const pEnd = docXml.indexOf("</w:p>", insertAnchorPos);
-          if (pEnd !== -1) {
-            const splitPos = pEnd + "</w:p>".length;
-            docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+        if (insertAnchorPos === -1) {
+          const fallbackKeywords = ["2. Năng lực", "2. Về năng lực", "I.2. Năng lực", "Về năng lực", "NĂNG LỰC:"];
+          for (const kw of fallbackKeywords) {
+            const idx = findFuzzyIndex(docXml, kw, 0);
+            if (idx !== -1) {
+              insertAnchorPos = idx;
+              isBeforeKeyword = false;
+              break;
+            }
           }
         }
 
-        // 5. Chèn bảng tổng hợp vào cuối file gốc
+        let newXml = docXml;
+        if (insertAnchorPos !== -1 && content.objectives_addition) {
+          const currentStyle = detectStyle(newXml, insertAnchorPos);
+          const xmlBlock = createXmlBlock(content.objectives_addition, currentStyle);
+
+          if (xmlBlock) {
+            if (isBeforeKeyword) {
+              let pStart = -1;
+              let searchIndex = insertAnchorPos;
+              while (searchIndex >= 0) {
+                const found = newXml.lastIndexOf("<w:p", searchIndex);
+                if (found === -1) break;
+                const charAfter = newXml.charAt(found + 4);
+                if (charAfter === " " || charAfter === ">") {
+                  pStart = found;
+                  break;
+                }
+                searchIndex = found - 1;
+              }
+
+              if (pStart !== -1) {
+                newXml = newXml.substring(0, pStart) + xmlBlock + newXml.substring(pStart);
+              }
+            } else {
+              const pEnd = newXml.indexOf("</w:p>", insertAnchorPos);
+              if (pEnd !== -1) {
+                const splitPos = pEnd + "</w:p>".length;
+                newXml = newXml.substring(0, splitPos) + xmlBlock + newXml.substring(splitPos);
+              }
+            }
+          }
+        }
+        docXml = newXml;
+
+        if (content.materials_addition) {
+          const matKeywords = [
+            "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU", "II. THIẾT BỊ DẠY HỌC",
+            "2. Thiết bị dạy học và học liệu", "THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU"
+          ];
+
+          let matIndex = -1;
+          for (const mkw of matKeywords) {
+            const idx = findFuzzyIndex(docXml, mkw, 0);
+            if (idx !== -1) {
+              matIndex = idx;
+              break;
+            }
+          }
+
+          if (matIndex !== -1) {
+            const currentStyle = detectStyle(docXml, matIndex);
+            let rPrBody = `<w:color w:val="${colorHex}"/>`;
+            if (currentStyle.fontSize) rPrBody += `<w:sz w:val="${currentStyle.fontSize}"/><w:szCs w:val="${currentStyle.fontSize}"/>`;
+            if (currentStyle.fontTag) rPrBody += currentStyle.fontTag;
+
+            let cleanMat = content.materials_addition.replace(/\*\*/g, "").replace(/^[-•+]\s*/, "").trim();
+            const matBlockXml = `<w:p>
+                                   <w:pPr><w:ind w:left="360"/></w:pPr>
+                                   <w:r>
+                                     <w:rPr>${rPrBody}</w:rPr>
+                                     <w:t xml:space="preserve">- ${escapeXml(cleanMat)}</w:t>
+                                   </w:r>
+                                 </w:p>`;
+
+            const pEnd = docXml.indexOf("</w:p>", matIndex);
+            if (pEnd !== -1) {
+              const splitPos = pEnd + "</w:p>".length;
+              docXml = docXml.substring(0, splitPos) + matBlockXml + docXml.substring(splitPos);
+            }
+          }
+        }
+
+        if (Array.isArray(content.activities_enhancement)) {
+          content.activities_enhancement.forEach((item, index) => {
+            const actName = (item as any).activity_name || (item as any).activity_title || "";
+            const actContent = (item as any).enhanced_content || (item as any).content || "";
+            if (!actName && !actContent) return;
+
+            let safeName = escapeXml(actName);
+            let actIndex = findFuzzyIndex(docXml, safeName, 0);
+
+            if (actIndex === -1 && safeName) {
+              const coreKeywords = [
+                "KHỞI ĐỘNG", "MỞ ĐẦU", "XÁC ĐỊNH VẤN ĐỀ",
+                "HÌNH THÀNH KIẾN THỨC", "KHÁM PHÁ", "TÌM HIỂU KIẾN THỨC",
+                "LUYỆN TẬP", "THỰC HÀNH", "VẬN DỤNG"
+              ];
+              for (const key of coreKeywords) {
+                if (safeName.toUpperCase().includes(key)) {
+                  const variants = [`HOẠT ĐỘNG ${key.toUpperCase()}`, `HOẠT ĐỘNG ${key}`, `${key.toUpperCase()}`];
+                  for (const v of variants) {
+                    const found = findFuzzyIndex(docXml, v, 0);
+                    if (found !== -1) { actIndex = found; break; }
+                  }
+                  if (actIndex === -1) {
+                    const found = findFuzzyIndex(docXml, key, 0);
+                    if (found !== -1) { actIndex = found; }
+                  }
+                  if (actIndex !== -1) break;
+                }
+              }
+            }
+
+            if (actIndex === -1) {
+              const matchNum = safeName ? safeName.match(/\d+/) : null;
+              const num = matchNum ? matchNum[0] : String(index + 1);
+              const variants = [`HOẠT ĐỘNG ${num}`, `Hoạt động ${num}`, `HĐ ${num}`, `HĐ${num}`];
+              for (const v of variants) {
+                const found = findFuzzyIndex(docXml, v, 0);
+                if (found !== -1) { actIndex = found; break; }
+              }
+            }
+
+            if (actIndex !== -1) {
+              const currentStyle = detectStyle(docXml, actIndex);
+              const xmlBlock = createXmlBlock(actContent, currentStyle);
+
+              if (xmlBlock) {
+                const tblPos = docXml.indexOf("<w:tbl>", actIndex);
+                let targetCellPos = -1;
+
+                if (tblPos !== -1 && tblPos - actIndex < 20000) {
+                  const hsHeaderPos = findFuzzyIndex(docXml.substring(tblPos, tblPos + 5000), "HS thực hiện nhiệm vụ");
+                  if (hsHeaderPos !== -1) {
+                    const contentRowPos = docXml.indexOf("<w:tr>", tblPos + hsHeaderPos);
+                    if (contentRowPos !== -1 && contentRowPos - tblPos < 10000) {
+                      const firstCell = docXml.indexOf("<w:tc>", contentRowPos);
+                      if (firstCell !== -1) {
+                        const secondCell = docXml.indexOf("<w:tc>", firstCell + 6);
+                        if (secondCell !== -1) {
+                          targetCellPos = secondCell;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (targetCellPos === -1) {
+                  const cellKeywords = [
+                    "- HS tiến hành", "- HS sử dụng", "- Quan sát, trả lời", "HS thực hiện nhiệm vụ",
+                    "HS thực hiện", "Học sinh thực hiện", "Báo cáo kết quả", "c) Sản phẩm"
+                  ];
+                  for (const cKey of cellKeywords) {
+                    const foundPos = findFuzzyIndex(docXml, cKey, actIndex);
+                    if (foundPos !== -1 && foundPos - actIndex < 18000) {
+                      targetCellPos = foundPos;
+                      break;
+                    }
+                  }
+                }
+
+                if (targetCellPos !== -1) {
+                  const cellInsertPos = docXml.indexOf("</w:p>", targetCellPos);
+                  if (cellInsertPos !== -1) {
+                    const splitPos = cellInsertPos + "</w:p>".length;
+                    docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                  }
+                } else {
+                  const headerInsertPos = docXml.indexOf("</w:p>", actIndex);
+                  if (headerInsertPos !== -1) {
+                    const splitPos = headerInsertPos + "</w:p>".length;
+                    docXml = docXml.substring(0, splitPos) + xmlBlock + docXml.substring(splitPos);
+                  }
+                }
+              }
+            }
+          });
+        }
+
         if (content.summary_table && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
           const tableXml = createSummaryTableXml(content.summary_table);
           if (tableXml) {
@@ -306,8 +493,7 @@ export const injectContentIntoDocx = async (
         }
 
         zip.file("word/document.xml", docXml);
-        const out = zip.generate({ type: "uint8array", compression: "DEFLATE" });
-        resolve(new Blob([out as any], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }));
+        resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
 
       } catch (err) { reject(err); }
     };
@@ -315,6 +501,9 @@ export const injectContentIntoDocx = async (
   });
 };
 
+/**
+ * 5. HÀM TẠO FILE PHỤ LỤC RIÊNG
+ */
 export const createAppendixDocx = async (
   content: GeneratedNLSContent,
   subject: string,
@@ -392,23 +581,25 @@ export const createAppendixDocx = async (
   zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
   zip.file("word/document.xml", fullDocXml);
 
-  const out = zip.generate({ type: "uint8array", compression: "DEFLATE" });
-  return new Blob([out as any], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  return zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" });
 };
 
+/**
+ * 6. HÀM ĐÓNG GÓI NHIỀU FILE THÀNH TỆP ZIP
+ */
 export const createZipFromBlobs = async (
   files: { name: string; blob: Blob }[]
 ): Promise<Blob> => {
   const zip = new PizZip();
   for (const item of files) {
     const arrayBuffer = await item.blob.arrayBuffer();
-    zip.file(item.name, new Uint8Array(arrayBuffer), { binary: true });
+    zip.file(item.name, arrayBuffer);
   }
-  const out = zip.generate({
-    type: "uint8array",
+  return zip.generate({
+    type: "blob",
+    mimeType: "application/zip",
     compression: "DEFLATE",
   });
-  return new Blob([out as any], { type: "application/zip" });
 };
 
 const escapeRegex = (string: string) => {
@@ -417,12 +608,6 @@ const escapeRegex = (string: string) => {
 
 const escapeXml = (unsafe: string): string => {
   if (!unsafe) return "";
-  const map: Record<string, string> = { 
-    '<': '&lt;', 
-    '>': '&gt;', 
-    '&': '&amp;', 
-    "'": '&apos;', 
-    '"': '&quot;' 
-  };
+  const map: Record<string, string> = { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' };
   return unsafe.replace(/[<>&'"]/g, (c) => map[c] || c);
 };
