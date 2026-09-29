@@ -36,7 +36,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeText = escapeXml(ppctInfoText);
 
-  // Xóa bỏ hoàn toàn các khung bảng (<w:tbl>) thừa nằm ở phần đầu giáo án gây lỗi khung xám
   result = result.replace(/<w:tbl\b[^>]*>[\s\S]*?<\/w:tbl>/gi, '');
 
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Số tiết)[\s\S]*?<\/w:p>/gi;
@@ -55,7 +54,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
         pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
       }
 
-      // Xóa bỏ nền xám hoặc shading cũ nếu có trong đoạn văn
       pXml = pXml.replace(/<w:shd\b[^>]*\/>/gi, '');
 
       let isFirstText = true;
@@ -68,7 +66,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
       });
       return pXml;
     }
-    return ''; // Xóa các dòng trùng lặp thừa thãi phía dưới
+    return '';
   });
 
   const cellRegex = /<w:tc\b[^>]*>[\s\S]*?(?:Số tiết|Tiết theo PPCT|Tiết PPCT)[\s\S]*?<\/w:tc>/gi;
@@ -91,66 +89,16 @@ export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (nu
 
   let result = removeOldPeriodHeaders(xmlContent);
 
-  // Tự động quét và thay thế các nhãn tiết cũ (như TIẾT 1:, TIẾT 2:, Tiết 1...) thành tiết theo PPCT tương ứng
   periodsList.forEach((pNum, idx) => {
-    const oldLabels = [
-      new RegExp(`TIẾT\\s+${idx + 1}\\b`, 'gi'),
-      new RegExp(`Tiết\\s+${idx + 1}\\b`, 'gi'),
-      new RegExp(`T\\s*${idx + 1}\\b`, 'gi')
-    ];
-    
-    for (const regex of oldLabels) {
-      result = result.replace(regex, `TIẾT ${pNum}`);
-    }
+    const oldNum = idx + 1;
+    const regex1 = new RegExp(`TIẾT\\s+${oldNum}\\b`, 'gi');
+    const regex2 = new RegExp(`Tiết\\s+${oldNum}\\b`, 'gi');
+    const regex3 = new RegExp(`T\\s*${oldNum}\\b`, 'gi');
+
+    result = result.replace(regex1, `TIẾT ${pNum} (THEO PPCT)`);
+    result = result.replace(regex2, `Tiết ${pNum} (theo PPCT)`);
+    result = result.replace(regex3, `Tiết ${pNum}`);
   });
-
-  const createPeriodMarkerXml = (periodNum: number | string, subTitle: string = '') => {
-    const titleText = `TIẾT ${periodNum} (THEO PPCT)${subTitle ? ': ' + subTitle.toUpperCase() : ''}`;
-    return `<w:p>
-      <w:pPr>
-        <w:jc w:val="left"/>
-        <w:spacing w:before="240" w:after="120"/>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:b/>
-          <w:color w:val="1D4ED8"/>
-          <w:sz w:val="26"/>
-          <w:szCs w:val="26"/>
-        </w:rPr>
-        <w:t xml:space="preserve">▶ ${escapeXml(titleText)}</w:t>
-      </w:r>
-    </w:p>`;
-  };
-
-  const p1 = periodsList[0];
-  const bMatch = result.search(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:B\.\s*HÌNH THÀNH KIẾN THỨC|Hoạt động 1|HĐ1)[\s\S]*?<\/w:p>/i);
-  if (bMatch !== -1) {
-    const marker1 = createPeriodMarkerXml(p1);
-    result = result.substring(0, bMatch) + marker1 + result.substring(bMatch);
-  }
-
-  if (periodsList.length >= 2) {
-    const actRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Hoạt động\s*([2-9]|\d{2})|C\.\s*HOẠT ĐỘNG LUYỆN TẬP|C\.\s*LUYỆN TẬP)[\s\S]*?<\/w:p>/gi;
-    const matches: { index: number; text: string }[] = [];
-    let m;
-    while ((m = actRegex.exec(result)) !== null) {
-      matches.push({ index: m.index, text: m[0] });
-    }
-
-    for (let i = 1; i < periodsList.length; i++) {
-      const pNext = periodsList[i];
-      const matchIdx = Math.min(Math.floor((i / periodsList.length) * matches.length), matches.length - 1);
-      if (matches[matchIdx]) {
-        const insertPos = matches[matchIdx].index;
-        const markerNext = createPeriodMarkerXml(pNext);
-        result = result.substring(0, insertPos) + markerNext + result.substring(insertPos);
-        for (let k = matchIdx; k < matches.length; k++) {
-          matches[k].index += markerNext.length;
-        }
-      }
-    }
-  }
 
   return result;
 }
@@ -190,12 +138,13 @@ export const injectContentIntoDocx = async (
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
-        const finalBlob = zip.generate({ 
-          type: "blob", 
-          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
-          compression: "DEFLATE" 
-        });
-        resolve(finalBlob);
+          const finalBlob = zip.generate({ 
+            type: "blob", 
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+            compression: "DEFLATE" 
+          });
+          resolve(finalBlob);
+          return;
         }
 
         let label = "Tích hợp NLS & AI";
@@ -642,7 +591,6 @@ export const createZipFromBlobs = async (
   const zip = new PizZip();
   for (const item of files) {
     const arrayBuffer = await item.blob.arrayBuffer();
-    // Bắt buộc phải có { binary: true } để PizZip xử lý chính xác định dạng nhị phân của file Word
     zip.file(item.name, arrayBuffer, { binary: true });
   }
   return zip.generate({
