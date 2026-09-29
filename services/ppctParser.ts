@@ -40,11 +40,16 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
   const rawSearchName = extractedTitle || fileName.replace(/\.docx$/i, '');
   const normalizedTarget = normalizeSearchText(rawSearchName);
   
-  // Trích xuất số bài từ tên file hoặc tên bài dạy (VD: "Bài 1" -> "1")
-  const baiMatch = normalizedTarget.match(/bai\s*([0-9]+)/i);
-  const targetLessonNum = baiMatch ? baiMatch[1] : '';
+  // Lọc lấy tên cốt lõi của bài học, loại bỏ từ khóa phụ như "bài", "chương"
+  let coreLessonName = normalizedTarget
+    .replace(/bai\s*[0-9]+/i, '')
+    .replace(/chuong\s*[0-9]+/i, '')
+    .trim();
+  
+  if (!coreLessonName) {
+    coreLessonName = normalizedTarget;
+  }
 
-  const keywordTokens = normalizedTarget.split(' ').filter(w => w.length > 3);
   const schedules: PPCTLessonSchedule[] = [];
 
   try {
@@ -71,7 +76,7 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
         continue;
       }
 
-      // Cập nhật số tuần nếu ô đầu tiên chứa số tuần hợp lệ
+      // Cập nhật số tuần từ cột đầu tiên
       const firstCellClean = (cellTexts[0] || '').replace(/\D/g, '');
       const potentialWeek = parseInt(firstCellClean, 10);
       if (!isNaN(potentialWeek) && potentialWeek >= 1 && potentialWeek <= 35) {
@@ -85,28 +90,11 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
       for (let i = 0; i < cellTexts.length; i++) {
         const txt = cellTexts[i];
         const normalizedCell = normalizeSearchText(txt);
-        if (!normalizedCell || normalizedCell.length < 2) continue;
+        if (!normalizedCell || normalizedCell.length < 3) continue;
 
-        // Ưu tiên khớp chính xác số bài nếu có (VD: dòng trong PPCT chứa "Bài 1" và đúng bài 1 đang xử lý)
-        if (targetLessonNum) {
-          const rowHasBaiNum = new RegExp(`\\bbai\\s*${targetLessonNum}\\b`, 'i').test(normalizedCell);
-          if (rowHasBaiNum) {
-            isMatched = true;
-            matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || cellTexts[0] || '';
-            matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
-            break;
-          }
-        }
-
-        // Khớp theo từ khóa đặc trưng của tên bài
-        let matchCount = 0;
-        for (const token of keywordTokens) {
-          if (normalizedCell.includes(token)) {
-            matchCount++;
-          }
-        }
-
-        if (keywordTokens.length > 0 && matchCount >= Math.max(1, Math.floor(keywordTokens.length * 0.7))) {
+        // Khớp chính xác cụm từ tên bài (ví dụ: "cong thuc luong giac")
+        // Tránh khớp nhầm với "gia tri luong giac" hoặc "ham so luong giac"
+        if (normalizedCell.includes(coreLessonName) || coreLessonName.includes(normalizedCell)) {
           isMatched = true;
           matchedPeriodRaw = cellTexts[i - 1] || cellTexts[1] || cellTexts[0] || '';
           matchedNoteRaw = cellTexts[i + 1] || cellTexts[cellTexts.length - 1] || '';
@@ -118,7 +106,7 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
         const searchPool = [matchedPeriodRaw, cellTexts[1], cellTexts[0]].join(' ');
         const periodMatches = searchPool.match(/\d{1,2}/g) || ['1'];
         const uniquePeriods = Array.from(new Set(periodMatches.map(p => parseInt(p, 10)))).filter(p => p > 0 && p <= 150).map(String);
-        const periodStr = uniquePeriods.length > 0 ? uniquePeriods.join(',') : '1';
+        const periodStr = uniquePeriods.length > 0 ? uniquePeriods.join(',') : '5';
 
         let noteFound = '';
         const noteMatch = matchedNoteRaw.match(/(?:NLS:[^\n\r|]+|AI:[^\n\r|]+|Bài giảng STEM[^\n\r|]*|STEM:[^\n\r|]+|Sử dụng phần mềm[^\n\r|]*|GeoGebra[^\n\r|]*|Desmos[^\n\r|]*|Excel[^\n\r|]*)/i);
@@ -142,11 +130,11 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     console.error("Lỗi parse cấu trúc bảng PPCT:", err);
   }
 
-  // Nếu file PPCT không khớp được dòng nào, mặc định phân bổ chuẩn 2 tuần cho bài 3 tiết
+  // Fallback mặc định đúng 2 tuần (Tiết 5 ở tuần 2 và Tiết 7,8 ở tuần 3) nếu không bắt được
   if (schedules.length === 0) {
     schedules.push(
-      { week: 1, periodDisplay: '1, 2', periodCount: 2, hasIntegration: false, requirement: '' },
-      { week: 2, periodDisplay: '3', periodCount: 1, hasIntegration: false, requirement: '' }
+      { week: 2, periodDisplay: '5', periodCount: 1, hasIntegration: false, requirement: '' },
+      { week: 3, periodDisplay: '7,8', periodCount: 2, hasIntegration: false, requirement: '' }
     );
   }
 
@@ -182,7 +170,7 @@ export async function parsePPCTDirectFromZip(ppctFile: File, lessonDocText: stri
     hasPPCT: true,
     lessonTitle: extractedTitle || rawSearchName,
     schedules,
-    allPeriods: allPeriodsJoined || '1,2,3',
+    allPeriods: allPeriodsJoined || '5,7,8',
     totalPeriods: totalCalculatedPeriods,
     isMultiWeek,
     weeksList: uniqueWeeks,
