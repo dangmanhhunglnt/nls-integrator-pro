@@ -91,6 +91,19 @@ export function injectStandardPeriodMarkers(xmlContent: string, periodsList: (nu
 
   let result = removeOldPeriodHeaders(xmlContent);
 
+  // Tự động quét và thay thế các nhãn tiết cũ (như TIẾT 1:, TIẾT 2:, Tiết 1...) thành tiết theo PPCT tương ứng
+  periodsList.forEach((pNum, idx) => {
+    const oldLabels = [
+      new RegExp(`TIẾT\\s+${idx + 1}\\b`, 'gi'),
+      new RegExp(`Tiết\\s+${idx + 1}\\b`, 'gi'),
+      new RegExp(`T\\s*${idx + 1}\\b`, 'gi')
+    ];
+    
+    for (const regex of oldLabels) {
+      result = result.replace(regex, `TIẾT ${pNum}`);
+    }
+  });
+
   const createPeriodMarkerXml = (periodNum: number | string, subTitle: string = '') => {
     const titleText = `TIẾT ${periodNum} (THEO PPCT)${subTitle ? ': ' + subTitle.toUpperCase() : ''}`;
     return `<w:p>
