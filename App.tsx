@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
-import { parsePPCTDirectFromZip } from './services/ppctParser';
+import { parsePPCTDirectFromZip, processBatchPPCT } from './services/ppctParser';
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
@@ -14,7 +14,6 @@ import HeroSection from './components/HeroSection';
 import ControlCenter from './components/ControlCenter';
 import TerminalSidebar from './components/TerminalSidebar';
 import { PricingModal } from './components/PricingModal';
-import BatchPPCTPanel from './components/BatchPPCTPanel';
 
 function formatCleanFilenamePart(str: string): string {
   return (str || '')
@@ -187,9 +186,7 @@ const App: React.FC = () => {
         result: null, 
         generatedContent: null, 
         step: 'upload', 
-        logs: selectedFiles.length > 1 
-          ? [`📂 Đã nạp hàng loạt ${selectedFiles.length} file giáo án.`] 
-          : [`📂 Đã nạp file: ${selectedFiles[0].name}`] 
+        logs: [`📂 Đã nạp file giáo án: ${selectedFiles[0].name}`] 
       }));
     } else { 
       alert("Chỉ hỗ trợ định dạng Word (.docx)!"); 
@@ -209,26 +206,24 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, logs: [...prev.logs, msg] })); 
   };
 
-  const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
+  const fileCount = state.file ? 1 : 0;
 
   const pedagogicalEvaluation = useMemo(() => {
     if (fileCount === 0 && !state.subject) return null;
-    const fileNames = state.files && state.files.length > 0 
-      ? state.files.map(f => f.name.toLowerCase()).join(' ') 
-      : (state.file?.name.toLowerCase() || '');
+    const fileName = (state.file?.name.toLowerCase() || '');
     const subject = (state.subject || '').toLowerCase();
-    const query = `${fileNames} ${subject}`;
+    const query = `${fileName} ${subject}`;
 
-    const isPracticeOrDrill = query.includes('luyện tập') || query.includes('thực hành') || query.includes('ôn tập') || query.includes('cộng') || query.includes('trừ') || query.includes('giải phương trình');
-    const isSpatialOrSimulation = query.includes('không gian') || query.includes('hình học') || query.includes('hình chóp') || query.includes('đồ thị') || query.includes('lượng giác');
-    const isDataOrAI = query.includes('thống kê') || query.includes('xác suất') || query.includes('mẫu số liệu') || query.includes('tin học');
+    const isPracticeOrDrill = query.includes('luyện tập') || query.includes('thực hành') || query.includes('ôn tập');
+    const isSpatialOrSimulation = query.includes('không gian') || query.includes('hình học') || query.includes('đồ thị') || query.includes('lượng giác');
+    const isDataOrAI = query.includes('thống kê') || query.includes('xác suất') || query.includes('tin học');
 
     if (isPracticeOrDrill && !isSpatialOrSimulation && !isDataOrAI) {
       return {
         status: "KHÔNG NÊN GƯỢNG ÉP NĂNG LỰC SỐ / AI",
         badgeColor: "bg-amber-50 border-amber-300 text-amber-900",
         icon: <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />,
-        tool: "Bảng phấn, Giấy vở, Phiếu in, Thao tác trực tiếp trên đồ dùng thật",
+        tool: "Bảng phấn, Giấy vở, Phiếu in trực tiếp",
         action: "Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu.",
         recommendedLevel: "STANDARD"
       };
@@ -239,8 +234,8 @@ const App: React.FC = () => {
         status: "BẮT BUỘC TÍCH HỢP NĂNG LỰC SỐ (MÔ PHỎNG TRỰC QUAN)",
         badgeColor: "bg-blue-50 border-blue-300 text-blue-900",
         icon: <Cpu className="w-5 h-5 text-blue-600 shrink-0" />,
-        tool: "GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học động",
-        action: "Chèn vào Hoạt động Khám phá & Hình thành kiến thức: Cho học sinh quan sát xoay góc nhìn 3D.",
+        tool: "GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học",
+        action: "Chèn vào Hoạt động Khám phá & Hình thành kiến thức.",
         recommendedLevel: "INTENSIVE"
       };
     }
@@ -250,8 +245,8 @@ const App: React.FC = () => {
         status: "TÍCH HỢP NĂNG LỰC SỐ & TRỢ LÝ AI (XỬ LÝ DỮ LIỆU)",
         badgeColor: "bg-purple-50 border-purple-300 text-purple-900",
         icon: <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />,
-        tool: "Bảng tính Excel/Google Sheets, Công cụ phân tích dữ liệu AI",
-        action: "Chèn vào Hoạt động Luyện tập & Vận dụng: Nhập bảng dữ liệu thực tế và tính nhanh số đặc trưng.",
+        tool: "Bảng tính Excel/Google Sheets, Công cụ phân tích AI",
+        action: "Chèn vào Hoạt động Luyện tập & Vận dụng.",
         recommendedLevel: "INTENSIVE"
       };
     }
@@ -260,11 +255,11 @@ const App: React.FC = () => {
       status: "TÍCH HỢP MỨC HỖ TRỢ TRÌNH CHIẾU THỰC CHẤT",
       badgeColor: "bg-emerald-50 border-emerald-300 text-emerald-900",
       icon: <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />,
-      tool: "Slide trình chiếu bài giảng, Phiếu học tập số (Quizizz / Google Form)",
-      action: "Chèn câu hỏi tương tác mở đầu hoặc củng cố cuối bài.",
+      tool: "Slide trình chiếu, Phiếu học tập số",
+      action: "Chèn câu hỏi tương tác mở đầu hoặc củng cố.",
       recommendedLevel: "STANDARD"
     };
-  }, [state.files, state.file, state.subject, fileCount]);
+  }, [state.file, state.subject, fileCount]);
 
   useEffect(() => {
     if (pedagogicalEvaluation?.recommendedLevel) {
@@ -273,9 +268,7 @@ const App: React.FC = () => {
   }, [pedagogicalEvaluation]);
 
   const handleAnalyze = async () => {
-    const targetFiles = state.files && state.files.length > 0 ? state.files : (state.file ? [state.file] : []);
-
-    if (targetFiles.length === 0 || !state.subject || !state.grade) { 
+    if (!state.file || !state.subject || !state.grade) { 
       alert("Vui lòng chọn đầy đủ Môn, Khối lớp và File giáo án!"); 
       return; 
     }
@@ -295,7 +288,7 @@ const App: React.FC = () => {
 
     const isAccountPro = user.plan === 'PRO' || hasLocalLicense;
 
-    if (!isAccountPro && (user.usageCount + targetFiles.length) > user.maxUsage) {
+    if (!isAccountPro && user.usageCount >= user.maxUsage) {
       setIsPricingOpen(true);
       return;
     }
@@ -313,118 +306,40 @@ const App: React.FC = () => {
 
     try {
       const isChuyenDe = state.lessonCategory === 'CHUYEN_DE' || 
-                         Boolean(ppctFile?.name.toLowerCase().includes('cdht') || ppctFile?.name.toLowerCase().includes('chuyen de'));
+                         Boolean(state.file.name.toLowerCase().includes('cdht') || state.file.name.toLowerCase().includes('chuyen de'));
 
       const gradeNum = (state.grade || '11').replace(/\D/g, '');
       const subjectPrefix = isChuyenDe 
         ? `CD${gradeNum}` 
         : formatCleanFilenamePart(`${state.subject || 'Mon'}${state.grade || ''}`);
 
-      if (targetFiles.length === 1) {
-        const currentFile = targetFiles[0];
-        addLog(`🔍 Phân tích cấu trúc giáo án: ${currentFile.name}...`);
-        const textContext = await extractTextFromDocx(currentFile);
-
-        let effectiveMode = mode;
-        let effectiveStemTopic = stemTopic;
-        let ppctInfo: any = null;
-
-        if (ppctFile) {
-          addLog(`📖 Đang bóc tách ma trận phân phối chương trình: ${ppctFile.name}...`);
-          ppctInfo = await parsePPCTDirectFromZip(ppctFile, textContext, currentFile.name);
-          addLog(`📋 Kết quả PPCT: Bài dạy gồm tổng ${ppctInfo.totalPeriods} tiết qua ${ppctInfo.schedules.length} tuần.`);
-
-          if (ppctInfo.integrationType === 'STEM') {
-            effectiveMode = 'STEM' as any;
-            effectiveStemTopic = ppctInfo.requirementNote || 'Thiết kế mô hình & sản phẩm học tập STEM thực tế';
-          } else {
-            effectiveMode = ppctInfo.integrationType as any;
-          }
-        } else {
-          effectiveMode = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
-        }
-
-        addLog(`🎯 Chế độ: ${(effectiveMode as string) === 'STEM' ? 'Chỉ Giáo dục STEM' : effectiveMode}`);
-        addLog("🧠 AI đang phân tích và thiết kế nội dung...");
-
-        const generatedContent = await generateCompetencyIntegration(
-          textContext,
+      // NẾU CÓ FILE PPCT -> TỰ ĐỘNG CHẠY XỬ LÝ HÀNG LOẠT VẠN NĂNG THEO PPCT
+      if (ppctFile) {
+        addLog(`📋 Đang xử lý tự động toàn bộ chương trình theo PPCT: ${ppctFile.name}...`);
+        
+        const generatedFiles = await processBatchPPCT(
+          ppctFile,
+          state.file,
           state.subject,
           state.grade,
-          effectiveMode as any,
-          userApiKey,
-          level,
-          effectiveStemTopic
-        );
-        addLog(`✓ Hoàn tất thiết kế.`);
-
-        if (ppctInfo && ppctInfo.schedules && ppctInfo.schedules.length > 0) {
-          const cleanTitle = formatCleanFilenamePart(ppctInfo.lessonTitle || currentFile.name.replace(/\.docx$/i, ''));
-          addLog(`📦 Bài học kéo dài qua ${ppctInfo.schedules.length} tuần. Đang nhân bản và cập nhật thời gian thực hiện theo tuần...`);
-
-          const zipFiles: { name: string; blob: Blob }[] = [];
-
-          // Duyệt qua từng tuần để nhân bản giáo án gốc và ghi rõ thời gian thực hiện của tuần đó
-          for (const schedule of ppctInfo.schedules) {
-            const periodNum = schedule.periodDisplay; // Ví dụ: "1, 2" hoặc "3"
-            const weekNum = schedule.week; // Số tuần (VD: 1 hoặc 2)
-            const specificFileName = `${subjectPrefix}_Tuan_${weekNum}_Tiet_${periodNum}_${cleanTitle}.docx`;
-            
-            // Dòng hiển thị chuẩn bên trong giáo án cho từng tuần
-            const headerText = `Tiết ${periodNum} (Tuần ${weekNum} theo PPCT)`;
-            const periodsArray = periodNum.split(',').map((p: string) => p.trim()).filter(Boolean);
-
-            // Nhân bản từ file giáo án gốc với nội dung đầy đủ, chỉ cập nhật lại phần thời gian tiết/tuần
-            const blobItem = await injectContentIntoDocx(
-              currentFile,
-              generatedContent,
-              effectiveMode as any,
-              addLog,
-              highlightColor,
-              headerText,
-            
+          highlightColor,
+          async (lessonTitle, targetMode) => {
+            const textContext = await extractTextFromDocx(state.file!);
+            return await generateCompetencyIntegration(
+              textContext,
+              state.subject,
+              state.grade,
+              targetMode,
+              userApiKey,
+              level,
+              lessonTitle
             );
-
-            zipFiles.push({ name: specificFileName, blob: blobItem });
           }
-
-          const zipPackage = await createZipFromBlobs(zipFiles);
-
-          if (user.plan !== 'PRO') {
-            const nextUsage = (user.usageCount || 0) + 1;
-            await supabase
-              .from('profiles')
-              .upsert({ 
-                id: user.uid, 
-                email: user.email, 
-                full_name: user.displayName, 
-                usage_count: nextUsage,
-                max_usage: user.maxUsage,
-                role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
-              });
-            setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
-          }
-
-          setState(prev => ({ 
-            ...prev, 
-            isProcessing: false, 
-            step: 'done', 
-            result: { fileName: `[GIAO-AN-${cleanTitle}].zip`, blob: zipPackage },
-            logs: [...prev.logs, `✨ Đã đóng gói thành công file ZIP chứa ${zipFiles.length} bản tương ứng với các tuần!`] 
-          }));
-          return;
-        }
-
-        const cleanTitle = formatCleanFilenamePart(currentFile.name.replace(/\.docx$/i, ''));
-        const singleFileName = `${subjectPrefix}_${cleanTitle}.docx`;
-
-        const finalBlob = await injectContentIntoDocx(
-          currentFile,
-          generatedContent,
-          effectiveMode as any,
-          addLog,
-          highlightColor
         );
+
+        addLog(`📦 Đã đóng gói thành công ${generatedFiles.length} file vào tệp ZIP chuẩn chỉnh!`);
+        const zipBlob = await createZipFromBlobs(generatedFiles);
+        const zipFileName = `[NLS-PRO-PPCT]_${subjectPrefix}_${formatCleanFilenamePart(state.subject)}.zip`;
 
         if (user.plan !== 'PRO') {
           const nextUsage = (user.usageCount || 0) + 1;
@@ -445,95 +360,64 @@ const App: React.FC = () => {
           ...prev, 
           isProcessing: false, 
           step: 'done', 
-          result: { fileName: singleFileName, blob: finalBlob }
+          result: { fileName: zipFileName, blob: zipBlob },
+          logs: [...prev.logs, `✨ Hoàn thành xuất bản hàng loạt theo PPCT!`]
         }));
         return;
       }
 
-      // Xử lý hàng loạt batch
-      addLog(`⚡ Bắt đầu tiến trình xử lý hàng loạt ${targetFiles.length} file...`);
-      const outputBlobs: { name: string; blob: Blob }[] = [];
+      // NẾU KHÔNG CÓ FILE PPCT -> XỬ LÝ BÀI LẺ ĐƠN DÒNG TRUYỀN THỐNG
+      const currentFile = state.file;
+      addLog(`🔍 Phân tích cấu trúc giáo án: ${currentFile.name}...`);
+      const textContext = await extractTextFromDocx(currentFile);
 
-      for (let i = 0; i < targetFiles.length; i++) {
-        const fileItem = targetFiles[i];
-        addLog(`━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        addLog(`[${i + 1}/${targetFiles.length}] Đang xử lý: ${fileItem.name}`);
+      let effectiveMode = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
 
-        const fileText = await extractTextFromDocx(fileItem);
-        let itemMode = mode;
-        let itemStem = stemTopic;
-        let batchPPCT: any = null;
+      addLog(`🎯 Chế độ: ${effectiveMode}`);
+      addLog("🧠 AI đang phân tích và thiết kế nội dung...");
 
-        if (ppctFile) {
-          batchPPCT = await parsePPCTDirectFromZip(ppctFile, fileText, fileItem.name);
-          if (batchPPCT.integrationType === 'STEM') {
-            itemMode = 'STEM' as any;
-            itemStem = batchPPCT.requirementNote || 'Chế tạo mô hình STEM';
-          } else {
-            itemMode = batchPPCT.integrationType as any;
-          }
-        } else {
-          itemMode = (!mode && Boolean(stemTopic)) ? 'STEM' : (mode || 'STEM');
-        }
+      const generatedContent = await generateCompetencyIntegration(
+        textContext,
+        state.subject,
+        state.grade,
+        effectiveMode as any,
+        userApiKey,
+        level,
+        stemTopic
+      );
+      addLog(`✓ Hoàn tất thiết kế.`);
 
-        const itemContent = await generateCompetencyIntegration(
-          fileText,
-          state.subject,
-          state.grade,
-          itemMode as any,
-          userApiKey,
-          level,
-          itemStem
-        );
+      const cleanTitle = formatCleanFilenamePart(currentFile.name.replace(/\.docx$/i, ''));
+      const singleFileName = `${subjectPrefix}_${cleanTitle}.docx`;
 
-        const batchItemCleanTitle = formatCleanFilenamePart(batchPPCT?.lessonTitle || fileItem.name.replace(/\.docx$/i, ''));
+      const finalBlob = await injectContentIntoDocx(
+        currentFile,
+        generatedContent,
+        effectiveMode as any,
+        addLog,
+        highlightColor
+      );
 
-        if (batchPPCT && batchPPCT.schedules && batchPPCT.schedules.length > 0) {
-          for (const schedule of batchPPCT.schedules) {
-            const periodNum = schedule.periodDisplay;
-            const weekNum = schedule.week;
-            const nameW = `${subjectPrefix}_Tuan_${weekNum}_Tiet_${periodNum}_${batchItemCleanTitle}.docx`;
-            const headerText = `Tiết ${periodNum} (Tuần ${weekNum} theo PPCT)`;
-            const wBlob = await injectContentIntoDocx(
-              fileItem,
-              itemContent,
-              itemMode as any,
-              addLog,
-              highlightColor,
-              headerText,
-              
-            );
-            outputBlobs.push({ name: nameW, blob: wBlob });
-          }
-        } else {
-          if (outputFormat === 'APPENDIX_ONLY') {
-            const appendixBlob = await createAppendixDocx(itemContent, state.subject, state.grade, itemMode as any);
-            outputBlobs.push({ name: (itemMode as string) === 'STEM' ? `[Phụ lục STEM] ${fileItem.name}` : `[Phụ lục NLS-AI] ${fileItem.name}`, blob: appendixBlob });
-          } else {
-            const batchFileName = `${subjectPrefix}_${batchItemCleanTitle}.docx`;
-            const finalBlob = await injectContentIntoDocx(
-              fileItem, 
-              itemContent, 
-              itemMode as any, 
-              addLog, 
-              highlightColor
-            );
-            outputBlobs.push({ name: batchFileName, blob: finalBlob });
-          }
-        }
-
-        addLog(`✓ Đã hoàn thành [${i + 1}/${targetFiles.length}]: ${fileItem.name}`);
+      if (user.plan !== 'PRO') {
+        const nextUsage = (user.usageCount || 0) + 1;
+        await supabase
+          .from('profiles')
+          .upsert({ 
+            id: user.uid, 
+            email: user.email, 
+            full_name: user.displayName, 
+            usage_count: nextUsage,
+            max_usage: user.maxUsage,
+            role: (user.plan as string) === 'PRO' ? 'pro' : 'free'
+          });
+        setUser(prev => prev ? ({ ...prev, usageCount: nextUsage }) : null);
       }
-
-      addLog(`📦 Đang nén ${outputBlobs.length} file vào tệp ZIP...`);
-      const zipBlob = await createZipFromBlobs(outputBlobs);
-      const zipFileName = `[NLS-PRO-BATCH] Bo_giao_an_${subjectPrefix}.zip`;
 
       setState(prev => ({ 
         ...prev, 
         isProcessing: false, 
         step: 'done', 
-        result: { fileName: zipFileName, blob: zipBlob }
+        result: { fileName: singleFileName, blob: finalBlob }
       }));
 
     } catch (error) {
@@ -748,7 +632,7 @@ const App: React.FC = () => {
           </div>
         </div>
       </footer>
-      <BatchPPCTPanel />
+
       <PricingModal 
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
