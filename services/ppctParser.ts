@@ -91,7 +91,7 @@ export async function parsePPCTDirectFromZip(file: File, textContext?: any, file
 }
 
 /**
- * 2. HÀM XỬ LÝ HÀNG LOẠT VÀ XUẤT FILE GIÁO ÁN TỰ ĐỘNG (VẠN NĂNG - TÍCH HỢP CHIA TÁCH THEO TUẦN)
+ * 2. HÀM XỬ LÝ HÀNG LOẠT VÀ XUẤT FILE GIÁO ÁN TỰ ĐỘNG (VẠN NĂNG - GIỮ NGUYÊN BẢN CŨ)
  */
 export async function processBatchPPCT(
   ppctFile: File,
@@ -155,7 +155,6 @@ export async function processBatchPPCT(
         console.warn("Lỗi gọi AI sinh nội dung, dùng chuẩn 5512 mặc định:", err);
       }
     } else {
-      // Nếu không có tích hợp NLS/AI/STEM -> Tự động đưa về chuẩn giáo án 5512 thuần túy theo yêu cầu
       content = {
         objectives_addition: '',
         materials_addition: '',
@@ -164,7 +163,7 @@ export async function processBatchPPCT(
       };
     }
 
-    // Xử lý từng dòng phân phối tương ứng với từng tuần (nếu 1 bài học nằm ở 2 tuần khác nhau -> tách thành 2 file riêng biệt)
+    // Xử lý từng dòng phân phối tương ứng với từng tuần
     for (const row of rowsGroup) {
       const tietClean = (row.tiet || '1').replace(/[^0-9-]/g, '');
       let soTietCount = 1;
@@ -180,7 +179,7 @@ export async function processBatchPPCT(
       const processedBlob = await injectContentIntoDocx(
         templateDocxFile,
         content,
-        hasIntegration ? mode : 'NLS', // Nếu không tích hợp thì truyền chế độ mặc định sạch
+        hasIntegration ? mode : 'NLS',
         () => {},
         colorHex,
         headerInfoText
@@ -201,6 +200,106 @@ export async function processBatchPPCT(
 
       results.push({ name: fileName, blob: processedBlob });
     }
+  }
+
+  return results;
+}
+
+/**
+ * 3. HÀM BỔ SUNG: XỬ LÝ THEO TỪNG BÀI ĐỘC LẬP (ĐẢM BẢO KHÔNG ẢNH HƯỞNG HÀM CŨ)
+ * Giúp giáo viên chọn/xử lý đúng 1 bài học từ file PPCT, tự động phân rã đúng tuần/tiết
+ * mà vẫn giữ nguyên vẹn cấu trúc cốt lõi chuẩn 5512 của bài học đó.
+ */
+export async function processSingleLessonFromPPCT(
+  ppctRows: PPCTRow[],
+  targetLessonName: string,
+  templateDocxFile: File,
+  subject: string,
+  grade: string,
+  colorHex: HighlightColor,
+  generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
+): Promise<{ name: string; blob: Blob }[]> {
+  const matchingRows = ppctRows.filter(r => 
+    r.baiHoc.toLowerCase().includes(targetLessonName.toLowerCase().trim())
+  );
+
+  if (matchingRows.length === 0) {
+    throw new Error(`Không tìm thấy bài học "${targetLessonName}" trong dữ liệu PPCT.`);
+  }
+
+  // Quét ghi chú toàn bài để nhận diện tích hợp NLS, AI hoặc STEM
+  const combinedGhiChu = matchingRows.map(r => r.ghiChu || '').join(' ').toUpperCase();
+  
+  let mode: IntegrationMode = 'NLS';
+  let hasIntegration = false;
+
+  if (combinedGhiChu.includes('STEM')) {
+    mode = 'STEM';
+    hasIntegration = true;
+  } else if (combinedGhiChu.includes('NLS & AI') || (combinedGhiChu.includes('NLS') && combinedGhiChu.includes('AI'))) {
+    mode = 'NLS';
+    hasIntegration = true;
+  } else if (combinedGhiChu.includes('NLS')) {
+    mode = 'NLS';
+    hasIntegration = true;
+  } else if (combinedGhiChu.includes('AI')) {
+    mode = 'NAI';
+    hasIntegration = true;
+  }
+
+  let content: GeneratedNLSContent = {
+    objectives_addition: '',
+    materials_addition: '',
+    activities_enhancement: [],
+    summary_table: []
+  };
+
+  if (hasIntegration) {
+    try {
+      content = await generateAIContentCallback(targetLessonName, mode);
+    } catch (err) {
+      console.warn("Lỗi gọi AI sinh nội dung, dùng chuẩn 5512 mặc định:", err);
+    }
+  }
+
+  const results: { name: string; blob: Blob }[] = [];
+
+  for (const row of matchingRows) {
+    const tietClean = (row.tiet || '1').replace(/[^0-9-]/g, '');
+    let soTietCount = 1;
+    if (tietClean.includes('-')) {
+      const parts = tietClean.split('-');
+      if (parts && parts.length >= 2 && parts[0] && parts[1]) {
+        soTietCount = Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
+      }
+    }
+
+    // Tiêu đề thời gian thực hiện đồng bộ theo đúng chuẩn tuần/tiết thực tế
+    const headerInfoText = `Thời gian thực hiện: ${soTietCount < 10 ? '0' + soTietCount : soTietCount} tiết (Tuần ${row.tuan || '1'} dạy Tiết ${row.tiet || '1'})`;
+
+    const processedBlob = await injectContentIntoDocx(
+      templateDocxFile,
+      content,
+      hasIntegration ? mode : 'NLS',
+      () => {},
+      colorHex,
+      headerInfoText
+    );
+
+    const cleanTenBai = (targetLessonName || 'baihoc')
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, '');
+
+    const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
+    const grdStr = grade ? grade.replace(/[^0-9]/g, '') : '11';
+    const tuanStr = `tuan${(row.tuan || '1').replace(/[^0-9]/g, '') || '1'}`;
+    const tietStr = `tiet${tietClean || '1'}`;
+    
+    const fileName = `${subStr}${grdStr}_${tuanStr}_${tietStr}_${cleanTenBai}.docx`;
+
+    results.push({ name: fileName, blob: processedBlob });
   }
 
   return results;
