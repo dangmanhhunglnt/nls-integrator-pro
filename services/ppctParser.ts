@@ -91,7 +91,7 @@ export async function parsePPCTDirectFromZip(file: File, textContext?: any, file
 }
 
 /**
- * 2. HÀM XỬ LÝ HÀNG LOẠT VÀ XUẤT FILE GIÁO ÁN TỰ ĐỘNG (VẠN NĂNG)
+ * 2. HÀM XỬ LÝ HÀNG LOẠT VÀ XUẤT FILE GIÁO ÁN TỰ ĐỘNG (VẠN NĂNG - TÍCH HỢP CHIA TÁCH THEO TUẦN)
  */
 export async function processBatchPPCT(
   ppctFile: File,
@@ -108,21 +108,34 @@ export async function processBatchPPCT(
 
   const results: { name: string; blob: Blob }[] = [];
 
+  // Nhóm các dòng theo Tên bài học để xử lý trường hợp 1 bài học rải rác qua nhiều tuần/nhiều dòng PPCT
+  const lessonMap = new Map<string, PPCTRow[]>();
   for (const row of ppctRows) {
+    const key = row.baiHoc.trim();
+    if (!lessonMap.has(key)) {
+      lessonMap.set(key, []);
+    }
+    lessonMap.get(key)!.push(row);
+  }
+
+  // Duyệt qua từng bài học độc lập
+  for (const [baiHocName, rowsGroup] of lessonMap.entries()) {
+    // Tổng hợp ghi chú của cả bài học xem có tích hợp gì không
+    const combinedGhiChu = rowsGroup.map(r => r.ghiChu || '').join(' ').toUpperCase();
+    
     let mode: IntegrationMode = 'NLS';
     let hasIntegration = false;
-    const gcUpper = (row.ghiChu || '').toUpperCase();
 
-    if (gcUpper.includes('STEM')) {
+    if (combinedGhiChu.includes('STEM')) {
       mode = 'STEM';
       hasIntegration = true;
-    } else if (gcUpper.includes('NLS & AI') || (gcUpper.includes('NLS') && gcUpper.includes('AI'))) {
+    } else if (combinedGhiChu.includes('NLS & AI') || (combinedGhiChu.includes('NLS') && combinedGhiChu.includes('AI'))) {
       mode = 'NLS';
       hasIntegration = true;
-    } else if (gcUpper.includes('NLS')) {
+    } else if (combinedGhiChu.includes('NLS')) {
       mode = 'NLS';
       hasIntegration = true;
-    } else if (gcUpper.includes('AI')) {
+    } else if (combinedGhiChu.includes('AI')) {
       mode = 'NAI';
       hasIntegration = true;
     }
@@ -134,48 +147,60 @@ export async function processBatchPPCT(
       summary_table: []
     };
 
+    // Nếu có tích hợp, gọi AI sinh nội dung chuẩn hóa một lần cho bài học đó
     if (hasIntegration) {
       try {
-        content = await generateAIContentCallback(row.baiHoc, mode);
+        content = await generateAIContentCallback(baiHocName, mode);
       } catch (err) {
         console.warn("Lỗi gọi AI sinh nội dung, dùng chuẩn 5512 mặc định:", err);
       }
+    } else {
+      // Nếu không có tích hợp NLS/AI/STEM -> Tự động đưa về chuẩn giáo án 5512 thuần túy theo yêu cầu
+      content = {
+        objectives_addition: '',
+        materials_addition: '',
+        activities_enhancement: [],
+        summary_table: []
+      };
     }
 
-    const tietClean = (row.tiet || '1').replace(/[^0-9-]/g, '');
-    let soTietCount = 1;
-    if (tietClean.includes('-')) {
-      const parts = tietClean.split('-');
-      if (parts && parts.length >= 2 && parts[0] && parts[1]) {
-        soTietCount = Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
+    // Xử lý từng dòng phân phối tương ứng với từng tuần (nếu 1 bài học nằm ở 2 tuần khác nhau -> tách thành 2 file riêng biệt)
+    for (const row of rowsGroup) {
+      const tietClean = (row.tiet || '1').replace(/[^0-9-]/g, '');
+      let soTietCount = 1;
+      if (tietClean.includes('-')) {
+        const parts = tietClean.split('-');
+        if (parts && parts.length >= 2 && parts[0] && parts[1]) {
+          soTietCount = Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
+        }
       }
+
+      const headerInfoText = `Thời gian thực hiện: ${soTietCount < 10 ? '0' + soTietCount : soTietCount} tiết (Tuần ${row.tuan || '1'} dạy Tiết ${row.tiet || '1'})`;
+
+      const processedBlob = await injectContentIntoDocx(
+        templateDocxFile,
+        content,
+        hasIntegration ? mode : 'NLS', // Nếu không tích hợp thì truyền chế độ mặc định sạch
+        () => {},
+        colorHex,
+        headerInfoText
+      );
+
+      const cleanTenBai = (baiHocName || 'baihoc')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, '');
+
+      const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
+      const grdStr = grade ? grade.replace(/[^0-9]/g, '') : '10';
+      const tuanStr = `tuan${(row.tuan || '1').replace(/[^0-9]/g, '') || '1'}`;
+      const tietStr = `tiet${tietClean || '1'}`;
+      
+      const fileName = `${subStr}${grdStr}_${tuanStr}_${tietStr}_${cleanTenBai}.docx`;
+
+      results.push({ name: fileName, blob: processedBlob });
     }
-
-    const headerInfoText = `Thời gian thực hiện: ${soTietCount < 10 ? '0' + soTietCount : soTietCount} tiết (Tuần ${row.tuan || '1'} dạy Tiết ${row.tiet || '1'})`;
-
-    const processedBlob = await injectContentIntoDocx(
-      templateDocxFile,
-      content,
-      mode,
-      () => {},
-      colorHex,
-      headerInfoText
-    );
-
-    const cleanTenBai = (row.baiHoc || 'baihoc')
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, '');
-
-    const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
-    const grdStr = grade ? grade.replace(/[^0-9]/g, '') : '10';
-    const tuanStr = `tuan${(row.tuan || '1').replace(/[^0-9]/g, '') || '1'}`;
-    const tietStr = `tiet${tietClean || '1'}`;
-    
-    const fileName = `${subStr}${grdStr}_${tuanStr}_${tietStr}_${cleanTenBai}.docx`;
-
-    results.push({ name: fileName, blob: processedBlob });
   }
 
   return results;
