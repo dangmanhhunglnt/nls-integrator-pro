@@ -22,23 +22,12 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  // 1. Quét sạch triệt để mọi đoạn chứa [NLS], [AI], [STEM], bao gồm cả [NLS]: Gemini
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS|AI|STEM)\][\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
-
-  // 2. Quét sạch các chỉ thị tích hợp trong tiến trình bài dạy
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
-
-  // 3. Quét sạch các mã chuẩn đầu ra cũ nếu có
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:\d\.\d\.[A-Z\d]+|[A-Z]{2,}\.[A-Z\d]+|\bGeoGebra\b|\bDesmos\b).*?<\/w:p>/gis, '');
-
-  // 4. Xóa các đoạn con chứa nội dung "Năng lực số" mà vẫn giữ nguyên khung bài
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:-\s*Năng lực số|Năng lực số\s*\([^)]*\):).*?<\/w:p>/gis, '');
-
-  // 5. Xóa các mục học liệu số cũ ở Mục II
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thiết bị dạy học và Học liệu số|Học liệu số).*?<\/w:p>/gis, '');
-
-  // 6. Xóa Bảng tổng hợp NLS/AI ở cuối bài
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
 
   return cleaned;
@@ -53,10 +42,8 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Tạo một paragraph độc lập chuẩn OpenXML căn giữa toàn trang
   const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // 1. Nếu dòng chữ nằm trong 1 bảng (bảng 2 ô header), thay thế cả bảng bằng dòng căn giữa
   const tblRegex = /<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
   let replacedTable = false;
 
@@ -73,7 +60,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     return result;
   }
 
-  // 2. Nếu nằm trong đoạn paragraph thông thường ngoài bảng
   const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
   const match = result.match(pRegex);
 
@@ -126,15 +112,12 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. Quét sạch toàn bộ các nội dung NLS/AI/STEM cũ
         docXml = cleanExistingNLSContent(docXml);
 
-        // 2. Căn giữa dòng tiêu đề thông tin PPCT
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
-        // NẾU BÀI DẠY TRUYỀN THỐNG (content rỗng) -> XUẤT NGAY FILE SẠCH 5512
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
@@ -142,7 +125,6 @@ export const injectContentIntoDocx = async (
           return;
         }
 
-        // NẾU BÀI CÓ CHỈ ĐỊNH TÍCH HỢP -> CHÈN NỘI DUNG MỚI
         let label = "Tích hợp NLS & AI";
         if ((mode as string) === 'STEM') label = "Giáo dục STEM";
         else if (mode === 'NLS') label = "Tích hợp NLS";
@@ -206,12 +188,12 @@ export const injectContentIntoDocx = async (
 
             if (cleanLine) {
               xmlBlock += `<w:p>
-                             <w:pPr><w:ind w:left="720"/></w:pPr>
-                             <w:r>
-                               <w:rPr>${rPrBody}</w:rPr>
-                               <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                             </w:r>
-                           </w:p>`;
+                           <w:pPr><w:ind w:left="720"/></w:pPr>
+                           <w:r>
+                             <w:rPr>${rPrBody}</w:rPr>
+                             <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                           </w:r>
+                         </w:p>`;
             }
           });
 
