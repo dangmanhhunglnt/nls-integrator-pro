@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, UserProfile } from './types';
 import { generateCompetencyIntegration } from './services/geminiService';
 import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZipFromBlobs } from './services/docxManipulator';
-import { parsePPCTDirectFromZip, processBatchPPCT } from './services/ppctParser';
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
@@ -313,12 +312,22 @@ const App: React.FC = () => {
         ? `CD${gradeNum}` 
         : formatCleanFilenamePart(`${state.subject || 'Mon'}${state.grade || ''}`);
 
-      // NẾU CÓ FILE PPCT -> TỰ ĐỘNG CHẠY XỬ LÝ HÀNG LOẠT VẠN NĂNG THEO PPCT
+      // NẾU CÓ FILE PPCT -> XỬ LÝ ĐÚNG BÀI HỌC CỦA FILE GIÁO ÁN ĐANG NẠP
       if (ppctFile) {
-        addLog(`📋 Đang xử lý tự động toàn bộ chương trình theo PPCT: ${ppctFile.name}...`);
+        addLog(`📋 Đang đọc và đối chiếu file PPCT: ${ppctFile.name}...`);
         
-        const generatedFiles = await processBatchPPCT(
-          ppctFile,
+        // 1. Đọc dữ liệu từ file PPCT
+        const { parsePPCTDocument, processSingleLessonFromPPCT } = await import('./services/ppctParser');
+        const ppctRows = await parsePPCTDocument(ppctFile);
+
+        // 2. Lấy tên bài học từ tên file giáo án hiện tại
+        const currentLessonRawName = state.file.name.replace(/\.docx$/i, '');
+        addLog(`🎯 Đang tìm và khớp dữ liệu bài học cho: "${currentLessonRawName}"...`);
+
+        // 3. Gọi hàm xử lý đúng 1 bài học (tự động gom số tiết, phân rã tuần/tiết)
+        const generatedFiles = await processSingleLessonFromPPCT(
+          ppctRows,
+          currentLessonRawName,
           state.file,
           state.subject,
           state.grade,
@@ -337,9 +346,15 @@ const App: React.FC = () => {
           }
         );
 
-        addLog(`📦 Đã đóng gói thành công ${generatedFiles.length} file vào tệp ZIP chuẩn chỉnh!`);
-        const zipBlob = await createZipFromBlobs(generatedFiles);
-        const zipFileName = `[NLS-PRO-PPCT]_${subjectPrefix}_${formatCleanFilenamePart(state.subject)}.zip`;
+        addLog(`📦 Đã đóng gói thành công ${generatedFiles.length} file cho bài học này!`);
+        
+        let finalResult: { fileName: string; blob: Blob };
+        if (generatedFiles.length === 1 && generatedFiles[0]) {
+          finalResult = { fileName: generatedFiles[0].name, blob: generatedFiles[0].blob };
+        } else {
+          const zipBlob = await createZipFromBlobs(generatedFiles);
+          finalResult = { fileName: `[NLS-PRO-BÀI]_${subjectPrefix}_${formatCleanFilenamePart(currentLessonRawName)}.zip`, blob: zipBlob };
+        }
 
         if (user.plan !== 'PRO') {
           const nextUsage = (user.usageCount || 0) + 1;
@@ -360,8 +375,8 @@ const App: React.FC = () => {
           ...prev, 
           isProcessing: false, 
           step: 'done', 
-          result: { fileName: zipFileName, blob: zipBlob },
-          logs: [...prev.logs, `✨ Hoàn thành xuất bản hàng loạt theo PPCT!`]
+          result: { fileName: finalResult.fileName, blob: finalResult.blob },
+          logs: [...prev.logs, `✨ Hoàn thành xuất bản bài học theo PPCT cực kỳ nhanh chóng!`]
         }));
         return;
       }
