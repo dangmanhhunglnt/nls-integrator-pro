@@ -32,8 +32,7 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
     return tMatches.map(t => t.replace(/<[^>]+>/g, '')).join(' ').trim();
   };
 
-  let lastTuan = "1";
-  let autoTietCount = 1;
+  let currentTuan = "1";
 
   for (let i = 1; i < trMatches.length; i++) {
     const tr = trMatches[i];
@@ -42,31 +41,34 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
     const tcMatches = tr.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi);
     if (!tcMatches || tcMatches.length < 3) continue;
 
-    // Xử lý cột Tuần (tự động nhận diện hoặc giữ lại tuần của dòng trước nếu bị gộp ô)
-    let tuan = extractCellText(tcMatches[0]);
-    if (tuan && /^\d+$/.test(tuan)) {
-      lastTuan = tuan;
-    } else {
-      tuan = lastTuan;
+    // Cột 0: Tuần (nếu bị gộp ô trống thì giữ lại tuần của dòng trước)
+    const tuanRaw = extractCellText(tcMatches[0]);
+    if (tuanRaw && /\d+/.test(tuanRaw)) {
+      currentTuan = tuanRaw.replace(/[^0-9]/g, '');
     }
 
-    const tietRaw = extractCellText(tcMatches[1]);
-    const baiHoc = extractCellText(tcMatches[2] || '');
+    // Cột 1: Tiết (ví dụ: 1, 2, 1-2, 7-8...)
+    const tiet = extractCellText(tcMatches[1]);
+    
+    // Cột 2: Tên bài học
+    const baiHoc = extractCellText(tcMatches[2]);
+    
+    // Cột 3: Nội dung chi tiết
     const noiDung = tcMatches.length > 3 ? extractCellText(tcMatches[3]) : '';
+    
+    // Cột 4: Ghi chú (chứa từ khóa STEM, NLS, AI...)
     const ghiChu = tcMatches.length > 4 ? extractCellText(tcMatches[4]) : '';
 
-    // Bỏ qua các dòng tiêu đề rỗng hoặc không có tên bài
-    if (!baiHoc || baiHoc.toLowerCase().includes('bài học') || baiHoc.toLowerCase().includes('nội dung')) {
-      continue;
+    // Chỉ nhận dòng nào có Tiết và Tên bài học hợp lệ
+    if (tiet && baiHoc && !baiHoc.toLowerCase().includes('bài học')) {
+      rows.push({
+        tuan: currentTuan,
+        tiet: tiet,
+        baiHoc: baiHoc,
+        noiDung: noiDung,
+        ghiChu: ghiChu
+      });
     }
-
-    // Nếu tiết bị trống (tuần ôn tập/kiểm tra), tự gán tiết giả định
-    const tiet = tietRaw || String(autoTietCount);
-    if (!tietRaw) {
-      autoTietCount++;
-    }
-
-    rows.push({ tuan, tiet, baiHoc, noiDung, ghiChu });
   }
 
   return rows;
