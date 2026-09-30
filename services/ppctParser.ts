@@ -212,22 +212,24 @@ export async function processSingleLessonFromPPCT(
   colorHex: HighlightColor,
   generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
 ): Promise<{ name: string; blob: Blob }[]> {
-  // Chuẩn hóa tên file giáo án để so sánh linh hoạt (bỏ dấu, bỏ ký tự đặc biệt, viết thường)
-  const cleanTarget = targetLessonName
+  // 1. Chuẩn hóa tên file và loại bỏ các tiền tố định danh rác (như c1, b1, bai, chuong...)
+  const normalizedTarget = targetLessonName
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^(c\d+\s*-\s*b\d+\s*-|bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '') // Cắt bỏ tiền tố C1-B1, Bài 1, Chương 1 ở đầu
     .replace(/[^a-z0-9]/g, '');
 
   const matchingRows = ppctRows.filter(r => {
-    const cleanBai = r.baiHoc
+    const normalizedBai = r.baiHoc
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
+      .replace(/^(bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
       .replace(/[^a-z0-9]/g, '');
     
-    // Kiểm tra chéo: Tên file chứa tên PPCT hoặc tên PPCT chứa tên file
-    return cleanTarget.includes(cleanBai) || cleanBai.includes(cleanTarget);
+    // Khớp lệnh linh hoạt: chuỗi nào chứa chuỗi kia là nhận diện đúng bài
+    return normalizedTarget.includes(normalizedBai) || normalizedBai.includes(normalizedTarget) || normalizedTarget === normalizedBai;
   });
 
   if (matchingRows.length === 0) {
