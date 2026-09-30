@@ -14,6 +14,7 @@ import HeroSection from './components/HeroSection';
 import ControlCenter from './components/ControlCenter';
 import TerminalSidebar from './components/TerminalSidebar';
 import { PricingModal } from './components/PricingModal';
+import BatchPPCTPanel from './components/BatchPPCTPanel';
 
 function formatCleanFilenamePart(str: string): string {
   return (str || '')
@@ -381,7 +382,7 @@ const App: React.FC = () => {
               addLog,
               highlightColor,
               headerText,
-              periodsArray
+            
             );
 
             zipFiles.push({ name: specificFileName, blob: blobItem });
@@ -500,7 +501,7 @@ const App: React.FC = () => {
               addLog,
               highlightColor,
               headerText,
-              periodNum.split(',').map((p: string) => p.trim()).filter(Boolean)
+              
             );
             outputBlobs.push({ name: nameW, blob: wBlob });
           }
@@ -747,7 +748,7 @@ const App: React.FC = () => {
           </div>
         </div>
       </footer>
-
+      <BatchPPCTPanel />
       <PricingModal 
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
