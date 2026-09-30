@@ -11,7 +11,7 @@ export interface PPCTRow {
 }
 
 /**
- * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX)
+ * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX) - ĐÃ BỔ SUNG AN TOÀN TUYỆT ĐỐI
  */
 export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   const arrayBuffer = await ppctFile.arrayBuffer();
@@ -25,22 +25,26 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   const trMatches = docXml.match(/<w:tr\b[\s\S]*?<\/w:tr>/gi);
   if (!trMatches || trMatches.length <= 1) return rows;
 
+  const extractCellText = (tcXml: string) => {
+    if (!tcXml) return "";
+    const tMatches = tcXml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi);
+    if (!tMatches) return "";
+    return tMatches.map(t => t.replace(/<[^>]+>/g, '')).join(' ').trim();
+  };
+
   for (let i = 1; i < trMatches.length; i++) {
     const tr = trMatches[i];
+    if (!tr) continue;
+    
     const tcMatches = tr.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi);
-    if (!tcMatches || tcMatches.length < 5) continue;
-
-    const extractCellText = (tcXml: string) => {
-      const tMatches = tcXml.match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi);
-      if (!tMatches) return "";
-      return tMatches.map(t => t.replace(/<[^>]+>/g, '')).join(' ').trim();
-    };
+    // Cho phép linh hoạt nếu bảng có từ 3 cột trở lên (Tuần, Tiết, Tên bài,...)
+    if (!tcMatches || tcMatches.length < 3) continue;
 
     const tuan = extractCellText(tcMatches[0]);
     const tiet = extractCellText(tcMatches[1]);
-    const baiHoc = extractCellText(tcMatches[2]);
-    const noiDung = extractCellText(tcMatches[3]);
-    const ghiChu = extractCellText(tcMatches[4]);
+    const baiHoc = extractCellText(tcMatches[2] || '');
+    const noiDung = tcMatches.length > 3 ? extractCellText(tcMatches[3]) : '';
+    const ghiChu = tcMatches.length > 4 ? extractCellText(tcMatches[4]) : '';
 
     if (tiet && baiHoc) {
       rows.push({ tuan, tiet, baiHoc, noiDung, ghiChu });
@@ -66,12 +70,16 @@ export async function processBatchPPCT(
   generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
 ): Promise<{ name: string; blob: Blob }[]> {
   const ppctRows = await parsePPCTDocument(ppctFile);
+  if (!ppctRows || ppctRows.length === 0) {
+    throw new Error("Không tìm thấy dữ liệu hàng nào trong bảng PPCT. Thầy kiểm tra lại file .docx nhé.");
+  }
+
   const results: { name: string; blob: Blob }[] = [];
 
   for (const row of ppctRows) {
     let mode: IntegrationMode = 'NLS';
     let hasIntegration = false;
-    const gcUpper = row.ghiChu.toUpperCase();
+    const gcUpper = (row.ghiChu || '').toUpperCase();
 
     if (gcUpper.includes('STEM')) {
       mode = 'STEM';
@@ -102,16 +110,17 @@ export async function processBatchPPCT(
       }
     }
 
-    const tietClean = row.tiet.replace(/[^0-9-]/g, '');
+    const tietClean = (row.tiet || '1').replace(/[^0-9-]/g, '');
     let soTietCount = 1;
     if (tietClean.includes('-')) {
       const parts = tietClean.split('-');
-      soTietCount = Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
+      if (parts.length >= 2) {
+        soTietCount = Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
+      }
     }
 
-    const headerInfoText = `Thời gian thực hiện: ${soTietCount < 10 ? '0' + soTietCount : soTietCount} tiết (Tuần ${row.tuan} dạy Tiết ${row.tiet})`;
+    const headerInfoText = `Thời gian thực hiện: ${soTietCount < 10 ? '0' + soTietCount : soTietCount} tiết (Tuần ${row.tuan || '1'} dạy Tiết ${row.tiet || '1'})`;
 
-    // Gọi hàm chèn chuẩn với 5 tham số tương thích hệ thống
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
       content,
@@ -121,7 +130,7 @@ export async function processBatchPPCT(
       headerInfoText
     );
 
-    const cleanTenBai = row.baiHoc
+    const cleanTenBai = (row.baiHoc || 'baihoc')
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -129,7 +138,7 @@ export async function processBatchPPCT(
 
     const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
     const grdStr = grade ? grade.replace(/[^0-9]/g, '') : '10';
-    const tuanStr = `tuan${row.tuan.replace(/[^0-9]/g, '') || '1'}`;
+    const tuanStr = `tuan${(row.tuan || '1').replace(/[^0-9]/g, '') || '1'}`;
     const tietStr = `tiet${tietClean || '1'}`;
     
     const fileName = `${subStr}${grdStr}_${tuanStr}_${tietStr}_${cleanTenBai}.docx`;
