@@ -49,6 +49,7 @@ export default function ControlCenter({
   };
 
   const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
+  const hasPpct = Boolean(selectedPpctName);
 
   return (
     <>
@@ -584,7 +585,7 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* Nút Kích hoạt AI (Ẩn đi khi đang xử lý để nhường không gian cho bảng thông báo bên phải) */}
+            {/* Nút Kích hoạt AI Thương mại hiện đại thông minh */}
             {!state.isProcessing && (
               <div className="col-span-1 md:col-span-2 mt-2 animate-fade-in-up">
                   <button 
@@ -593,11 +594,17 @@ export default function ControlCenter({
                     className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
                           fileCount === 0 
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                          : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
+                          : hasPpct
+                            ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-purple-500/30 hover:shadow-purple-500/50 hover:-translate-y-0.5'
+                            : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
                       }`}
                   >
-                      <Wand2 className="w-4 h-4 text-amber-300" /> 
-                      {fileCount > 1 ? `Kích hoạt AI xử lý ${fileCount} giáo án` : 'Kích hoạt AI'}
+                      <Wand2 className="w-4 h-4 text-amber-300 animate-pulse" /> 
+                      {hasPpct 
+                        ? '⚡ Kích hoạt AI tự động hóa toàn bộ PPCT' 
+                        : fileCount > 1 
+                          ? `Kích hoạt AI xử lý ${fileCount} giáo án` 
+                          : 'Kích hoạt AI'}
                   </button>
               </div>
             )}
