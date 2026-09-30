@@ -41,7 +41,7 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
     const tcMatches = tr.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi);
     if (!tcMatches || tcMatches.length < 3) continue;
 
-    // Cột 0: Tuần (nếu bị gộp ô trống thì giữ lại tuần của dòng trước)
+    // Cột 0: Tuần (nếu dòng dưới bị gộp ô trống thì giữ lại tuần của dòng trên)
     const tuanRaw = extractCellText(tcMatches[0]);
     if (tuanRaw && /\d+/.test(tuanRaw)) {
       currentTuan = tuanRaw.replace(/[^0-9]/g, '');
@@ -59,8 +59,8 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
     // Cột 4: Ghi chú (chứa từ khóa STEM, NLS, AI...)
     const ghiChu = tcMatches.length > 4 ? extractCellText(tcMatches[4]) : '';
 
-    // Chỉ nhận dòng nào có Tiết và Tên bài học hợp lệ
-    if (tiet && baiHoc && !baiHoc.toLowerCase().includes('bài học')) {
+    // Chỉ lấy các dòng có thông tin Tiết và Tên bài học hợp lệ
+    if (tiet && baiHoc && !baiHoc.toLowerCase().includes('bài học') && !baiHoc.toLowerCase().includes('nội dung')) {
       rows.push({
         tuan: currentTuan,
         tiet: tiet,
