@@ -53,6 +53,7 @@ export interface AppState {
   highlightColor: HighlightColor; // Quản lý màu chữ chèn
   generatedContent: GeneratedNLSContent | null;
   result: { fileName: string; blob: Blob } | null;
+  selectedLessonManual?: string;
 }
 
 export interface UserProfile {

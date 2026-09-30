@@ -312,19 +312,17 @@ const App: React.FC = () => {
         ? `CD${gradeNum}` 
         : formatCleanFilenamePart(`${state.subject || 'Mon'}${state.grade || ''}`);
 
-      // NẾU CÓ FILE PPCT -> XỬ LÝ ĐÚNG BÀI HỌC CỦA FILE GIÁO ÁN ĐANG NẠP
+      // NẾU CÓ FILE PPCT -> XỬ LÝ ĐÚNG BÀI HỌC ĐƯỢC CHỌN THỦ CÔNG TỪ DROPDOWN
       if (ppctFile) {
         addLog(`📋 Đang đọc và đối chiếu file PPCT: ${ppctFile.name}...`);
         
-        // 1. Đọc dữ liệu từ file PPCT
         const { parsePPCTDocument, processSingleLessonFromPPCT } = await import('./services/ppctParser');
         const ppctRows = await parsePPCTDocument(ppctFile);
 
-        // 2. Lấy tên bài học từ tên file giáo án hiện tại
-        const currentLessonRawName = state.file.name.replace(/\.docx$/i, '');
-        addLog(`🎯 Đang tìm và khớp dữ liệu bài học cho: "${currentLessonRawName}"...`);
+        // Lấy tên bài học từ dropdown chọn thủ công của thầy (nếu chưa chọn thì lấy tên file làm dự phòng)
+        const currentLessonRawName = state.selectedLessonManual || state.file.name.replace(/\.docx$/i, '');
+        addLog(`🎯 Đang xử lý bài học theo lựa chọn: "${currentLessonRawName}"...`);
 
-        // 3. Gọi hàm xử lý đúng 1 bài học (tự động gom số tiết, phân rã tuần/tiết)
         const generatedFiles = await processSingleLessonFromPPCT(
           ppctRows,
           currentLessonRawName,

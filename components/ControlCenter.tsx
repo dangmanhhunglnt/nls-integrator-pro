@@ -589,7 +589,8 @@ export default function ControlCenter({
                                     const lessons = await getUniqueLessonsFromPPCT(ppctFile);
                                     setPpctLessons(lessons);
                                     if (lessons.length > 0) {
-                                      setSelectedLessonManual(lessons[0]);
+                                        setSelectedLessonManual(lessons[0]);
+                                        setState(prev => ({ ...prev, selectedLessonManual: lessons[0] }));
                                     }
                                   } catch (err) {
                                     console.warn("Không thể bóc tách danh sách bài học:", err);
@@ -608,8 +609,12 @@ export default function ControlCenter({
                             <Target className="w-3.5 h-3.5 text-indigo-600" /> Chọn chính xác bài học từ PPCT:
                         </label>
                         <select
-                            value={selectedLessonManual}
-                            onChange={(e) => setSelectedLessonManual(e.target.value)}
+                            value={state.selectedLessonManual || selectedLessonManual}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSelectedLessonManual(val);
+                                setState(prev => ({ ...prev, selectedLessonManual: val }));
+                            }}
                             className="w-full p-2.5 rounded-xl border border-indigo-300 bg-white text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
                         >
                             {ppctLessons.map((lessonName, idx) => (
