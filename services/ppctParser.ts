@@ -73,7 +73,19 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
 }
 
 export async function parsePPCTDirectFromZip(file: File, textContext?: any, fileName?: string) {
-  return await parsePPCTDocument(file);
+  const rows = await parsePPCTDocument(file);
+  // Chuyển đổi dữ liệu sang định dạng mà giao diện cũ trong App.tsx đang cần để đọc .length an toàn
+  const schedules = rows.map(r => ({
+    week: r.tuan,
+    periodDisplay: r.tiet,
+    title: r.baiHoc,
+    content: r.noiDung,
+    requirementNote: r.ghiChu
+  }));
+  return {
+    totalPeriods: schedules.length,
+    schedules: schedules
+  };
 }
 
 /**
