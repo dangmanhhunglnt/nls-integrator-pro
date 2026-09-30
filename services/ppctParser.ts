@@ -212,12 +212,26 @@ export async function processSingleLessonFromPPCT(
   colorHex: HighlightColor,
   generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
 ): Promise<{ name: string; blob: Blob }[]> {
-  const matchingRows = ppctRows.filter(r => 
-    r.baiHoc.toLowerCase().includes(targetLessonName.toLowerCase().trim())
-  );
+  // Chuẩn hóa tên file giáo án để so sánh linh hoạt (bỏ dấu, bỏ ký tự đặc biệt, viết thường)
+  const cleanTarget = targetLessonName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, '');
+
+  const matchingRows = ppctRows.filter(r => {
+    const cleanBai = r.baiHoc
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, '');
+    
+    // Kiểm tra chéo: Tên file chứa tên PPCT hoặc tên PPCT chứa tên file
+    return cleanTarget.includes(cleanBai) || cleanBai.includes(cleanTarget);
+  });
 
   if (matchingRows.length === 0) {
-    throw new Error(`Không tìm thấy bài học "${targetLessonName}" trong dữ liệu PPCT.`);
+    throw new Error(`Không tìm thấy bài học tương ứng với "${targetLessonName}" trong dữ liệu PPCT.`);
   }
 
   let totalTietCount = 0;
@@ -258,9 +272,11 @@ export async function processSingleLessonFromPPCT(
     summary_table: []
   };
 
+  const realLessonName = matchingRows[0]?.baiHoc || targetLessonName;
+
   if (hasIntegration) {
     try {
-      content = await generateAIContentCallback(targetLessonName, mode);
+      content = await generateAIContentCallback(realLessonName, mode);
     } catch (err) {
       console.warn("Lỗi gọi AI sinh nội dung:", err);
     }
@@ -279,7 +295,7 @@ export async function processSingleLessonFromPPCT(
     headerInfoText
   );
 
-  const cleanTenFile = targetLessonName
+  const cleanTenFile = realLessonName
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
