@@ -3,6 +3,7 @@ import { Activity, BookOpen, ChevronRight, Info, FileUp, Wand2, Sparkles, Downlo
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, LessonCategory } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
+import { getUniqueLessonsFromPPCT } from '../services/ppctParser';
 
 interface ControlCenterProps {
   state: AppState;
@@ -34,6 +35,10 @@ export default function ControlCenter({
 
   // State lưu file PPCT tại component để hiển thị UI
   const [selectedPpctName, setSelectedPpctName] = useState<string>('');
+  
+  // State bổ sung danh sách bài học từ PPCT để chọn thủ công
+  const [ppctLessons, setPpctLessons] = useState<string[]>([]);
+  const [selectedLessonManual, setSelectedLessonManual] = useState<string>('');
 
   // Tự động đồng bộ trạng thái khi prop stemTopic từ component cha thay đổi
   useEffect(() => {
@@ -545,6 +550,8 @@ export default function ControlCenter({
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setSelectedPpctName('');
+                                                    setPpctLessons([]);
+                                                    setSelectedLessonManual('');
                                                     if (handlePpctFileChange) {
                                                         handlePpctFileChange(null);
                                                     }
@@ -570,12 +577,22 @@ export default function ControlCenter({
                               type="file" 
                               accept=".docx" 
                               className="hidden" 
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const ppctFile = e.target.files?.[0] || null;
                                 if (ppctFile) {
                                   setSelectedPpctName(ppctFile.name);
                                   if (handlePpctFileChange) {
                                     handlePpctFileChange(ppctFile);
+                                  }
+                                  // Tự động bóc tách danh sách bài học để chọn thủ công
+                                  try {
+                                    const lessons = await getUniqueLessonsFromPPCT(ppctFile);
+                                    setPpctLessons(lessons);
+                                    if (lessons.length > 0) {
+                                      setSelectedLessonManual(lessons[0]);
+                                    }
+                                  } catch (err) {
+                                    console.warn("Không thể bóc tách danh sách bài học:", err);
                                   }
                                 }
                               }} 
@@ -583,6 +600,29 @@ export default function ControlCenter({
                         </label>
                     </div>
                 </div>
+
+                {/* KHUNG CHỌN THỦ CÔNG BÀI HỌC TỪ PPCT (HIỆN KHI ĐÃ NẠP PPCT) */}
+                {hasPpct && ppctLessons.length > 0 && (
+                    <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-200 space-y-2 animate-fade-in-up">
+                        <label className="text-[11px] font-extrabold text-indigo-900 uppercase flex items-center gap-1.5">
+                            <Target className="w-3.5 h-3.5 text-indigo-600" /> Chọn chính xác bài học từ PPCT:
+                        </label>
+                        <select
+                            value={selectedLessonManual}
+                            onChange={(e) => setSelectedLessonManual(e.target.value)}
+                            className="w-full p-2.5 rounded-xl border border-indigo-300 bg-white text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                        >
+                            {ppctLessons.map((lessonName, idx) => (
+                                <option key={idx} value={lessonName}>
+                                    {idx + 1}. {lessonName}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] text-indigo-700 italic">
+                          💡 Hệ thống sẽ tự động ghép giáo án hiện tại với bài học được chọn, tính đúng tổng số tiết và tuần trong PPCT.
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Nút Kích hoạt AI Thương mại hiện đại thông minh */}

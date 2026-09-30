@@ -309,3 +309,21 @@ export async function processSingleLessonFromPPCT(
 
   return [{ name: fileName, blob: processedBlob }];
 }
+// Thêm hàm lấy danh sách các bài học duy nhất từ PPCT để đưa vào ô chọn thủ công
+export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]> {
+  const rows = await parsePPCTDocument(ppctFile);
+  const uniqueLessons: string[] = [];
+  const seen = new Set<string>();
+
+  for (const r of rows) {
+    if (r.baiHoc && r.baiHoc.trim().length > 2) {
+      const cleanName = r.baiHoc.trim();
+      const key = cleanName.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueLessons.push(cleanName);
+      }
+    }
+  }
+  return uniqueLessons;
+}
