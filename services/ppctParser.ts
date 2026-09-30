@@ -11,7 +11,7 @@ export interface PPCTRow {
 }
 
 /**
- * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX) - THÔNG MINH & CHỐNG LỖI TUYỆT ĐỐI
+ * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX) - CHUẨN XÁC TUYỆT ĐỐI
  */
 export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   const arrayBuffer = await ppctFile.arrayBuffer();
@@ -33,6 +33,7 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   };
 
   let currentTuan = "1";
+  let currentBaiHoc = "";
 
   for (let i = 1; i < trMatches.length; i++) {
     const tr = trMatches[i];
@@ -41,30 +42,27 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
     const tcMatches = tr.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi);
     if (!tcMatches || tcMatches.length < 3) continue;
 
-    // Cột 0: Tuần (nếu dòng dưới bị gộp ô trống thì giữ lại tuần của dòng trên)
     const tuanRaw = extractCellText(tcMatches[0]);
     if (tuanRaw && /\d+/.test(tuanRaw)) {
       currentTuan = tuanRaw.replace(/[^0-9]/g, '');
     }
 
-    // Cột 1: Tiết (ví dụ: 1, 2, 1-2, 7-8...)
     const tiet = extractCellText(tcMatches[1]);
+    const baiHocRaw = extractCellText(tcMatches[2]);
     
-    // Cột 2: Tên bài học
-    const baiHoc = extractCellText(tcMatches[2]);
-    
-    // Cột 3: Nội dung chi tiết
+    // Nếu dòng dưới bị gộp ô (tên bài trống), giữ lại tên bài của dòng trên
+    if (baiHocRaw && baiHocRaw.length > 2 && !baiHocRaw.toLowerCase().includes('bài học') && !baiHocRaw.toLowerCase().includes('nội dung')) {
+      currentBaiHoc = baiHocRaw;
+    }
+
     const noiDung = tcMatches.length > 3 ? extractCellText(tcMatches[3]) : '';
-    
-    // Cột 4: Ghi chú (chứa từ khóa STEM, NLS, AI...)
     const ghiChu = tcMatches.length > 4 ? extractCellText(tcMatches[4]) : '';
 
-    // Chỉ lấy các dòng có thông tin Tiết và Tên bài học hợp lệ
-    if (tiet && baiHoc && !baiHoc.toLowerCase().includes('bài học') && !baiHoc.toLowerCase().includes('nội dung')) {
+    if (tiet && currentBaiHoc) {
       rows.push({
         tuan: currentTuan,
         tiet: tiet,
-        baiHoc: baiHoc,
+        baiHoc: currentBaiHoc,
         noiDung: noiDung,
         ghiChu: ghiChu
       });
@@ -74,9 +72,8 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   return rows;
 }
 
-export async function parsePPCTDirectFromZip(file: File, textContext?: any, fileName?: string) {
+export async function parsePPCTDirectFromZip(file: File, _textContext?: any, _fileName?: string) {
   const rows = await parsePPCTDocument(file);
-  // Chuyển đổi dữ liệu sang định dạng mà giao diện cũ trong App.tsx đang cần để đọc .length an toàn
   const schedules = rows.map(r => ({
     week: r.tuan,
     periodDisplay: r.tiet,
@@ -91,7 +88,7 @@ export async function parsePPCTDirectFromZip(file: File, textContext?: any, file
 }
 
 /**
- * 2. HÀM XỬ LÝ HÀNG LOẠT VÀ XUẤT FILE GIÁO ÁN TỰ ĐỘNG (VẠN NĂNG - GIỮ NGUYÊN BẢN CŨ)
+ * 2. HÀM XỬ LÝ HÀNG LOẠT THEO TỪNG BÀI ĐỘC LẬP (MỖI BÀI 1 FILE CHUẨN XÁC)
  */
 export async function processBatchPPCT(
   ppctFile: File,
@@ -103,24 +100,42 @@ export async function processBatchPPCT(
 ): Promise<{ name: string; blob: Blob }[]> {
   const ppctRows = await parsePPCTDocument(ppctFile);
   if (!ppctRows || ppctRows.length === 0) {
-    throw new Error("Không tìm thấy dữ liệu hàng nào trong bảng PPCT. Thầy kiểm tra lại file .docx nhé.");
+    throw new Error("Không tìm thấy dữ liệu hàng nào trong bảng PPCT.");
   }
 
   const results: { name: string; blob: Blob }[] = [];
 
-  // Nhóm các dòng theo Tên bài học để xử lý trường hợp 1 bài học rải rác qua nhiều tuần/nhiều dòng PPCT
+  // GOM NHÓM CHÍNH XÁC THEO TÊN BÀI HỌC (LOẠI BỎ HOÀN TOÀN TÌNH TRẠNG 1 BÀI TẠO RA NHIỀU FILE DƯ THỪA)
   const lessonMap = new Map<string, PPCTRow[]>();
   for (const row of ppctRows) {
-    const key = row.baiHoc.trim();
-    if (!lessonMap.has(key)) {
-      lessonMap.set(key, []);
+    const cleanKey = row.baiHoc.trim().toLowerCase();
+    if (!lessonMap.has(cleanKey)) {
+      lessonMap.set(cleanKey, []);
     }
-    lessonMap.get(key)!.push(row);
+    lessonMap.get(cleanKey)!.push(row);
   }
 
-  // Duyệt qua từng bài học độc lập
-  for (const [baiHocName, rowsGroup] of lessonMap.entries()) {
-    // Tổng hợp ghi chú của cả bài học xem có tích hợp gì không
+  // Duyệt qua từng bài học duy nhất
+  for (const [cleanKey, rowsGroup] of lessonMap.entries()) {
+    const realBaiHocName = rowsGroup[0]?.baiHoc || cleanKey;
+    
+    // Tính tổng số tiết thực tế của bài học từ các cột tiết (ví dụ: "1-2" và "4" -> tổng 3 tiết)
+    let totalTietCount = 0;
+    const allTietStrs: string[] = [];
+    for (const r of rowsGroup) {
+      if (r.tiet) {
+        allTietStrs.push(r.tiet);
+        const parts = r.tiet.replace(/[^0-9-]/g, '').split('-');
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          totalTietCount += Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
+        } else if (parts.length === 1 && parts[0]) {
+          totalTietCount += 1;
+        }
+      }
+    }
+    if (totalTietCount === 0) totalTietCount = 1;
+
+    // Tổng hợp ghi chú toàn bài để quét tích hợp NLS, AI hoặc STEM
     const combinedGhiChu = rowsGroup.map(r => r.ghiChu || '').join(' ').toUpperCase();
     
     let mode: IntegrationMode = 'NLS';
@@ -147,68 +162,46 @@ export async function processBatchPPCT(
       summary_table: []
     };
 
-    // Nếu có tích hợp, gọi AI sinh nội dung chuẩn hóa một lần cho bài học đó
     if (hasIntegration) {
       try {
-        content = await generateAIContentCallback(baiHocName, mode);
+        content = await generateAIContentCallback(realBaiHocName, mode);
       } catch (err) {
-        console.warn("Lỗi gọi AI sinh nội dung, dùng chuẩn 5512 mặc định:", err);
+        console.warn("Lỗi gọi AI sinh nội dung:", err);
       }
-    } else {
-      content = {
-        objectives_addition: '',
-        materials_addition: '',
-        activities_enhancement: [],
-        summary_table: []
-      };
     }
 
-    // Xử lý từng dòng phân phối tương ứng với từng tuần
-    for (const row of rowsGroup) {
-      const tietClean = (row.tiet || '1').replace(/[^0-9-]/g, '');
-      let soTietCount = 1;
-      if (tietClean.includes('-')) {
-        const parts = tietClean.split('-');
-        if (parts && parts.length >= 2 && parts[0] && parts[1]) {
-          soTietCount = Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
-        }
-      }
+    // Chuẩn bị thông tin thời gian thực hiện cho bài học
+    const tietDisplayStr = allTietStrs.join(', ');
+    const firstWeek = rowsGroup[0]?.tuan || '1';
+    const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (PPCT Tiết: ${tietDisplayStr})`;
 
-      const headerInfoText = `Thời gian thực hiện: ${soTietCount < 10 ? '0' + soTietCount : soTietCount} tiết (Tuần ${row.tuan || '1'} dạy Tiết ${row.tiet || '1'})`;
+    const processedBlob = await injectContentIntoDocx(
+      templateDocxFile,
+      content,
+      hasIntegration ? mode : 'NLS',
+      () => {},
+      colorHex,
+      headerInfoText
+    );
 
-      const processedBlob = await injectContentIntoDocx(
-        templateDocxFile,
-        content,
-        hasIntegration ? mode : 'NLS',
-        () => {},
-        colorHex,
-        headerInfoText
-      );
+    const cleanTenFile = realBaiHocName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, '');
 
-      const cleanTenBai = (baiHocName || 'baihoc')
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]/g, '');
+    const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
+    const grdStr = grade ? grade.replace(/[^0-9]/g, '') : '10';
+    const fileName = `${subStr}${grdStr}_tuan${firstWeek}_${cleanTenFile}.docx`;
 
-      const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
-      const grdStr = grade ? grade.replace(/[^0-9]/g, '') : '10';
-      const tuanStr = `tuan${(row.tuan || '1').replace(/[^0-9]/g, '') || '1'}`;
-      const tietStr = `tiet${tietClean || '1'}`;
-      
-      const fileName = `${subStr}${grdStr}_${tuanStr}_${tietStr}_${cleanTenBai}.docx`;
-
-      results.push({ name: fileName, blob: processedBlob });
-    }
+    results.push({ name: fileName, blob: processedBlob });
   }
 
   return results;
 }
 
 /**
- * 3. HÀM BỔ SUNG: XỬ LÝ THEO TỪNG BÀI ĐỘC LẬP (ĐẢM BẢO KHÔNG ẢNH HƯỞNG HÀM CŨ)
- * Giúp giáo viên chọn/xử lý đúng 1 bài học từ file PPCT, tự động phân rã đúng tuần/tiết
- * mà vẫn giữ nguyên vẹn cấu trúc cốt lõi chuẩn 5512 của bài học đó.
+ * 3. HÀM XỬ LÝ THEO TỪNG BÀI ĐỘC LẬP (DÀNH CHO GIAO DIỆN CHỌN BÀI)
  */
 export async function processSingleLessonFromPPCT(
   ppctRows: PPCTRow[],
@@ -227,7 +220,21 @@ export async function processSingleLessonFromPPCT(
     throw new Error(`Không tìm thấy bài học "${targetLessonName}" trong dữ liệu PPCT.`);
   }
 
-  // Quét ghi chú toàn bài để nhận diện tích hợp NLS, AI hoặc STEM
+  let totalTietCount = 0;
+  const allTietStrs: string[] = [];
+  for (const r of matchingRows) {
+    if (r.tiet) {
+      allTietStrs.push(r.tiet);
+      const parts = r.tiet.replace(/[^0-9-]/g, '').split('-');
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        totalTietCount += Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
+      } else if (parts.length === 1 && parts[0]) {
+        totalTietCount += 1;
+      }
+    }
+  }
+  if (totalTietCount === 0) totalTietCount = 1;
+
   const combinedGhiChu = matchingRows.map(r => r.ghiChu || '').join(' ').toUpperCase();
   
   let mode: IntegrationMode = 'NLS';
@@ -235,9 +242,6 @@ export async function processSingleLessonFromPPCT(
 
   if (combinedGhiChu.includes('STEM')) {
     mode = 'STEM';
-    hasIntegration = true;
-  } else if (combinedGhiChu.includes('NLS & AI') || (combinedGhiChu.includes('NLS') && combinedGhiChu.includes('AI'))) {
-    mode = 'NLS';
     hasIntegration = true;
   } else if (combinedGhiChu.includes('NLS')) {
     mode = 'NLS';
@@ -258,49 +262,32 @@ export async function processSingleLessonFromPPCT(
     try {
       content = await generateAIContentCallback(targetLessonName, mode);
     } catch (err) {
-      console.warn("Lỗi gọi AI sinh nội dung, dùng chuẩn 5512 mặc định:", err);
+      console.warn("Lỗi gọi AI sinh nội dung:", err);
     }
   }
 
-  const results: { name: string; blob: Blob }[] = [];
+  const tietDisplayStr = allTietStrs.join(', ');
+  const firstWeek = matchingRows[0]?.tuan || '1';
+  const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (PPCT Tiết: ${tietDisplayStr})`;
 
-  for (const row of matchingRows) {
-    const tietClean = (row.tiet || '1').replace(/[^0-9-]/g, '');
-    let soTietCount = 1;
-    if (tietClean.includes('-')) {
-      const parts = tietClean.split('-');
-      if (parts && parts.length >= 2 && parts[0] && parts[1]) {
-        soTietCount = Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
-      }
-    }
+  const processedBlob = await injectContentIntoDocx(
+    templateDocxFile,
+    content,
+    hasIntegration ? mode : 'NLS',
+    () => {},
+    colorHex,
+    headerInfoText
+  );
 
-    // Tiêu đề thời gian thực hiện đồng bộ theo đúng chuẩn tuần/tiết thực tế
-    const headerInfoText = `Thời gian thực hiện: ${soTietCount < 10 ? '0' + soTietCount : soTietCount} tiết (Tuần ${row.tuan || '1'} dạy Tiết ${row.tiet || '1'})`;
+  const cleanTenFile = targetLessonName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, '');
 
-    const processedBlob = await injectContentIntoDocx(
-      templateDocxFile,
-      content,
-      hasIntegration ? mode : 'NLS',
-      () => {},
-      colorHex,
-      headerInfoText
-    );
+  const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
+  const grdStr = grade ? grade.replace(/[^0-9]/g, '') : '11';
+  const fileName = `${subStr}${grdStr}_tuan${firstWeek}_${cleanTenFile}.docx`;
 
-    const cleanTenBai = (targetLessonName || 'baihoc')
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, '');
-
-    const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
-    const grdStr = grade ? grade.replace(/[^0-9]/g, '') : '11';
-    const tuanStr = `tuan${(row.tuan || '1').replace(/[^0-9]/g, '') || '1'}`;
-    const tietStr = `tiet${tietClean || '1'}`;
-    
-    const fileName = `${subStr}${grdStr}_${tuanStr}_${tietStr}_${cleanTenBai}.docx`;
-
-    results.push({ name: fileName, blob: processedBlob });
-  }
-
-  return results;
+  return [{ name: fileName, blob: processedBlob }];
 }
