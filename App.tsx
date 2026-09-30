@@ -501,7 +501,7 @@ const App: React.FC = () => {
               />
             </div>
 
-            <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-20">
+            <div className="lg:col-span-6 space-y-4">
               {pedagogicalEvaluation && (
                 <div className={`rounded-2xl p-4.5 border shadow-sm transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
                   <div className="flex items-start gap-3">
