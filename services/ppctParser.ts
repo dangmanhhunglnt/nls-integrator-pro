@@ -11,7 +11,7 @@ export interface PPCTRow {
 }
 
 /**
- * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX) - ĐÃ BỔ SUNG AN TOÀN TUYỆT ĐỐI
+ * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX) - THÔNG MINH & CHỐNG LỖI TUYỆT ĐỐI
  */
 export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   const arrayBuffer = await ppctFile.arrayBuffer();
@@ -32,23 +32,41 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
     return tMatches.map(t => t.replace(/<[^>]+>/g, '')).join(' ').trim();
   };
 
+  let lastTuan = "1";
+  let autoTietCount = 1;
+
   for (let i = 1; i < trMatches.length; i++) {
     const tr = trMatches[i];
     if (!tr) continue;
     
     const tcMatches = tr.match(/<w:tc\b[\s\S]*?<\/w:tc>/gi);
-    // Cho phép linh hoạt nếu bảng có từ 3 cột trở lên (Tuần, Tiết, Tên bài,...)
     if (!tcMatches || tcMatches.length < 3) continue;
 
-    const tuan = extractCellText(tcMatches[0]);
-    const tiet = extractCellText(tcMatches[1]);
+    // Xử lý cột Tuần (tự động nhận diện hoặc giữ lại tuần của dòng trước nếu bị gộp ô)
+    let tuan = extractCellText(tcMatches[0]);
+    if (tuan && /^\d+$/.test(tuan)) {
+      lastTuan = tuan;
+    } else {
+      tuan = lastTuan;
+    }
+
+    const tietRaw = extractCellText(tcMatches[1]);
     const baiHoc = extractCellText(tcMatches[2] || '');
     const noiDung = tcMatches.length > 3 ? extractCellText(tcMatches[3]) : '';
     const ghiChu = tcMatches.length > 4 ? extractCellText(tcMatches[4]) : '';
 
-    if (tiet && baiHoc) {
-      rows.push({ tuan, tiet, baiHoc, noiDung, ghiChu });
+    // Bỏ qua các dòng tiêu đề rỗng hoặc không có tên bài
+    if (!baiHoc || baiHoc.toLowerCase().includes('bài học') || baiHoc.toLowerCase().includes('nội dung')) {
+      continue;
     }
+
+    // Nếu tiết bị trống (tuần ôn tập/kiểm tra), tự gán tiết giả định
+    const tiet = tietRaw || String(autoTietCount);
+    if (!tietRaw) {
+      autoTietCount++;
+    }
+
+    rows.push({ tuan, tiet, baiHoc, noiDung, ghiChu });
   }
 
   return rows;
@@ -114,7 +132,7 @@ export async function processBatchPPCT(
     let soTietCount = 1;
     if (tietClean.includes('-')) {
       const parts = tietClean.split('-');
-      if (parts.length >= 2) {
+      if (parts && parts.length >= 2 && parts[0] && parts[1]) {
         soTietCount = Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
       }
     }
