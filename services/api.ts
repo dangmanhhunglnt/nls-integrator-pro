@@ -1,4 +1,3 @@
-
 // API Configuration
 const PANDOC_API_URL = 'https://pandocserver-production.up.railway.app/convert';
 
@@ -16,15 +15,27 @@ export async function convertMarkdownToDocx(markdown: string): Promise<Blob> {
       body: JSON.stringify({ markdown: markdown })
     });
     
+    const contentType = response.headers.get('content-type') || '';
+
     if (!response.ok) {
+      // Nếu server trả về HTML (lỗi 502/503 do Railway ngủ đông)
+      if (contentType.includes('text/html')) {
+        throw new Error(`Máy chủ Pandoc đang khởi động lại (Railway Sleep Mode). Thầy vui lòng đợi 10 giây rồi bấm lại giúp em nhé!`);
+      }
       const errorText = await response.text();
       throw new Error(`Pandoc Server Error: ${response.status} - ${errorText}`);
     }
     
+    // Kiểm tra nếu server trả về JSON lỗi thay vì file Blob Word
+    if (contentType.includes('application/json')) {
+      const jsonRes = await response.json();
+      throw new Error(jsonRes.error || 'Lỗi xử lý từ máy chủ chuyển đổi.');
+    }
+
     return await response.blob();
   } catch (error: any) {
     console.error("Docx Conversion Error:", error);
-    throw new Error(`Lỗi xuất file Word: ${error.message}`);
+    throw new Error(`${error.message}`);
   }
 }
 
