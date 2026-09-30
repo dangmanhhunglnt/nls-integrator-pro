@@ -601,7 +601,7 @@ export default function ControlCenter({
                   >
                       <Wand2 className="w-4 h-4 text-amber-300 animate-pulse" /> 
                       {hasPpct 
-                        ? '⚡ Kích hoạt AI tự động hóa toàn bộ PPCT' 
+                        ? '⚡ Kích hoạt AI tự động hóa theo PPCT và theo bài dạy' 
                         : fileCount > 1 
                           ? `Kích hoạt AI xử lý ${fileCount} giáo án` 
                           : 'Kích hoạt AI'}
