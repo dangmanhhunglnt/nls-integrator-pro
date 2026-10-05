@@ -473,6 +473,24 @@ export const injectContentIntoDocx = async (
             }
           }
         }
+        // TỰ ĐỘNG CẬP NHẬT/THAY THẾ TIÊU ĐỀ TIẾT BÊN TRONG NỘI DUNG GIÁO ÁN THEO PPCT
+        if (customHeaderPPCT) {
+          const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
+          if (matchTiet && matchTiet[1]) {
+            const tietNums = matchTiet[1].split(',').map(s => s.trim()).filter(Boolean);
+            if (tietNums.length > 0) {
+              const firstTiet = tietNums[0];
+              docXml = docXml.replace(/TIẾT\s+1\b/gi, `TIẾT ${firstTiet}`);
+              if (tietNums.length > 1) {
+                for (let idx = 0; idx < tietNums.length; idx++) {
+                  const oldLabel = `TIẾT ${idx + 1}`;
+                  const newLabel = `TIẾT ${tietNums[idx]}`;
+                  docXml = docXml.replace(new RegExp(oldLabel, 'gi'), newLabel);
+                }
+              }
+            }
+          }
+        }
 
         zip.file("word/document.xml", docXml);
         resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));

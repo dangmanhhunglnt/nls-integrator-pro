@@ -184,7 +184,8 @@ export async function processBatchPPCT(
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]/g, '');
 
-    const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
+    const rawSub = subject ? subject.trim() : 'Mon';
+    const subStr = rawSub.charAt(0).toUpperCase() + rawSub.slice(1).toLowerCase().replace(/[^a-z0-9]/g, '');
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
     const currentWeek = rowsGroup[0]?.tuan || '1';
     const fileName = `${subStr}${grdNum}_tuan${currentWeek}_tiet_${tietDisplayStr.replace(/[^0-9]/g, '_')}_${cleanTenFile}.docx`;
@@ -332,7 +333,8 @@ export async function processSingleLessonFromPPCT(
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]/g, '');
 
-    const subStr = subject ? subject.toLowerCase().replace(/[^a-z0-9]/g, '') : 'mon';
+    const rawSub = subject ? subject.trim() : 'Mon';
+    const subStr = rawSub.charAt(0).toUpperCase() + rawSub.slice(1).toLowerCase().replace(/[^a-z0-9]/g, '');
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
     
     const fileName = `${subStr}${grdNum}_tuan${weekNum}_tiet_${tietDisplayStr.replace(/[^0-9]/g, '_')}_${cleanTenFile}.docx`;
