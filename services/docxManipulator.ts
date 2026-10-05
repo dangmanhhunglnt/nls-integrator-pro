@@ -477,14 +477,15 @@ export const injectContentIntoDocx = async (
         if (customHeaderPPCT) {
           const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
           if (matchTiet && matchTiet[1]) {
-            // Lấy danh sách các số tiết thực tế từ PPCT (ví dụ: ["1", "2", "4"] hoặc ["10", "11", "13"])
+            // Lấy danh sách số tiết thực tế từ PPCT (ví dụ: ["1", "2", "4"] hoặc ["10", "11", "13"])
             const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
             if (exactTietNums.length > 0) {
-              // Quét và thay thế tuần tự các nhãn TIẾT 1, TIẾT 2, TIẾT 3... cũ thành các tiết thực tế
+              // Xóa bỏ các thẻ XML trung gian có thể ngắt quãng từ "TIẾT" và số trong Word trước khi thay thế sạch sẽ
               for (let i = 0; i < 10; i++) {
                 const targetNum = exactTietNums[i] || exactTietNums[exactTietNums.length - 1];
-                const oldLabelRegex = new RegExp(`TIẾT\\s+${i + 1}\\b`, 'gi');
-                docXml = docXml.replace(oldLabelRegex, `TIẾT ${targetNum}`);
+                // Regex linh hoạt bắt từ khóa TIẾT kèm số thứ tự cũ (bất kể có khoảng trắng hay thẻ XML xen kẽ)
+                const flexibleRegex = new RegExp(`TIẾT(?:[^<w:t>]*?)(\\s+${i + 1}\\b)`, 'gi');
+                docXml = docXml.replace(flexibleRegex, `TIẾT ${targetNum}`);
               }
             }
           }

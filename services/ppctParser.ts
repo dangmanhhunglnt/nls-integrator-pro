@@ -87,6 +87,13 @@ export async function parsePPCTDirectFromZip(file: File, _textContext?: any, _fi
   };
 }
 
+// Hàm bổ trợ lấy tên môn học an toàn để tên file luôn hiển thị dạng Toan11 thay vì ton11
+function getSafeSubjectStr(subject: string): string {
+  if (!subject || subject.trim() === '' || subject.includes('--')) return 'Toan';
+  const clean = subject.trim();
+  return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 /**
  * 2. HÀM XỬ LÝ HÀNG LOẠT THEO TỪNG BÀI ĐỘC LẬP (MỖI BÀI 1 FILE CHUẨN XÁC)
  */
@@ -184,8 +191,7 @@ export async function processBatchPPCT(
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]/g, '');
 
-    const rawSub = subject ? subject.trim() : 'Mon';
-    const subStr = rawSub.charAt(0).toUpperCase() + rawSub.slice(1).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const subStr = getSafeSubjectStr(subject);
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
     const currentWeek = rowsGroup[0]?.tuan || '1';
     const fileName = `${subStr}${grdNum}_tuan${currentWeek}_tiet_${tietDisplayStr.replace(/[^0-9]/g, '_')}_${cleanTenFile}.docx`;
@@ -333,8 +339,7 @@ export async function processSingleLessonFromPPCT(
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]/g, '');
 
-    const rawSub = subject ? subject.trim() : 'Mon';
-    const subStr = rawSub.charAt(0).toUpperCase() + rawSub.slice(1).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const subStr = getSafeSubjectStr(subject);
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
     
     const fileName = `${subStr}${grdNum}_tuan${weekNum}_tiet_${tietDisplayStr.replace(/[^0-9]/g, '_')}_${cleanTenFile}.docx`;
