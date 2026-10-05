@@ -286,8 +286,28 @@ export async function processSingleLessonFromPPCT(
 
   const tietDisplayStr = allTietStrs.join(', ');
   const firstWeek = matchingRows[0]?.tuan || '1';
-  const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (PPCT Tiết: ${tietDisplayStr})`;
+  
+  const allTietNumbers: string[] = [];
+  matchingRows.forEach(r => {
+    if (r.tiet) {
+      const cleaned = r.tiet.replace(/\s+/g, '');
+      if (cleaned.includes('-')) {
+        const parts = cleaned.split('-');
+        const start = parseInt(parts[0]);
+        const end = parseInt(parts[1]);
+        if (!isNaN(start) && !isNaN(end)) {
+          for (let i = start; i <= end; i++) {
+            allTietNumbers.push(i.toString());
+          }
+        }
+      } else {
+        allTietNumbers.push(cleaned);
+      }
+    }
+  });
 
+  const uniqueTietStr = Array.from(new Set(allTietNumbers)).join(', ');
+  const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${firstWeek} dạy Tiết ${uniqueTietStr || tietDisplayStr} theo PPCT: ${tietDisplayStr})`;
   const processedBlob = await injectContentIntoDocx(
     templateDocxFile,
     content,
