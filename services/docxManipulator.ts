@@ -477,16 +477,14 @@ export const injectContentIntoDocx = async (
         if (customHeaderPPCT) {
           const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
           if (matchTiet && matchTiet[1]) {
-            // Lấy danh sách số tiết thực tế từ PPCT (ví dụ: ["1", "2", "4"] hoặc ["10", "11", "13"])
             const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
             if (exactTietNums.length > 0) {
-              // Xóa bỏ các thẻ XML trung gian có thể ngắt quãng từ "TIẾT" và số trong Word trước khi thay thế sạch sẽ
-              for (let i = 0; i < 10; i++) {
-                const targetNum = exactTietNums[i] || exactTietNums[exactTietNums.length - 1];
-                // Regex linh hoạt bắt từ khóa TIẾT kèm số thứ tự cũ (bất kể có khoảng trắng hay thẻ XML xen kẽ)
-                const flexibleRegex = new RegExp(`TIẾT(?:[^<w:t>]*?)(\\s+${i + 1}\\b)`, 'gi');
-                docXml = docXml.replace(flexibleRegex, `TIẾT ${targetNum}`);
-              }
+              // Thay thế trực tiếp nội dung văn bản bên trong các thẻ <w:t> của Word XML
+              docXml = docXml.replace(/<w:t>([^<]*?)TIẾT\s*([0-9]+)([^<]*?)<\/w:t>/gi, (_match, p1, p2, p3) => {
+                const index = parseInt(p2) - 1;
+                const newTietNum = exactTietNums[index] || exactTietNums[exactTietNums.length - 1] || p2;
+                return `<w:t>${p1}TIẾT ${newTietNum}${p3}</w:t>`;
+              });
             }
           }
         }
