@@ -473,20 +473,18 @@ export const injectContentIntoDocx = async (
             }
           }
         }
-        // TỰ ĐỘNG CẬP NHẬT/THAY THẾ TIÊU ĐỀ TIẾT BÊN TRONG NỘI DUNG GIÁO ÁN THEO PPCT
+        // TỰ ĐỘNG THAY THẾ TIÊU ĐỀ TIẾT BÊN TRONG NỘI DUNG GIÁO ÁN KHỚP HOÀN TOÀN VỚI PPCT
         if (customHeaderPPCT) {
           const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
           if (matchTiet && matchTiet[1]) {
-            const tietNums = matchTiet[1].split(',').map(s => s.trim()).filter(Boolean);
-            if (tietNums.length > 0) {
-              const firstTiet = tietNums[0];
-              docXml = docXml.replace(/TIẾT\s+1\b/gi, `TIẾT ${firstTiet}`);
-              if (tietNums.length > 1) {
-                for (let idx = 0; idx < tietNums.length; idx++) {
-                  const oldLabel = `TIẾT ${idx + 1}`;
-                  const newLabel = `TIẾT ${tietNums[idx]}`;
-                  docXml = docXml.replace(new RegExp(oldLabel, 'gi'), newLabel);
-                }
+            // Lấy danh sách các số tiết thực tế từ PPCT (ví dụ: ["1", "2", "4"] hoặc ["10", "11", "13"])
+            const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
+            if (exactTietNums.length > 0) {
+              // Quét và thay thế tuần tự các nhãn TIẾT 1, TIẾT 2, TIẾT 3... cũ thành các tiết thực tế
+              for (let i = 0; i < 10; i++) {
+                const targetNum = exactTietNums[i] || exactTietNums[exactTietNums.length - 1];
+                const oldLabelRegex = new RegExp(`TIẾT\\s+${i + 1}\\b`, 'gi');
+                docXml = docXml.replace(oldLabelRegex, `TIẾT ${targetNum}`);
               }
             }
           }
