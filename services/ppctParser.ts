@@ -142,14 +142,15 @@ export async function processBatchPPCT(
     let mode: IntegrationMode = 'NLS';
     let hasIntegration = false;
 
+    // BỔ SUNG LOGIC NHẬN DIỆN LINH HOẠT CẢ AI, NLS VÀ STEM TỪ CỘT GHI CHÚ PPCT
     if (combinedGhiChu.includes('STEM')) {
       mode = 'STEM';
       hasIntegration = true;
-    } else if (combinedGhiChu.includes('NLS')) {
-      mode = 'NLS';
-      hasIntegration = true;
-    } else if (combinedGhiChu.includes('AI')) {
+    } else if (combinedGhiChu.includes('AI') || combinedGhiChu.includes('TRÍ TUỆ NHÂN TẠO')) {
       mode = 'NAI';
+      hasIntegration = true;
+    } else if (combinedGhiChu.includes('NLS') || combinedGhiChu.includes('NĂNG LỰC SỐ')) {
+      mode = 'NLS';
       hasIntegration = true;
     }
 
@@ -268,14 +269,15 @@ export async function processSingleLessonFromPPCT(
     let mode: IntegrationMode = 'NLS';
     let hasIntegration = false;
 
+    // BỔ SUNG LOGIC NHẬN DIỆN LINH HOẠT CẢ AI, NLS VÀ STEM TỪ CỘT GHI CHÚ PPCT
     if (combinedGhiChu.includes('STEM')) {
       mode = 'STEM';
       hasIntegration = true;
-    } else if (combinedGhiChu.includes('NLS')) {
-      mode = 'NLS';
-      hasIntegration = true;
-    } else if (combinedGhiChu.includes('AI')) {
+    } else if (combinedGhiChu.includes('AI') || combinedGhiChu.includes('TRÍ TUỆ NHÂN TẠO')) {
       mode = 'NAI';
+      hasIntegration = true;
+    } else if (combinedGhiChu.includes('NLS') || combinedGhiChu.includes('NĂNG LỰC SỐ')) {
+      mode = 'NLS';
       hasIntegration = true;
     }
 
