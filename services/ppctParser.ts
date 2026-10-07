@@ -268,7 +268,7 @@ export async function processSingleLessonFromPPCT(
     }
     if (totalTietCount === 0) totalTietCount = 1;
 
-    // QUÉT CỘT GHI CHÚ CỦA TUẦN ĐÓ: NẾU CÓ NLS/AI/STEM THÌ CHÈN, NẾU TRỐNG THÌ XÓA SẠCH ĐƯA VỀ CHUẨN 5512
+    // QUÉT CỘT GHI CHÚ: NẾU TRỐNG HOẶC KHÔNG CÓ TỪ KHÓA TÍCH HỢP THÌ XÓA SẠCH ĐƯA VỀ CHUẨN 5512
     const combinedGhiChu = weekRows.map(r => r.ghiChu || '').join(' ').toUpperCase();
     
     let mode: IntegrationMode = 'NLS';
@@ -283,6 +283,9 @@ export async function processSingleLessonFromPPCT(
     } else if (combinedGhiChu.includes('AI')) {
       mode = 'NAI';
       hasIntegration = true;
+    } else {
+      // Nếu cột ghi chú trống hoặc không có từ khóa tích hợp, ép buộc xóa sạch nội dung NLS/AI
+      hasIntegration = false;
     }
 
     let content: GeneratedNLSContent = {
@@ -291,6 +294,22 @@ export async function processSingleLessonFromPPCT(
       activities_enhancement: [],
       summary_table: []
     };
+
+    if (hasIntegration) {
+      try {
+        content = await generateAIContentCallback(realLessonName, mode);
+      } catch (err) {
+        console.warn("Lỗi gọi AI sinh nội dung:", err);
+      }
+    } else {
+      // Đảm bảo khi không có tích hợp, nội dung bổ sung hoàn toàn bằng rỗng để file Word sạch bóng chuẩn 5512
+      content = {
+        objectives_addition: '',
+        materials_addition: '',
+        activities_enhancement: [],
+        summary_table: []
+      };
+    }
 
     if (hasIntegration) {
       try {
