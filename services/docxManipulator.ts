@@ -17,16 +17,19 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 }
 
 /**
- * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ (KHÔNG LÀM ẢNH HƯỞNG NỘI DUNG GỐC)
+ * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIÊU ĐỀ TIẾT CŨ
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
   // Xóa sạch các đoạn có chứa từ khóa tích hợp đặc thù, thẻ động hoặc tiêu đề tĩnh trong file mẫu
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS|AI|STEM)\][\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM|Năng lực số\s*\(tích hợp\)|Năng lực số).*?<\/w:p>/gis, '');
   
+  // XÓA SẠCH TRỌN VẸN CÁC TIÊU ĐỀ TIẾT CŨ PHÍA DƯỚI (VÍ DỤ: TIẾT 1: ...) MỘT CÁCH AN TOÀN TUYỆT ĐỐI
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, '');
+
   // Xóa bảng tổng hợp NLS/AI cũ ở cuối bài nếu có
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
 
@@ -112,40 +115,16 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
+        // 1. DỌN SẠCH NLS CŨ VÀ TIẾT CŨ MỘT CÁCH AN TOÀN
         docXml = cleanExistingNLSContent(docXml);
 
-        // DỌN DẸP AN TOÀN NẾU KHÔNG CÓ TÍCH HỢP TRONG PPCT (TRÁNH TREO TRANG)
-        if (!content || (!content.objectives_addition && !content.materials_addition && (!content.activities_enhancement || content.activities_enhancement.length === 0))) {
-          docXml = cleanExistingNLSContent(docXml);
-        }
-        // TỰ ĐỘNG THAY THẾ TIẾT CŨ BẰNG TIẾT THỰC TẾ TRONG PPCT (XỬ LÝ CẢ TRƯỜNG HỢP XML BỊ CẮT NHỎ THẺ)
+        // 2. CẬP NHẬT TIÊU ĐỀ THỜI GIAN THỰC HIỆN THEO PPCT NGAY DƯỚI TÊN BÀI
         if (customHeaderPPCT) {
-          const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
-          if (matchTiet && matchTiet[1]) {
-            const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
-            if (exactTietNums.length > 0) {
-              let tietCounter = 0;
-              // Chia đoạn theo thẻ <w:p> để quét an toàn
-              const paragraphs = docXml.split('</w:p>');
-              docXml = paragraphs.map(p => {
-                let currentP = p + '</w:p>';
-                // Kiểm tra xem đoạn này có chứa từ TIẾT kèm theo số hay không
-                if (/TIẾT\s*[0-9]+/i.test(currentP) && tietCounter < exactTietNums.length) {
-                  const currentTietNum = exactTietNums[tietCounter];
-                  tietCounter++;
-                  // Thay thế số tiết bên trong đoạn văn bản XML một cách an toàn
-                  return currentP.replace(/TIẾT\s*([0-9]+)/gi, `TIẾT ${currentTietNum}`);
-                }
-                return currentP;
-              }).join('');
-            }
-          }
+          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
+
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
-          if (customHeaderPPCT) {
-            docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
-          }
           zip.file("word/document.xml", docXml);
           resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
           return;
@@ -498,11 +477,6 @@ export const injectContentIntoDocx = async (
               docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
             }
           }
-        }
-
-        // CẬP NHẬT TIÊU ĐỀ THỜI GIAN THỰC HIỆN THEO PPCT
-        if (customHeaderPPCT) {
-          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
         zip.file("word/document.xml", docXml);
