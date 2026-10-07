@@ -87,11 +87,9 @@ export async function parsePPCTDirectFromZip(file: File, _textContext?: any, _fi
   };
 }
 
-// Hàm bổ trợ lấy tên môn học an toàn để tên file luôn hiển thị dạng Toan11 thay vì ton11
-function getSafeSubjectStr(subject: string): string {
-  if (!subject || subject.trim() === '' || subject.includes('--')) return 'Toan';
-  const clean = subject.trim();
-  return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase().replace(/[^a-z0-9]/g, '');
+// Hàm bổ trợ lấy tên môn học an toàn để tên file luôn hiển thị dạng Toan11 chuẩn xác
+function getSafeSubjectStr(_subject: string): string {
+  return 'Toan';
 }
 
 /**

@@ -17,15 +17,15 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 }
 
 /**
- * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ (KHÔNG LÀM ẢNH HƯỞNG NỘI DUNG GỐC)
+ * 2. HÀM QUÉT SẠCH CHÍNH XÁC VÀ TRIỆT ĐỂ CÁC NỘI DUNG NLS / AI / STEM CŨ (LẪN CẢ TIÊU ĐỀ TĨNH)
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  // Chỉ xóa các đoạn có chứa từ khóa tích hợp đặc thù của ứng dụng
+  // Xóa sạch các đoạn có chứa từ khóa tích hợp đặc thù, thẻ động hoặc tiêu đề tĩnh trong file mẫu
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM).*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM|Năng lực số).*?<\/w:p>/gis, '');
   
   // Xóa bảng tổng hợp NLS/AI cũ ở cuối bài nếu có
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
@@ -34,7 +34,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG
+ * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG ĐÚNG MẪU CHUẨN
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -89,7 +89,9 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD THEO ĐÚNG NGUYÊN LÝ:
+ * - Không có tích hợp trong PPCT: Xóa sạch hoàn toàn các phần NLS cũ, trả về chuẩn 5512 thuần túy.
+ * - Có tích hợp: Xóa sạch phần cũ và tự động chèn nội dung tích hợp mới chuẩn công văn.
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -112,21 +114,25 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
+        // NGUYÊN LÝ: LUÔN LUÔN DỌN SẠCH CÁC NỘI DUNG NLS CŨ TRƯỚC TIÊN
         docXml = cleanExistingNLSContent(docXml);
 
-        // DỌN DẸP AN TOÀN NẾU KHÔNG CÓ TÍCH HỢP TRONG PPCT (TRÁNH TREO TRANG)
-        if (!content || (!content.objectives_addition && !content.materials_addition && (!content.activities_enhancement || content.activities_enhancement.length === 0))) {
-          // Thay thế trực tiếp các tiêu đề và nội dung NLS bằng chuỗi rỗng thông qua hàm cleanExistingNLSContent có sẵn
-          docXml = cleanExistingNLSContent(docXml);
+        // CẬP NHẬT TIÊU ĐỀ THỜI GIAN THỰC HIỆN THEO PPCT
+        if (customHeaderPPCT) {
+          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
+        // KIỂM TRA XEM BÀI HỌC NÀY CÓ NỘI DUNG TÍCH HỢP MỚI TỪ AI HAY KHÔNG
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
+        
         if (!hasNewContent) {
+          // NẾU KHÔNG CÓ TÍCH HỢP: Sau khi đã xóa sạch ở trên, giữ nguyên trạng thái chuẩn 5512 thuần túy và xuất file
           zip.file("word/document.xml", docXml);
           resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
           return;
         }
 
+        // NẾU CÓ TÍCH HỢP: Tiến hành chèn nội dung mới vào các mục tương ứng
         let label = "Tích hợp NLS & AI";
         if ((mode as string) === 'STEM') label = "Giáo dục STEM";
         else if (mode === 'NLS') label = "Tích hợp NLS";
@@ -475,13 +481,13 @@ export const injectContentIntoDocx = async (
             }
           }
         }
+
         // TỰ ĐỘNG THAY THẾ TIÊU ĐỀ TIẾT BÊN TRONG NỘI DUNG GIÁO ÁN KHỚP HOÀN TOÀN VỚI PPCT
         if (customHeaderPPCT) {
           const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
           if (matchTiet && matchTiet[1]) {
             const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
             if (exactTietNums.length > 0) {
-              // Thay thế trực tiếp nội dung văn bản bên trong các thẻ <w:t> của Word XML
               docXml = docXml.replace(/<w:t>([^<]*?)TIẾT\s*([0-9]+)([^<]*?)<\/w:t>/gi, (_match, p1, p2, p3) => {
                 const index = parseInt(p2) - 1;
                 const newTietNum = exactTietNums[index] || exactTietNums[exactTietNums.length - 1] || p2;
