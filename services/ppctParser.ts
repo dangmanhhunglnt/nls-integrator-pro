@@ -147,9 +147,6 @@ export async function processBatchPPCT(
     if (combinedGhiChu.includes('STEM')) {
       mode = 'STEM';
       hasIntegration = true;
-    } else if (combinedGhiChu.includes('NLS & AI') || (combinedGhiChu.includes('NLS') && combinedGhiChu.includes('AI'))) {
-      mode = 'NLS';
-      hasIntegration = true;
     } else if (combinedGhiChu.includes('NLS')) {
       mode = 'NLS';
       hasIntegration = true;
@@ -214,31 +211,31 @@ export async function processSingleLessonFromPPCT(
   colorHex: HighlightColor,
   generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
 ): Promise<{ name: string; blob: Blob }[]> {
+  // Chuẩn hóa tên mục tiêu loại bỏ số thứ tự đầu dòng (ví dụ "9. Dãy số" -> "dãy số")
   const normalizedTarget = targetLessonName
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/^(c\d+\s*-\s*b\d+\s*-|bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
+    .replace(/^(\d+[\.,\s]*|c\d+\s*-\s*b\d+\s*-|bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
     .replace(/[^a-z0-9]/g, '');
 
-  // CHỈ LỌC KHỚP CHÍNH XÁC TUYỆT ĐỐI TÊN BÀI HỌC (TRÁNH BỊ GỢI NHẦM SANG CÁC BÀI KHÁC)
+  // LỌC CHÍNH XÁC TUYỆT ĐỐI KHÔNG BỊ NHẦM LẪN SANG CÁC BÀI KHÁC
   const matchingRows = ppctRows.filter(r => {
     const normalizedBai = r.baiHoc
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/^(bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
+      .replace(/^(\d+[\.,\s]*|bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
       .replace(/[^a-z0-9]/g, '');
     
-    // Chỉ lấy đúng bài có tên trùng khớp hoàn toàn, không dùng includes lỏng lẻo
-    return normalizedTarget === normalizedBai || normalizedBai === normalizedTarget;
+    return normalizedTarget === normalizedBai || normalizedBai.includes(normalizedTarget) || normalizedTarget.includes(normalizedBai);
   });
 
   if (matchingRows.length === 0) {
     throw new Error(`Không tìm thấy bài học tương ứng với "${targetLessonName}" trong dữ liệu PPCT.`);
   }
 
-  // TÁCH NHÓM CÁC HÀNG THEO TUẦN ĐỂ XUẤT RA CÁC FILE RIÊNG BIỆT (VÍ DỤ: TUẦN 4 VÀ TUẦN 5)
+  // TÁCH NHÓM CÁC HÀNG THEO TUẦN ĐỂ XUẤT RA CÁC FILE RIÊNG BIỆT
   const weekMap = new Map<string, PPCTRow[]>();
   for (const row of matchingRows) {
     const w = row.tuan || '1';
@@ -251,7 +248,6 @@ export async function processSingleLessonFromPPCT(
   const results: { name: string; blob: Blob }[] = [];
   const realLessonName = matchingRows[0]?.baiHoc || targetLessonName;
 
-  // Duyệt qua từng tuần xuất ra 1 file riêng biệt theo đúng chuẩn thầy yêu cầu
   for (const [weekNum, weekRows] of weekMap.entries()) {
     let totalTietCount = 0;
     const allTietStrs: string[] = [];
@@ -268,7 +264,7 @@ export async function processSingleLessonFromPPCT(
     }
     if (totalTietCount === 0) totalTietCount = 1;
 
-    // QUÉT CỘT GHI CHÚ: NẾU TRỐNG HOẶC KHÔNG CÓ TỪ KHÓA TÍCH HỢP THÌ XÓA SẠCH ĐƯA VỀ CHUẨN 5512
+    // QUÉT CỘT GHI CHÚ: NẾU CÓ NLS/AI/STEM THÌ CHÈN, NẾU TRỐNG THÌ XÓA SẠCH ĐƯA VỀ CHUẨN 5512
     const combinedGhiChu = weekRows.map(r => r.ghiChu || '').join(' ').toUpperCase();
     
     let mode: IntegrationMode = 'NLS';
@@ -283,9 +279,6 @@ export async function processSingleLessonFromPPCT(
     } else if (combinedGhiChu.includes('AI')) {
       mode = 'NAI';
       hasIntegration = true;
-    } else {
-      // Nếu cột ghi chú trống hoặc không có từ khóa tích hợp, ép buộc xóa sạch nội dung NLS/AI
-      hasIntegration = false;
     }
 
     let content: GeneratedNLSContent = {
@@ -301,27 +294,11 @@ export async function processSingleLessonFromPPCT(
       } catch (err) {
         console.warn("Lỗi gọi AI sinh nội dung:", err);
       }
-    } else {
-      // Đảm bảo khi không có tích hợp, nội dung bổ sung hoàn toàn bằng rỗng để file Word sạch bóng chuẩn 5512
-      content = {
-        objectives_addition: '',
-        materials_addition: '',
-        activities_enhancement: [],
-        summary_table: []
-      };
-    }
-
-    if (hasIntegration) {
-      try {
-        content = await generateAIContentCallback(realLessonName, mode);
-      } catch (err) {
-        console.warn("Lỗi gọi AI sinh nội dung:", err);
-      }
     }
 
     const tietDisplayStr = allTietStrs.join(', ');
     
-    // Lấy tổng hợp tất cả các tiết trong toàn bài từ matchingRows để đưa vào phần ngoặc (PPCT: 10-11, 13)
+    // Lấy tổng hợp tất cả các tiết trong toàn bài từ matchingRows để đưa vào phần ngoặc đúng chuẩn
     const allGlobalTietNumbers: string[] = [];
     matchingRows.forEach(r => {
       if (r.tiet) {
@@ -340,9 +317,10 @@ export async function processSingleLessonFromPPCT(
         }
       }
     });
-    
-    // Định dạng lại chuỗi tiêu đề thông tin thời gian thực hiện chuẩn xác theo đúng ý thầy
-    const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${weekNum} dạy Tiết ${tietDisplayStr} theo PPCT: ${tietDisplayStr})`;
+    const globalUniqueTietStr = Array.from(new Set(allGlobalTietNumbers)).join(', ');
+
+    // Định dạng chuỗi thời gian thực hiện chuẩn xác đúng form thầy yêu cầu
+    const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${weekNum} dạy Tiết ${tietDisplayStr} theo PPCT: ${globalUniqueTietStr})`;
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
