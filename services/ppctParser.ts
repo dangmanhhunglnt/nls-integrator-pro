@@ -221,6 +221,7 @@ export async function processSingleLessonFromPPCT(
     .replace(/^(c\d+\s*-\s*b\d+\s*-|bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
     .replace(/[^a-z0-9]/g, '');
 
+  // CHỈ LỌC KHỚP CHÍNH XÁC TUYỆT ĐỐI TÊN BÀI HỌC (TRÁNH BỊ GỢI NHẦM SANG CÁC BÀI KHÁC)
   const matchingRows = ppctRows.filter(r => {
     const normalizedBai = r.baiHoc
       .toLowerCase()
@@ -229,7 +230,8 @@ export async function processSingleLessonFromPPCT(
       .replace(/^(bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
       .replace(/[^a-z0-9]/g, '');
     
-    return normalizedTarget.includes(normalizedBai) || normalizedBai.includes(normalizedTarget) || normalizedTarget === normalizedBai;
+    // Chỉ lấy đúng bài có tên trùng khớp hoàn toàn, không dùng includes lỏng lẻo
+    return normalizedTarget === normalizedBai || normalizedBai === normalizedTarget;
   });
 
   if (matchingRows.length === 0) {
