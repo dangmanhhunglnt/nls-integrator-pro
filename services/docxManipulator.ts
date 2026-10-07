@@ -118,7 +118,24 @@ export const injectContentIntoDocx = async (
         if (!content || (!content.objectives_addition && !content.materials_addition && (!content.activities_enhancement || content.activities_enhancement.length === 0))) {
           docXml = cleanExistingNLSContent(docXml);
         }
-
+        // TỰ ĐỘNG THAY THẾ TIẾT CŨ BẰNG TIẾT THỰC TẾ TRONG PPCT
+        if (customHeaderPPCT) {
+          const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
+          if (matchTiet && matchTiet[1]) {
+            const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
+            if (exactTietNums.length > 0) {
+              let tietCounter = 0;
+              docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, (matchP) => {
+                if (tietCounter < exactTietNums.length) {
+                  const currentTietNum = exactTietNums[tietCounter];
+                  tietCounter++;
+                  return matchP.replace(/TIẾT\s*[0-9]+/gi, `TIẾT ${currentTietNum}`);
+                }
+                return '';
+              });
+            }
+          }
+        }
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           if (customHeaderPPCT) {
