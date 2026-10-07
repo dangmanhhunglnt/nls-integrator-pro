@@ -114,8 +114,12 @@ export const injectContentIntoDocx = async (
 
         docXml = cleanExistingNLSContent(docXml);
 
-        if (customHeaderPPCT) {
-          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
+        // NẾU KHÔNG CÓ TÍCH HỢP TRONG PPCT, XÓA SẠCH CÁC TIÊU ĐỀ VÀ NỘI DUNG TÍCH HỢP TĨNH CÒN SÓT LẠI TRONG MẪU
+        if (!content || (!content.objectives_addition && !content.materials_addition && (!content.activities_enhancement || content.activities_enhancement.length === 0))) {
+          // Xóa các tiêu đề tích hợp Năng lực số / AI / STEM thường nằm trong file mẫu
+          docXml = docXml.replace(/<w:p\b[\s\S]*?>[\s\S]*?Năng lực số[\s\S]*?<\/w:p>/gi, '');
+          docXml = docXml.replace(/<w:p\b[\s\S]*?>[\s\S]*?Tích hợp NLS[\s\S]*?<\/w:p>/gi, '');
+          docXml = docXml.replace(/<w:p\b[\s\S]*?>[\s\S]*?Giáo dục STEM[\s\S]*?<\/w:p>/gi, '');
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
