@@ -340,10 +340,9 @@ export async function processSingleLessonFromPPCT(
         }
       }
     });
-    const globalUniqueTietStr = Array.from(new Set(allGlobalTietNumbers)).join(', ');
-
-    // Định dạng chuỗi thời gian thực hiện chuẩn xác theo đúng yêu cầu mẫu của thầy
-    const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${weekNum} dạy Tiết ${tietDisplayStr} theo PPCT: ${globalUniqueTietStr})`;
+    
+    // Định dạng lại chuỗi tiêu đề thông tin thời gian thực hiện chuẩn xác theo đúng ý thầy
+    const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${weekNum} dạy Tiết ${tietDisplayStr} theo PPCT: ${tietDisplayStr})`;
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
