@@ -120,21 +120,23 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
-        // TỰ ĐỘNG PHÂN BỔ VÀ CẬP NHẬT LẠI CÁC TIÊU ĐỀ TIẾT BÊN TRONG BÀI HỌC KHỚP VỚI PPCT
+        // TỰ ĐỘNG PHÂN BỔ VÀ CẬP NHẬT LẠI CÁC TIÊU ĐỀ TIẾT BÊN TRONG BÀI HỌC KHỚP VỚI PPCT (AN TOÀN TUYỆT ĐỐI)
         if (customHeaderPPCT) {
           const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
           if (matchTiet && matchTiet[1]) {
             const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
             if (exactTietNums.length > 0) {
               let tietCounter = 0;
-              docXml = docXml.replace(/<w:p\b[\s\S]*?>[\s\S]*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gi, (matchP) => {
-                if (tietCounter < exactTietNums.length) {
+              const paragraphs = docXml.split('</w:p>');
+              docXml = paragraphs.map(p => {
+                let currentP = p + '</w:p>';
+                if (/TIẾT\s*[0-9]+/i.test(currentP) && tietCounter < exactTietNums.length) {
                   const currentTietNum = exactTietNums[tietCounter];
                   tietCounter++;
-                  return matchP.replace(/TIẾT\s*[0-9]+/gi, `TIẾT ${currentTietNum}`);
+                  return currentP.replace(/TIẾT\s*[0-9]+/gi, `TIẾT ${currentTietNum}`);
                 }
-                return '';
-              });
+                return currentP;
+              }).join('');
             }
           }
         }
