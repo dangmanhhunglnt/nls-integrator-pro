@@ -118,21 +118,26 @@ export const injectContentIntoDocx = async (
         if (!content || (!content.objectives_addition && !content.materials_addition && (!content.activities_enhancement || content.activities_enhancement.length === 0))) {
           docXml = cleanExistingNLSContent(docXml);
         }
-        // TỰ ĐỘNG THAY THẾ TIẾT CŨ BẰNG TIẾT THỰC TẾ TRONG PPCT
+        // TỰ ĐỘNG THAY THẾ TIẾT CŨ BẰNG TIẾT THỰC TẾ TRONG PPCT (XỬ LÝ CẢ TRƯỜNG HỢP XML BỊ CẮT NHỎ THẺ)
         if (customHeaderPPCT) {
           const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
           if (matchTiet && matchTiet[1]) {
             const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
             if (exactTietNums.length > 0) {
               let tietCounter = 0;
-              docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, (matchP) => {
-                if (tietCounter < exactTietNums.length) {
+              // Chia đoạn theo thẻ <w:p> để quét an toàn
+              const paragraphs = docXml.split('</w:p>');
+              docXml = paragraphs.map(p => {
+                let currentP = p + '</w:p>';
+                // Kiểm tra xem đoạn này có chứa từ TIẾT kèm theo số hay không
+                if (/TIẾT\s*[0-9]+/i.test(currentP) && tietCounter < exactTietNums.length) {
                   const currentTietNum = exactTietNums[tietCounter];
                   tietCounter++;
-                  return matchP.replace(/TIẾT\s*[0-9]+/gi, `TIẾT ${currentTietNum}`);
+                  // Thay thế số tiết bên trong đoạn văn bản XML một cách an toàn
+                  return currentP.replace(/TIẾT\s*([0-9]+)/gi, `TIẾT ${currentTietNum}`);
                 }
-                return '';
-              });
+                return currentP;
+              }).join('');
             }
           }
         }
