@@ -89,9 +89,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD THEO ĐÚNG NGUYÊN LÝ:
- * - Không có tích hợp trong PPCT: Xóa sạch hoàn toàn các phần NLS cũ, trả về chuẩn 5512 thuần túy.
- * - Có tích hợp: Xóa sạch phần cũ và tự động chèn nội dung tích hợp mới chuẩn công văn.
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -122,17 +120,34 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
+        // TỰ ĐỘNG PHÂN BỔ VÀ CẬP NHẬT LẠI CÁC TIÊU ĐỀ TIẾT BÊN TRONG BÀI HỌC KHỚP VỚI PPCT
+        if (customHeaderPPCT) {
+          const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
+          if (matchTiet && matchTiet[1]) {
+            const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
+            if (exactTietNums.length > 0) {
+              let tietCounter = 0;
+              docXml = docXml.replace(/<w:p\b[\s\S]*?>[\s\S]*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gi, (matchP) => {
+                if (tietCounter < exactTietNums.length) {
+                  const currentTietNum = exactTietNums[tietCounter];
+                  tietCounter++;
+                  return matchP.replace(/TIẾT\s*[0-9]+/gi, `TIẾT ${currentTietNum}`);
+                }
+                return '';
+              });
+            }
+          }
+        }
+
         // KIỂM TRA XEM BÀI HỌC NÀY CÓ NỘI DUNG TÍCH HỢP MỚI TỪ AI HAY KHÔNG
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         
         if (!hasNewContent) {
-          // NẾU KHÔNG CÓ TÍCH HỢP: Sau khi đã xóa sạch ở trên, giữ nguyên trạng thái chuẩn 5512 thuần túy và xuất file
           zip.file("word/document.xml", docXml);
           resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
           return;
         }
 
-        // NẾU CÓ TÍCH HỢP: Tiến hành chèn nội dung mới vào các mục tương ứng
         let label = "Tích hợp NLS & AI";
         if ((mode as string) === 'STEM') label = "Giáo dục STEM";
         else if (mode === 'NLS') label = "Tích hợp NLS";
@@ -478,21 +493,6 @@ export const injectContentIntoDocx = async (
             const bodyEndIndex = docXml.lastIndexOf(bodyEndTag);
             if (bodyEndIndex !== -1) {
               docXml = docXml.substring(0, bodyEndIndex) + tableXml + docXml.substring(bodyEndIndex);
-            }
-          }
-        }
-
-        // TỰ ĐỘNG THAY THẾ TIÊU ĐỀ TIẾT BÊN TRONG NỘI DUNG GIÁO ÁN KHỚP HOÀN TOÀN VỚI PPCT
-        if (customHeaderPPCT) {
-          const matchTiet = customHeaderPPCT.match(/Tiết\s+([0-9,\s-]+)/i);
-          if (matchTiet && matchTiet[1]) {
-            const exactTietNums = matchTiet[1].split(/,|\s+/).filter(Boolean);
-            if (exactTietNums.length > 0) {
-              docXml = docXml.replace(/<w:t>([^<]*?)TIẾT\s*([0-9]+)([^<]*?)<\/w:t>/gi, (_match, p1, p2, p3) => {
-                const index = parseInt(p2) - 1;
-                const newTietNum = exactTietNums[index] || exactTietNums[exactTietNums.length - 1] || p2;
-                return `<w:t>${p1}TIẾT ${newTietNum}${p3}</w:t>`;
-              });
             }
           }
         }
