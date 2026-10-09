@@ -140,8 +140,7 @@ ${isStemOnly ? `   - CHỈ NÊU MỤC TIÊU NĂNG LỰC STEM: Vận dụng kiế
 2. ĐAN CÀI CỤ THỂ VÀO BẢNG TỔ CHỨC THỰC HIỆN (MỤC III - TIẾN TRÌNH DẠY HỌC):
    - Đọc kỹ và TRÍCH XUẤT NGUYÊN VĂN TÊN TIÊU ĐỀ HOẠT ĐỘNG từ file gốc vào trường "activity_name" (Ví dụ: "1. Khởi động", "2. Khám phá", "3. Luyện tập", "4. Vận dụng" hoặc "Hoạt động 1: ...").
    - NẾU BÀI DẠY KÉO DÀI TỪ 2 TIẾT TRỞ LÊN, TRONG CÁC HOẠT ĐỘNG KHÁM PHÁ / HÌNH THÀNH KIẾN THỨC MỚI, PHẢI PHÂN RÃ RÕ NỘI DUNG THEO TỪNG TIẾT CỤ THỂ BẰNG CÁCH DÙNG ĐỊNH DẠNG:
-     + 📌 [Dạy ở Tiết X]: [Nội dung, định nghĩa, định lý hoặc phần kiến thức trọng tâm học trong tiết này].
-     + 📌 [Dạy ở Tiết Y]: [Nội dung tiếp theo, hệ thống ví dụ hoặc bài tập áp dụng học trong tiết này].
+     - 📌 **QUY TẮC PHÂN RÃ TIẾT DẠY (LINH HOẠT VÀ THỰC TẾ)**: Dựa vào tổng số tiết của bài học, AI tự động phân rã nội dung bài học một cách linh hoạt, khoa học, ghi rõ các mốc "Tiết 1: Dạy hết phần...", "Tiết 2: Dạy hết phần..." ngay vào phần tiến trình hoạt động (khám phá/hình thành kiến thức mới).
    - MÔ TẢ THAO TÁC CỤ THỂ theo đúng tâm lý và lứa tuổi ${grade}.${hasStem ? `\n   - QUY TRÌNH STEM (BẮT BUỘC): Tại Hoạt động Luyện tập hoặc Vận dụng thực tế, enhanced_content PHẢI mô tả chi tiết quy trình thiết kế kỹ thuật của chủ đề "${cleanStem}":
      + Bản vẽ/Phương án thiết kế sản phẩm.
      + Các bước hướng dẫn học sinh gia công, chế tạo, đo đạc thử nghiệm mô hình thực tế.
