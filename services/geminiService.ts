@@ -210,7 +210,11 @@ export async function generateCompetencyIntegration(
 
   try {
     const systemPrompt = buildSystemPrompt(subject, grade, mode, level, cleanStem);
-    const fullPrompt = `${systemPrompt}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} - KHỐI ${grade.toUpperCase()}:\n${fileContent}${hasStem ? `\n\n- CHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${cleanStem}".` : ''}`;
+    
+    // Ép buộc mạnh mẽ AI phải tự động phát hiện số tiết và phân rã đúng định dạng bôi vàng
+    const periodInstruction = `\n\n⚠️ YÊU CẦU CỰC KỲ QUAN TRỌNG VỀ PHÂN RÃ TIẾT CHO HỒ SƠ KIỂM TRA:\n- Dựa vào thời lượng bài học trong file gốc (VD: 2 tiết, 3 tiết...), AI BẮT BUỘC phải phân rã thành các dòng định dạng rõ ràng ở đầu các hoạt động Hình thành kiến thức mới:\n- Tiết 1: [Nội dung trọng tâm tiết 1]\n- Tiết 2: [Nội dung trọng tâm tiết 2]\n- Tiết 4: [Nội dung trọng tâm tiết 4]\n(Phải ghi đúng chính xác các dòng bắt đầu bằng chữ "Tiết X:" để hệ thống tự động nhận diện và bôi vàng nổi bật phục vụ thanh tra).`;
+
+    const fullPrompt = `${systemPrompt}${periodInstruction}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} KHỐI ${grade.toUpperCase()}:\n${fileContent}${hasStem ? `\n\nCHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${cleanStem}".` : ''}`;
 
     const response = await fetch('/api/generate', {
       method: 'POST',
