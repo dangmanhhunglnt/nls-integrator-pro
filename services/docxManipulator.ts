@@ -115,64 +115,7 @@ export const injectContentIntoDocx = async (
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
-        // TỰ ĐỘNG PHÂN TÍCH ĐÚNG DANH SÁCH TIẾT TRONG PPCT (VD: 1, 2, 4) VÀ ĐẶT ĐÚNG VỊ TRÍ MÀ KHÔNG GÂY LỖI WORD
-        try {
-          const ppctHeaderMatch = docXml.match(/(?:Tiết|Tuần)[\s\S]*?(?:PPCT|tiết)[\s\S]*?([0-9,\-\s]+)/i);
-          let tietList: number[] = [];
-          
-          if (ppctHeaderMatch && ppctHeaderMatch[1]) {
-            const numMatches = ppctHeaderMatch[1].match(/\d+/g);
-            if (numMatches) {
-              tietList = numMatches.map(n => parseInt(n, 10));
-            }
-          }
-
-          if (tietList.length === 0) {
-            const matchTotal = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
-            const total = matchTotal ? parseInt(matchTotal[1], 10) : 1;
-            for (let i = 1; i <= total; i++) tietList.push(i);
-          }
-
-          if (tietList.length > 0) {
-            const sectionKeywords = [
-              "A. HOẠT ĐỘNG KHỞI ĐỘNG", "B. HÌNH THÀNH KIẾN THỨC MỚI", 
-              "C. HOẠT ĐỘNG LUYỆN TẬP", "D. HOẠT ĐỘNG VẬN DỤNG",
-              "1. Định nghĩa", "2. Hàm số", "Đồ thị và tính chất"
-            ];
-            let searchPos = 0;
-
-            for (let i = 0; i < tietList.length; i++) {
-              const tietNum = tietList[i];
-              let foundIdx = -1;
-              
-              const keyword = sectionKeywords[i % sectionKeywords.length];
-              const idx = docXml.indexOf(keyword, searchPos);
-              if (idx !== -1) {
-                foundIdx = idx;
-              } else {
-                const fallbackIdx = docXml.indexOf("III. TIẾN TRÌNH DẠY HỌC", searchPos);
-                if (fallbackIdx !== -1) foundIdx = fallbackIdx + 200 * (i + 1);
-              }
-
-              if (foundIdx !== -1) {
-                const pStart = docXml.lastIndexOf("<w:p", foundIdx);
-                if (pStart !== -1) {
-                  const tietXml = `<w:p>
-                    <w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr>
-                    <w:r>
-                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                      <w:t xml:space="preserve">📌 Tiết ${tietNum}: Dạy nội dung trọng tâm tiết ${tietNum} theo PPCT</w:t>
-                    </w:r>
-                  </w:p>`;
-                  docXml = docXml.substring(0, pStart) + tietXml + docXml.substring(pStart);
-                  searchPos = pStart + tietXml.length + 500;
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Lỗi phân rã danh sách tiết:", err);
-        }
+        
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
@@ -471,7 +414,44 @@ export const injectContentIntoDocx = async (
             }
           }
         }
+        // TỰ ĐỘNG CHÈN TIÊU ĐỀ TIẾT BÔI VÀNG MỘT CÁCH AN TOÀN TUYỆT ĐỐI BẰNG HÀM TẠO XML CHUẨN
+        try {
+          const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
+          const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
+          
+          if (numTiet > 1) {
+            const targetKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC"];
+            let foundPos = -1;
+            for (const kw of targetKeywords) {
+              const idx = docXml.indexOf(kw);
+              if (idx !== -1) {
+                foundPos = idx;
+                break;
+              }
+            }
 
+            if (foundPos !== -1) {
+              // Tạo sẵn chuỗi các dòng tiêu đề tiết bôi vàng
+              let tietLinesStr = "";
+              for (let t = 1; t <= numTiet; t++) {
+                tietLinesStr += `Tiết ${t}: Dạy nội dung trọng tâm phần ${t}\n`;
+              }
+              
+              const currentStyle = detectStyle(docXml, foundPos);
+              // Gọi hàm createXmlBlock chuẩn Word để sinh XML bôi vàng an toàn
+              const safeTietXmlBlock = createXmlBlock(tietLinesStr, currentStyle);
+
+              if (safeTietXmlBlock) {
+                const pStart = docXml.lastIndexOf("<w:p", foundPos);
+                if (pStart !== -1) {
+                  docXml = docXml.substring(0, pStart) + safeTietXmlBlock + docXml.substring(pStart);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Lỗi chèn mốc tiết an toàn:", err);
+        }
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
             const actName = (item as any).activity_name || (item as any).activity_title || "";
