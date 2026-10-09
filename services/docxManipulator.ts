@@ -17,20 +17,15 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 }
 
 /**
- * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIÊU ĐỀ TIẾT CŨ
+ * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIẾT CŨ
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  // Xóa sạch các đoạn có chứa từ khóa tích hợp đặc thù, thẻ động hoặc tiêu đề tĩnh trong file mẫu
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM|Năng lực số\s*\(tích hợp\)|Năng lực số).*?<\/w:p>/gis, '');
-  
-  // XÓA SẠCH TRỌN VẸN CÁC TIÊU ĐỀ TIẾT CŨ PHÍA DƯỚI (VÍ DỤ: TIẾT 1: ...) MỘT CÁCH AN TOÀN TUYỆT ĐỐI
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, '');
-
-  // Xóa bảng tổng hợp NLS/AI cũ ở cuối bài nếu có
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
 
   return cleaned;
@@ -115,10 +110,8 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. DỌN SẠCH NLS CŨ VÀ TIẾT CŨ MỘT CÁCH AN TOÀN
         docXml = cleanExistingNLSContent(docXml);
 
-        // 2. CẬP NHẬT TIÊU ĐỀ THỜI GIAN THỰC HIỆN THEO PPCT NGAY DƯỚI TÊN BÀI
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
@@ -184,32 +177,21 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
 
           lines.forEach(line => {
-            // Nhận diện dòng chỉ định tiết học (Ví dụ: TIẾT 3, [Dạy ở Tiết 3]...) để làm nổi bật căn giữa
-            const isTietHeader = /^(\[?Dạy ở\s*)?Tiết\s*\d+/i.test(line);              if (isTietHeader) {               const tietTitle = line.replace(/^[\[\]]|(Dạy ở\s*)/gi, '').toUpperCase().trim();
-              xmlBlock += `<w:p>
-                             <w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="120"/></w:pPr>
-                             <w:r>
-                               <w:rPr><w:b/><w:color w:val="${colorHex}"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                               <w:t>--- ${escapeXml(tietTitle)} (GIỮA TRANG - MÀU) ---</w:t>
-                             </w:r>
-                           </w:p>`;
-            } else {
-              let cleanLine = line
-                .replace(/\*\*/g, "")
-                .replace(/__/, "")
-                .replace(/^\s*[-•+]\s*/, "")
-                .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
-                .trim();
+            let cleanLine = line
+              .replace(/\*\*/g, "")
+              .replace(/__/, "")
+              .replace(/^\s*[-•+]\s*/, "")
+              .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
+              .trim();
 
-              if (cleanLine) {
-                xmlBlock += `<w:p>
-                             <w:pPr><w:ind w:left="720"/></w:pPr>
-                             <w:r>
-                               <w:rPr>${rPrBody}</w:rPr>
-                               <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                             </w:r>
-                           </w:p>`;
-              }
+            if (cleanLine) {
+              xmlBlock += `<w:p>
+                           <w:pPr><w:ind w:left="720"/></w:pPr>
+                           <w:r>
+                             <w:rPr>${rPrBody}</w:rPr>
+                             <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                           </w:r>
+                         </w:p>`;
             }
           });
 
@@ -381,6 +363,49 @@ export const injectContentIntoDocx = async (
             }
           }
         }
+
+        // CHÈN DÒNG TIẾT BÔI VÀNG NGAY DƯỚI TIÊU ĐỀ "III. TIẾN TRÌNH DẠY HỌC"
+        const processHeaderTietSplitting = (xml: string) => {
+          const progressKeywords = ["III. TIẾN TRÌNH DẠY HỌC", "TIẾN TRÌNH DẠY HỌC", "Tiến trình dạy học"];
+          let progIndex = -1;
+          for (const pKw of progressKeywords) {
+            const idx = findFuzzyIndex(xml, pKw, 0);
+            if (idx !== -1) {
+              progIndex = idx;
+              break;
+            }
+          }
+
+          if (progIndex !== -1) {
+            const pEnd = xml.indexOf("</w:p>", progIndex);
+            if (pEnd !== -1) {
+              const splitPos = pEnd + "</w:p>".length;
+              
+              const tietLines = [
+                "Tiết 3: đến hết tính chất",
+                "Tiết 6: đến hết định lý",
+                "Tiết 9: đến hết ví dụ áp dụng",
+                "Tiết 12: ôn tập và củng cố"
+              ];
+
+              let tietBlockXml = "";
+              tietLines.forEach(tLine => {
+                tietBlockXml += `<w:p>
+                                   <w:pPr><w:spacing w:before="120" w:after="120"/></w:pPr>
+                                   <w:r>
+                                     <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+                                     <w:t xml:space="preserve">${escapeXml(tLine)}</w:t>
+                                   </w:r>
+                                 </w:p>`;
+              });
+
+              return xml.substring(0, splitPos) + tietBlockXml + xml.substring(splitPos);
+            }
+          }
+          return xml;
+        };
+
+        docXml = processHeaderTietSplitting(docXml);
 
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
