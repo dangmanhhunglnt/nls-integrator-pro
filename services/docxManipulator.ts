@@ -184,21 +184,32 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
 
           lines.forEach(line => {
-            let cleanLine = line
-              .replace(/\*\*/g, "")
-              .replace(/__/, "")
-              .replace(/^\s*[-•+]\s*/, "")
-              .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
-              .trim();
-
-            if (cleanLine) {
+            // Nhận diện dòng chỉ định tiết học (Ví dụ: TIẾT 3, [Dạy ở Tiết 3]...) để làm nổi bật căn giữa
+            const isTietHeader = /^(\[?Dạy ở\s*)?Tiết\s*\d+/i.test(line);              if (isTietHeader) {               const tietTitle = line.replace(/^[\[\]]|(Dạy ở\s*)/gi, '').toUpperCase().trim();
               xmlBlock += `<w:p>
-                           <w:pPr><w:ind w:left="720"/></w:pPr>
-                           <w:r>
-                             <w:rPr>${rPrBody}</w:rPr>
-                             <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                           </w:r>
-                         </w:p>`;
+                             <w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="120"/></w:pPr>
+                             <w:r>
+                               <w:rPr><w:b/><w:color w:val="${colorHex}"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+                               <w:t>--- ${escapeXml(tietTitle)} (GIỮA TRANG - MÀU) ---</w:t>
+                             </w:r>
+                           </w:p>`;
+            } else {
+              let cleanLine = line
+                .replace(/\*\*/g, "")
+                .replace(/__/, "")
+                .replace(/^\s*[-•+]\s*/, "")
+                .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
+                .trim();
+
+              if (cleanLine) {
+                xmlBlock += `<w:p>
+                             <w:pPr><w:ind w:left="720"/></w:pPr>
+                             <w:r>
+                               <w:rPr>${rPrBody}</w:rPr>
+                               <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                             </w:r>
+                           </w:p>`;
+              }
             }
           });
 
@@ -535,7 +546,7 @@ export const createAppendixDocx = async (
     <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
       <w:body>
         <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/><w:color w:val="1E293B"/></w:rPr><w:t>${escapeXml(label)}</w:t></w:r></w:p>
-        <w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="300"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="22"/><w:color w:val="64748B"/></w:rPr><w:t>(Phụ lục kèm Kế hoạch bài dạy môn ${escapeXml(subject)} - Khối ${escapeXml(grade)})</w:t></w:r></w:p>
+        <w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="300"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="22"/><w:color w:val="64748B"/></w:rPr><w:t>(Phụ lục kèm Kế hoạch bài dạy môn ${escapeXml(subject)} Khối ${escapeXml(grade)})</w:t></w:r></w:p>
 
         <w:p><w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="0F172A"/></w:rPr><w:t>I. MỤC TIÊU NĂNG LỰC TÍCH HỢP</w:t></w:r></w:p>
         <w:p><w:pPr><w:ind w:left="360"/></w:pPr><w:r><w:t>${escapeXml(content.objectives_addition)}</w:t></w:r></w:p>
