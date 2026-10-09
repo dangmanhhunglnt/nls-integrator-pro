@@ -17,7 +17,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 }
 
 /**
- * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIẾT CŨ
+ * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIÊU ĐỀ TIẾT CŨ
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
@@ -177,21 +177,33 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
 
           lines.forEach(line => {
-            let cleanLine = line
-              .replace(/\*\*/g, "")
-              .replace(/__/, "")
-              .replace(/^\s*[-•+]\s*/, "")
-              .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
-              .trim();
-
-            if (cleanLine) {
+            // TỰ ĐỘNG NHẬN DIỆN VÀ ĐỊNH DẠNG BÔI VÀNG DẠNG "Tiết X: ..." NẾU AI SINH RA TRONG NỘI DUNG HOẠT ĐỘNG
+            const isTietLine = /^Tiết\s*\d+[:\-]/i.test(line);
+            if (isTietLine) {
               xmlBlock += `<w:p>
-                           <w:pPr><w:ind w:left="720"/></w:pPr>
-                           <w:r>
-                             <w:rPr>${rPrBody}</w:rPr>
-                             <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                           </w:r>
-                         </w:p>`;
+                             <w:pPr><w:spacing w:before="160" w:after="80"/></w:pPr>
+                             <w:r>
+                               <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+                               <w:t xml:space="preserve">${escapeXml(line)}</w:t>
+                             </w:r>
+                           </w:p>`;
+            } else {
+              let cleanLine = line
+                .replace(/\*\*/g, "")
+                .replace(/__/, "")
+                .replace(/^\s*[-•+]\s*/, "")
+                .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
+                .trim();
+
+              if (cleanLine) {
+                xmlBlock += `<w:p>
+                             <w:pPr><w:ind w:left="720"/></w:pPr>
+                             <w:r>
+                               <w:rPr>${rPrBody}</w:rPr>
+                               <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                             </w:r>
+                           </w:p>`;
+              }
             }
           });
 
@@ -363,49 +375,6 @@ export const injectContentIntoDocx = async (
             }
           }
         }
-
-        // CHÈN DÒNG TIẾT BÔI VÀNG NGAY DƯỚI TIÊU ĐỀ "III. TIẾN TRÌNH DẠY HỌC"
-        const processHeaderTietSplitting = (xml: string) => {
-          const progressKeywords = ["III. TIẾN TRÌNH DẠY HỌC", "TIẾN TRÌNH DẠY HỌC", "Tiến trình dạy học"];
-          let progIndex = -1;
-          for (const pKw of progressKeywords) {
-            const idx = findFuzzyIndex(xml, pKw, 0);
-            if (idx !== -1) {
-              progIndex = idx;
-              break;
-            }
-          }
-
-          if (progIndex !== -1) {
-            const pEnd = xml.indexOf("</w:p>", progIndex);
-            if (pEnd !== -1) {
-              const splitPos = pEnd + "</w:p>".length;
-              
-              const tietLines = [
-                "Tiết 3: đến hết tính chất",
-                "Tiết 6: đến hết định lý",
-                "Tiết 9: đến hết ví dụ áp dụng",
-                "Tiết 12: ôn tập và củng cố"
-              ];
-
-              let tietBlockXml = "";
-              tietLines.forEach(tLine => {
-                tietBlockXml += `<w:p>
-                                   <w:pPr><w:spacing w:before="120" w:after="120"/></w:pPr>
-                                   <w:r>
-                                     <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                                     <w:t xml:space="preserve">${escapeXml(tLine)}</w:t>
-                                   </w:r>
-                                 </w:p>`;
-              });
-
-              return xml.substring(0, splitPos) + tietBlockXml + xml.substring(splitPos);
-            }
-          }
-          return xml;
-        };
-
-        docXml = processHeaderTietSplitting(docXml);
 
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
