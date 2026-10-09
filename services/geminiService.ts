@@ -212,7 +212,7 @@ export async function generateCompetencyIntegration(
     const systemPrompt = buildSystemPrompt(subject, grade, mode, level, cleanStem);
     
     // Ép buộc mạnh mẽ AI phải tự động phát hiện số tiết và phân rã đúng định dạng bôi vàng
-    const periodInstruction = `\n\n⚠️ YÊU CẦU CỰC KỲ QUAN TRỌNG VỀ PHÂN RÃ TIẾT CHO HỒ SƠ KIỂM TRA:\n- Dựa vào thời lượng bài học trong file gốc (VD: 2 tiết, 3 tiết...), AI BẮT BUỘC phải phân rã thành các dòng định dạng rõ ràng ở đầu các hoạt động Hình thành kiến thức mới:\n- Tiết 1: [Nội dung trọng tâm tiết 1]\n- Tiết 2: [Nội dung trọng tâm tiết 2]\n- Tiết 4: [Nội dung trọng tâm tiết 4]\n(Phải ghi đúng chính xác các dòng bắt đầu bằng chữ "Tiết X:" để hệ thống tự động nhận diện và bôi vàng nổi bật phục vụ thanh tra).`;
+    const periodInstruction = `\n\n⚠️ QUY TẮC BẮT BUỘC VỀ PHÂN RÃ TIẾT (VI PHẠM SẼ BỊ LỖI HỒ SƠ):\n- Dù file gốc ghi thời gian là bao nhiêu tiết, hễ thấy trong phân phối chương trình có liệt kê các tiết (Ví dụ: "Tiết 1, 2 theo PPCT: 1, 2, 4" hoặc nhiều tiết), AI BẮT BUỘC PHẢI TÁCH VÀ VIẾT ĐỦ các dòng sau đây ở đầu các phần tương ứng trong mục Tiến trình dạy học:\n- Tiết 1: [Nội dung trọng tâm phần đầu]\n- Tiết 2: [Nội dung trọng tâm phần giữa]\n- Tiết 4: [Nội dung trọng tâm phần cuối]\nTUYỆT ĐỐI KHÔNG ĐƯỢC BỎ SÓT BẤT KỲ TIẾT NÀO trong danh sách PPCT đã nêu!`;
 
     const fullPrompt = `${systemPrompt}${periodInstruction}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} KHỐI ${grade.toUpperCase()}:\n${fileContent}${hasStem ? `\n\nCHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${cleanStem}".` : ''}`;
 
