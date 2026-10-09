@@ -25,7 +25,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM|Năng lực số\s*\(tích hợp\)|Năng lực số).*?<\/w:p>/gis, '');
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:📌\s*)?Tiết\s*[0-9]+[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
 
   return cleaned;
@@ -116,6 +116,60 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
 
+        // TỰ ĐỘNG QUÉT ĐÚNG DANH SÁCH TIẾT TỪ TIÊU ĐỀ (VD: 1, 2, 4) VÀ CHÈN BÔI VÀNG VÀO TIẾN TRÌNH
+        try {
+          const ppctHeaderMatch = docXml.match(/(?:Tiết|Tuần)[\s\S]*?(?:PPCT|tiết)[\s\S]*?([0-9,\-\s]+)/i);
+          let tietList: number[] = [];
+          
+          if (ppctHeaderMatch && ppctHeaderMatch[1]) {
+            const numMatches = ppctHeaderMatch[1].match(/\d+/g);
+            if (numMatches) {
+              tietList = numMatches.map(n => parseInt(n, 10));
+            }
+          }
+
+          if (tietList.length === 0) {
+            const matchTotal = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
+            const total = matchTotal ? parseInt(matchTotal[1], 10) : 1;
+            for (let i = 1; i <= total; i++) tietList.push(i);
+          }
+
+          if (tietList.length > 1) {
+            const targetKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC", "Hoạt động 1:", "Hoạt động 2:"];
+            let searchPos = 0;
+
+            for (let i = 0; i < tietList.length; i++) {
+              const tietNum = tietList[i];
+              let foundIdx = -1;
+              
+              for (const kw of targetKeywords) {
+                const idx = docXml.indexOf(kw, searchPos);
+                if (idx !== -1) {
+                  foundIdx = idx;
+                  break;
+                }
+              }
+
+              if (foundIdx !== -1) {
+                const pStart = docXml.lastIndexOf("<w:p", foundIdx);
+                if (pStart !== -1) {
+                  const tietXml = `<w:p>
+                    <w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr>
+                    <w:r>
+                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+                      <w:t xml:space="preserve">📌 Tiết ${tietNum}: Dạy nội dung trọng tâm phần dạy học</w:t>
+                    </w:r>
+                  </w:p>`;
+                  docXml = docXml.substring(0, pStart) + tietXml + docXml.substring(pStart);
+                  searchPos = pStart + tietXml.length + 800;
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Lỗi tự động phân rã tiết:", err);
+        }
+
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
@@ -177,16 +231,15 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
 
           lines.forEach(line => {
-           // BỔ SUNG: TỰ ĐỘNG NHẬN DIỆN VÀ ĐỊNH DẠNG BÔI VÀNG NỔI BẬT CHO CÁC DÒNG TIẾT DẠY (Tiết 10, Tiết 11...)
            const isTietLine = /^(?:📌\s*)?Tiết\s*\d+/i.test(line);
            if (isTietLine) {
              xmlBlock += `<w:p>
-                          <w:pPr><w:spacing w:before="200" w:after="100"/></w:pPr>
-                          <w:r>
-                            <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                            <w:t xml:space="preserve">${escapeXml(line)}</w:t>
-                          </w:r>
-                        </w:p>`;
+                         <w:pPr><w:spacing w:before="200" w:after="100"/></w:pPr>
+                         <w:r>
+                           <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+                           <w:t xml:space="preserve">${escapeXml(line)}</w:t>
+                         </w:r>
+                       </w:p>`;
            } else {
              let cleanLine = line
                .replace(/\*\*/g, "")
@@ -205,7 +258,7 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
              }
            }
-         });
+          });
 
           return xmlBlock;
         };
@@ -282,46 +335,7 @@ export const injectContentIntoDocx = async (
 
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
-        // TỰ ĐỘNG CHÈN VÀ BÔI VÀNG CÁC MỐC TIẾT VÀO TRONG TIẾN TRÌNH DẠY HỌC NẾU BÀI TỪ 2 TIẾT TRỞ LÊN
-        try {
-          const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
-          const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
-          
-          if (numTiet > 1) {
-            // Tìm vị trí các hoạt động Hình thành kiến thức mới hoặc Khám phá trong file Word
-            const formKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC", "Hoạt động 2:"];
-            let searchStartIdx = 0;
-            
-            for (let t = 1; t <= numTiet; t++) {
-              let formPos = -1;
-              for (const fk of formKeywords) {
-                const idx = docXml.indexOf(fk, searchStartIdx);
-                if (idx !== -1) {
-                  formPos = idx;
-                  break;
-                }
-              }
 
-              if (formPos !== -1) {
-                const pStart = docXml.lastIndexOf("<w:p", formPos);
-                if (pStart !== -1) {
-                  // Tạo tiêu đề tiết bôi vàng nổi bật (Nền vàng FFFF00, chữ đậm)
-                  const tietInsertXml = `<w:p>
-                    <w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr>
-                    <w:r>
-                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                      <w:t xml:space="preserve">📌 Tiết ${t}: Dạy nội dung trọng tâm phần ${t} của bài học</w:t>
-                    </w:r>
-                  </w:p>`;
-                  docXml = docXml.substring(0, pStart) + tietInsertXml + docXml.substring(pStart);
-                  searchStartIdx = pStart + tietInsertXml.length + 500;
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Không thể tự động chèn mốc tiết vào tiến trình:", err);
-        }
         for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw, 0);
           if (idx !== -1) {
