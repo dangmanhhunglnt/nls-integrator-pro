@@ -154,6 +154,8 @@ export async function processBatchPPCT(
       hasIntegration = true;
     }
 
+    const tietDisplayStr = allTietStrs.join(', ');
+
     let content: GeneratedNLSContent = {
       objectives_addition: '',
       materials_addition: '',
@@ -163,13 +165,13 @@ export async function processBatchPPCT(
 
     if (hasIntegration) {
       try {
-        content = await generateAIContentCallback(realBaiHocName, mode);
+        const lessonContextName = `${realBaiHocName} (Thời lượng: ${totalTietCount} tiết, Tiết theo PPCT: ${tietDisplayStr})`;
+        content = await generateAIContentCallback(lessonContextName, mode);
       } catch (err) {
         console.warn("Lỗi gọi AI sinh nội dung:", err);
       }
     }
 
-    const tietDisplayStr = allTietStrs.join(', ');
     const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (PPCT Tiết: ${tietDisplayStr})`;
 
     const processedBlob = await injectContentIntoDocx(
@@ -281,6 +283,8 @@ export async function processSingleLessonFromPPCT(
       hasIntegration = true;
     }
 
+    const tietDisplayStr = allTietStrs.join(', ');
+
     let content: GeneratedNLSContent = {
       objectives_addition: '',
       materials_addition: '',
@@ -290,13 +294,12 @@ export async function processSingleLessonFromPPCT(
 
     if (hasIntegration) {
       try {
-        content = await generateAIContentCallback(realLessonName, mode);
+        const lessonContextName = `${realLessonName} (Thời lượng: ${totalTietCount} tiết, Tiết theo PPCT: ${tietDisplayStr})`;
+        content = await generateAIContentCallback(lessonContextName, mode);
       } catch (err) {
         console.warn("Lỗi gọi AI sinh nội dung:", err);
       }
     }
-
-    const tietDisplayStr = allTietStrs.join(', ');
     
     // Lấy tổng hợp tất cả các tiết trong toàn bài từ matchingRows để đưa vào phần ngoặc đúng chuẩn
     const allGlobalTietNumbers: string[] = [];
