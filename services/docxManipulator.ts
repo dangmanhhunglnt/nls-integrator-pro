@@ -118,49 +118,6 @@ export const injectContentIntoDocx = async (
         
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition));
         
-        // TỰ ĐỘNG QUÉT VÀ CHÈN ĐỦ CÁC MỐC TIẾT TỪ PHÂN PHỐI CHƯƠNG TRÌNH
-        try {
-          const ppctHeaderMatch = docXml.match(/(?:Tiết|Tuần)[\s\S]*?(?:PPCT|tiết)[\s\S]*?([0-9,\-\s]+)/i);
-          let tietList: number[] = [];
-          if (ppctHeaderMatch && ppctHeaderMatch[1]) {
-            const numMatches = ppctHeaderMatch[1].match(/\d+/g);
-            if (numMatches) {
-              tietList = numMatches.map(n => parseInt(n, 10));
-            }
-          }
-          if (tietList.length > 0) {
-            const formKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC"];
-            let searchStartIdx = 0;
-            for (let i = 0; i < tietList.length; i++) {
-              const tietNum = tietList[i];
-              let formPos = -1;
-              for (const fk of formKeywords) {
-                const idx = docXml.indexOf(fk, searchStartIdx);
-                if (idx !== -1) {
-                  formPos = idx;
-                  break;
-                }
-              }
-              if (formPos !== -1) {
-                const pStart = docXml.lastIndexOf("<w:p", formPos);
-                if (pStart !== -1) {
-                  const tietInsertXml = `<w:p>
-                    <w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr>
-                    <w:r>
-                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                      <w:t xml:space="preserve">📌 Tiết ${tietNum}: Dạy nội dung trọng tâm tiết ${tietNum} theo PPCT</w:t>
-                    </w:r>
-                  </w:p>`;
-                  docXml = docXml.substring(0, pStart) + tietInsertXml + docXml.substring(pStart);
-                  searchStartIdx = pStart + tietInsertXml.length + 500;
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Lỗi tự động chèn danh sách tiết:", err);
-        }
-
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
           resolve(zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" }));
