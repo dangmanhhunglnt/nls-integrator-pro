@@ -414,44 +414,7 @@ export const injectContentIntoDocx = async (
             }
           }
         }
-        // TỰ ĐỘNG CHÈN TIÊU ĐỀ TIẾT BÔI VÀNG MỘT CÁCH AN TOÀN TUYỆT ĐỐI BẰNG HÀM TẠO XML CHUẨN
-        try {
-          const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
-          const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
-          
-          if (numTiet > 1) {
-            const targetKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC"];
-            let foundPos = -1;
-            for (const kw of targetKeywords) {
-              const idx = docXml.indexOf(kw);
-              if (idx !== -1) {
-                foundPos = idx;
-                break;
-              }
-            }
-
-            if (foundPos !== -1) {
-              // Tạo sẵn chuỗi các dòng tiêu đề tiết bôi vàng
-              let tietLinesStr = "";
-              for (let t = 1; t <= numTiet; t++) {
-                tietLinesStr += `Tiết ${t}: Dạy nội dung trọng tâm phần ${t}\n`;
-              }
-              
-              const currentStyle = detectStyle(docXml, foundPos);
-              // Gọi hàm createXmlBlock chuẩn Word để sinh XML bôi vàng an toàn
-              const safeTietXmlBlock = createXmlBlock(tietLinesStr, currentStyle);
-
-              if (safeTietXmlBlock) {
-                const pStart = docXml.lastIndexOf("<w:p", foundPos);
-                if (pStart !== -1) {
-                  docXml = docXml.substring(0, pStart) + safeTietXmlBlock + docXml.substring(pStart);
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Lỗi chèn mốc tiết an toàn:", err);
-        }
+        
         if (Array.isArray(content.activities_enhancement)) {
           content.activities_enhancement.forEach((item, index) => {
             const actName = (item as any).activity_name || (item as any).activity_title || "";
