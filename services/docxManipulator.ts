@@ -177,35 +177,35 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
 
           lines.forEach(line => {
-            // TỰ ĐỘNG NHẬN DIỆN VÀ ĐỊNH DẠNG BÔI VÀNG DẠNG "Tiết X: ..." NẾU AI SINH RA TRONG NỘI DUNG HOẠT ĐỘNG
-            const isTietLine = /^Tiết\s*\d+[:\-]/i.test(line);
-            if (isTietLine) {
-              xmlBlock += `<w:p>
-                             <w:pPr><w:spacing w:before="160" w:after="80"/></w:pPr>
-                             <w:r>
-                               <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                               <w:t xml:space="preserve">${escapeXml(line)}</w:t>
-                             </w:r>
-                           </w:p>`;
-            } else {
-              let cleanLine = line
-                .replace(/\*\*/g, "")
-                .replace(/__/, "")
-                .replace(/^\s*[-•+]\s*/, "")
-                .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
-                .trim();
+           // BỔ SUNG: TỰ ĐỘNG NHẬN DIỆN VÀ ĐỊNH DẠNG BÔI VÀNG NỔI BẬT CHO CÁC DÒNG TIẾT DẠY (Tiết 10, Tiết 11...)
+           const isTietLine = /^Tiết\s*\d+/i.test(line);
+           if (isTietLine) {
+             xmlBlock += `<w:p>
+                          <w:pPr><w:spacing w:before="200" w:after="100"/></w:pPr>
+                          <w:r>
+                            <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+                            <w:t xml:space="preserve">${escapeXml(line)}</w:t>
+                          </w:r>
+                        </w:p>`;
+           } else {
+             let cleanLine = line
+               .replace(/\*\*/g, "")
+               .replace(/__/, "")
+               .replace(/^\s*[-•+]\s*/, "")
+               .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
+               .trim();
 
-              if (cleanLine) {
-                xmlBlock += `<w:p>
-                             <w:pPr><w:ind w:left="720"/></w:pPr>
-                             <w:r>
-                               <w:rPr>${rPrBody}</w:rPr>
-                               <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                             </w:r>
-                           </w:p>`;
-              }
-            }
-          });
+             if (cleanLine) {
+               xmlBlock += `<w:p>
+                            <w:pPr><w:ind w:left="720"/></w:pPr>
+                            <w:r>
+                              <w:rPr>${rPrBody}</w:rPr>
+                              <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                            </w:r>
+                          </w:p>`;
+             }
+           }
+         });
 
           return xmlBlock;
         };
