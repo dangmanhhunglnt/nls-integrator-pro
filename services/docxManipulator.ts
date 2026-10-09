@@ -282,7 +282,42 @@ export const injectContentIntoDocx = async (
 
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
+        // TỰ ĐỘNG CHÈN TIÊU ĐỀ TIẾT BÔI VÀNG VÀO PHẦN HÌNH THÀNH KIẾN THỨC MỚI NẾU BÀI TỪ 2 TIẾT TRỞ LÊN
+        try {
+          const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
+          const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
+          
+          if (numTiet > 1) {
+            const formKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC"];
+            let formPos = -1;
+            for (const fk of formKeywords) {
+              const idx = docXml.indexOf(fk);
+              if (idx !== -1) {
+                formPos = idx;
+                break;
+              }
+            }
 
+            if (formPos !== -1) {
+              const pStart = docXml.lastIndexOf("<w:p", formPos);
+              if (pStart !== -1) {
+                let tietInsertXml = "";
+                for (let t = 1; t <= numTiet; t++) {
+                  tietInsertXml += `<w:p>
+                    <w:pPr><w:spacing w:before="200" w:after="100"/></w:pPr>
+                    <w:r>
+                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+                      <w:t xml:space="preserve">📌 Tiết ${t}: Dạy nội dung trọng tâm phần ${t}</w:t>
+                    </w:r>
+                  </w:p>`;
+                }
+                docXml = docXml.substring(0, pStart) + tietInsertXml + docXml.substring(pStart);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Không thể tự động chèn mốc tiết:", err);
+        }
         for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw, 0);
           if (idx !== -1) {
