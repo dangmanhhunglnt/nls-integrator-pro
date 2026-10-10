@@ -283,39 +283,40 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // TRÍCH XUẤT VÀ CHÈN MỐC TIẾT CĂN GIỮA, BÔI VÀNG NGAY PHẦN ĐẦU GIÁO ÁN ĐỂ SỞ/TRƯỜNG DỄ KIỂM TRA
+        // CHÈN MỐC TIẾT CĂN GIỮA, BÔI VÀNG NGAY TRƯỚC MỤC I. MỤC TIÊU (AN TOÀN 100%)
         try {
           const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
           if (headerAreaMatch) {
             const headerSnippet = headerAreaMatch[0];
-            // Lấy trọn vẹn thông tin tiết (ví dụ: "Tiết 3 theo PPCT: 3, 6, 9, 12" hoặc "Tiết 1, 2")
-            const matchTietDetail = headerSnippet.match(/(?:Tiết|tiết)\s*([\d,\s]+(?:\s*theo PPCT:[^)]*)?)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
+            const matchTietDetail = headerSnippet.match(/(?:Tiết|tiết)\s*([\d,\s]+(?:\s*theo PPCT[^)]*)?)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
             
             if (matchTietDetail) {
               const tietInfoStr = matchTietDetail[0].trim();
               
-              // Tạo một dòng hiển thị trang trọng, căn giữa, bôi vàng rực rỡ ngay dưới phần thời gian thực hiện
               const centerYellowTietXml = `<w:p>
                 <w:pPr>
                   <w:jc w:val="center"/>
-                  <w:spacing w:before="240" w:after="240"/>
+                  <w:spacing w:before="300" w:after="200"/>
                 </w:pPr>
                 <w:r>
                   <w:rPr>
                     <w:b/>
                     <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
                     <w:color w:val="000000"/>
-                    <w:sz w:val="26"/>
-                    <w:szCs w:val="26"/>
+                    <w:sz w:val="28"/>
+                    <w:szCs w:val="28"/>
                   </w:rPr>
                   <w:t xml:space="preserve">📌 PHÂN ĐỊNH GIẢNG DẠY: ${escapeXml(tietInfoStr).toUpperCase()}</w:t>
                 </w:r>
               </w:p>`;
 
-              // Chèn ngay trước mục I. MỤC TIÊU để Ban giám hiệu/Thanh tra nhìn thấy ngay trang đầu tiên
-              const objIdx = findFuzzyIndex(docXml, "I. MỤC TIÊU", 0);
-              if (objIdx !== -1) {
-                const pStart = docXml.lastIndexOf("<w:p", objIdx);
+              // Dùng phương pháp tìm kiếm trực tiếp thẻ chứa "I. MỤC TIÊU" hoặc "I. MỤC TIÊU:"
+              let targetIdx = docXml.indexOf("I. MỤC TIÊU");
+              if (targetIdx === -1) targetIdx = docXml.indexOf("I. MỤC TIÊU:");
+              if (targetIdx === -1) targetIdx = findFuzzyIndex(docXml, "I. MỤC TIÊU", 0);
+
+              if (targetIdx !== -1) {
+                const pStart = docXml.lastIndexOf("<w:p", targetIdx);
                 if (pStart !== -1) {
                   docXml = docXml.substring(0, pStart) + centerYellowTietXml + docXml.substring(pStart);
                 }
@@ -323,7 +324,7 @@ export const injectContentIntoDocx = async (
             }
           }
         } catch (err) {
-          console.warn("Không thể chèn phân định tiết:", err);
+          console.warn("Lỗi chèn mốc tiết:", err);
         }
 
         for (const kw of endKeywords) {
