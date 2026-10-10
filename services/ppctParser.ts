@@ -158,11 +158,12 @@ export async function processBatchPPCT(
 
     const tietDisplayStr = allTietStrs.join(', ');
 
-    let content: GeneratedNLSContent = {
+    let content: GeneratedNLSContent & { raw_content?: string } = {
       objectives_addition: '',
       materials_addition: '',
       activities_enhancement: [],
-      summary_table: []
+      summary_table: [],
+      raw_content: rowsGroup.map((r: any) => r.noiDung).join('\n')
     };
 
     if (hasIntegration) {
@@ -287,11 +288,12 @@ export async function processSingleLessonFromPPCT(
 
     const tietDisplayStr = allTietStrs.join(', ');
 
-    let content: GeneratedNLSContent = {
+    let content: GeneratedNLSContent & { raw_content?: string } = {
       objectives_addition: '',
       materials_addition: '',
       activities_enhancement: [],
-      summary_table: []
+      summary_table: [],
+      raw_content: weekRows.map((r: any) => r.noiDung).join('\n')
     };
 
     if (hasIntegration) {

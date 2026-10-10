@@ -143,18 +143,23 @@ export const injectContentIntoDocx = async (
                 tietList = ["1"];
               }
 
-              // Tự động trích xuất nội dung phần trọng tâm/tiết học từ dữ liệu PPCT truyền vào hoặc phân tích động
+              // Lấy trực tiếp nội dung chi tiết từng tiết từ cột "Nội dung" (noiDung) trong file PPCT của thầy
               let sgkSections: string[] = [];
               
               if (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
-                sgkSections = content.summary_table.map((item: any) => item.topic || item.content || '').filter(Boolean);
+                sgkSections = content.summary_table.map((item: any) => item.content || item.topic || '').filter(Boolean);
               }
 
-              // Nếu dữ liệu trống, tự động bóc tách từ thông tin bài học một cách linh hoạt, không thủ công
+              // Nếu bảng tóm tắt chưa có, tự động tách nội dung từ chuỗi dòng PPCT tương ứng
+              if (sgkSections.length === 0 && content && typeof content === 'object' && 'raw_content' in content) {
+                sgkSections = String(content.raw_content).split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+              }
+
+              // Fallback an toàn nếu trống
               if (sgkSections.length === 0) {
                 sgkSections = [
                   "Nội dung trọng tâm và lý thuyết cơ bản theo chuẩn chương trình",
-                  "Hệ thống bài tập luyện tập, vận dụng và thực hành"
+                  "Hệ thống bài tập luyện tập và vận dụng"
                 ];
               }
 
