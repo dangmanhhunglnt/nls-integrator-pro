@@ -88,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (CHÈN BẢNG PHÂN ĐỊNH TIẾT CỰC KỲ AN TOÀN VÀ CHUẨN XÁC)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (ĐỘC LẬP 100%, LUÔN HIỆN BẢNG PHÂN ĐỊNH TIẾT)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -117,7 +117,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // Phương pháp an toàn 100%: Quét ngay đoạn Thời gian thực hiện để lấy danh sách tiết và chèn ngay sau đó
+        // 1. LUÔN LUÔN QUÉT VÀ CHÈN MỐC TIẾT BÔI VÀNG ĐỘC LẬP, KHÔNG PHỤ THUỘC VÀO AI/NLS
         try {
           const matchTimeLine = docXml.match(/Thời gian thực hiện:[\s\S]*?<\/w:p>/i);
           if (matchTimeLine) {
@@ -125,16 +125,15 @@ export const injectContentIntoDocx = async (
             const matchTiet = timeSnippet.match(/(?:Tiết|tiết)\s*([\d,\s-]+)/i);
             
             if (matchTiet && matchTiet[1]) {
-              // Lấy các con số tiết, ví dụ "1, 2, 4" hoặc "1-2-3"
               const rawTietStr = matchTiet[1];
               let tietList = rawTietStr.split(/[,-\s]+/).filter(Boolean);
               
               if (tietList.length > 0) {
                 let phanDinhXml = "";
                 tietList.forEach((tNum, idx) => {
-                  let noiDungGoiY = "dạy hết mục 2 (Góc lượng giác)";
-                  if (idx === 1) noiDungGoiY = "dạy hết mục 4 (Đơn vị đo góc & Độ dài cung tròn)";
-                  else if (idx >= 2) noiDungGoiY = "Luyện tập, Vận dụng và hoàn thành bài học";
+                  let noiDungGoiY = "dạy hết mục 2";
+                  if (idx === 1) noiDungGoiY = "dạy hết mục 4";
+                  else if (idx >= 2) noiDungGoiY = "luyện tập";
 
                   phanDinhXml += `<w:p>
                     <w:pPr>
@@ -154,7 +153,6 @@ export const injectContentIntoDocx = async (
                   </w:p>`;
                 });
 
-                // Chèn trực tiếp ngay sau đoạn Thời gian thực hiện ở đầu file để chắc chắn hiển thị 100%
                 const insertPos = docXml.indexOf(timeSnippet) + timeSnippet.length;
                 if (insertPos !== -1) {
                   docXml = docXml.substring(0, insertPos) + phanDinhXml + docXml.substring(insertPos);
@@ -166,7 +164,7 @@ export const injectContentIntoDocx = async (
           console.warn("Lỗi chèn mốc tiến trình tiết:", err);
         }
 
-        const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition));
+        const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         
         if (!hasNewContent) {
           zip.file("word/document.xml", docXml);
