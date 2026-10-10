@@ -118,46 +118,46 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. CHÈN TRỰC TIẾP CÁC MỐC TIẾT BÔI VÀNG NGAY SAU DÒNG THỜI GIAN THỰC HIỆN
+        // 2. QUÉT VÀ IN ĐỘNG CHÍNH XÁC CÁC SỐ TIẾT THEO PPCT
         try {
-          // Tìm vị trí xuất hiện của cụm từ Thời gian thực hiện trong XML
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           if (timeIdx !== -1) {
-            // Tìm thẻ kết thúc đoạn văn </w:p> chứa dòng Thời gian thực hiện này
             const pEndIdx = docXml.indexOf("</w:p>", timeIdx);
             if (pEndIdx !== -1) {
               const insertTargetPos = pEndIdx + "</w:p>".length;
 
-              // Tạo sẵn khối XML bôi vàng hệt như ảnh mẫu của thầy
-              const phanDinhXml = `
-                <w:p>
-                  <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
-                  <w:r>
-                    <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
-                    <w:t xml:space="preserve">Tiết 1: dạy hết mục 2</w:t>
-                  </w:r>
-                </w:p>
-                <w:p>
-                  <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
-                  <w:r>
-                    <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
-                    <w:t xml:space="preserve">Tiết 2: dạy hết mục 4</w:t>
-                  </w:r>
-                </w:p>
-                <w:p>
-                  <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
-                  <w:r>
-                    <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
-                    <w:t xml:space="preserve">Tiết 4: luyện tập</w:t>
-                  </w:r>
-                </w:p>
-              `;
+              // Trích xuất các số tiết từ đoạn văn bản xung quanh dòng Thời gian thực hiện
+              const snippet = docXml.substring(timeIdx, timeIdx + 300);
+              const matchTiet = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i) || snippet.match(/Tiết\s*([\d,\s-]+)/i);
+              
+              let tietList = ["1", "2", "3"]; // Mặc định phòng hờ
+              if (matchTiet && matchTiet[1]) {
+                const rawStr = matchTiet[1];
+                tietList = rawStr.split(/[,-\s]+/).filter(Boolean);
+              }
+
+              let phanDinhXml = "";
+              tietList.forEach((tNum, idx) => {
+                let noiDungGoiY = "dạy hết mục 2";
+                if (idx === 1) noiDungGoiY = "dạy hết mục 4";
+                else if (idx >= 2) noiDungGoiY = "luyện tập và vận dụng";
+
+                phanDinhXml += `
+                  <w:p>
+                    <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
+                    <w:r>
+                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${noiDungGoiY}</w:t>
+                    </w:r>
+                  </w:p>
+                `;
+              });
 
               docXml = docXml.substring(0, insertTargetPos) + phanDinhXml + docXml.substring(insertTargetPos);
             }
           }
         } catch (err) {
-          console.warn("Lỗi chèn mốc tiết:", err);
+          console.warn("Lỗi chèn mốc tiết động:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
