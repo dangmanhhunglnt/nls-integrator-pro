@@ -118,7 +118,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT BÁM SÁT THỰC TẾ SGK VÀ GIÁO ÁN
+        // 2. PHÂN ĐỊNH TIẾT BÁM SÁT PPCT VÀ NỘI DUNG SGK (LOẠI BỎ HOÀN TOÀN MỤC TIÊU GIÁO ÁN)
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           if (timeIdx !== -1) {
@@ -143,47 +143,43 @@ export const injectContentIntoDocx = async (
                 tietList = ["1"];
               }
 
-              // Trích xuất các đề mục hoặc nội dung chính xuất hiện trong giáo án của thầy
-              // Ví dụ nếu là bài Hàm số lượng giác: mục 1 (ĐN), mục 2 (Chẵn lẻ, tuần hoàn), mục 3 (Đồ thị)
-              let extractedSections: string[] = [];
-              const regexSec = /(?:Mục|Phần|\d+\.)\s+([^\n<]+)/gi;
-              let matchSec;
-              while ((matchSec = regexSec.exec(docXml)) !== null) {
-                if (matchSec[1] && matchSec[1].trim().length > 3 && matchSec[1].trim().length < 50) {
-                  extractedSections.push(matchSec[1].trim());
-                }
+              // Nhận diện tên bài học từ tiêu đề giáo án để đưa ra nội dung chuẩn SGK
+              const docTitleLower = docXml.toLowerCase();
+              let sgkSections: string[] = [];
+
+              if (docTitleLower.includes("hàm số lượng giác")) {
+                sgkSections = [
+                  "Định nghĩa hàm số lượng giác (Sin, Cos, Tan, Cot)",
+                  "Tính chẵn, lẻ và tính tuần hoàn của hàm số lượng giác",
+                  "Đồ thị và các đặc trưng hình học của hàm số lượng giác"
+                ];
+              } else if (docTitleLower.includes("cấp số cộng")) {
+                sgkSections = [
+                  "Định nghĩa và số hạng tổng quát của cấp số cộng",
+                  "Tính chất các số hạng và tổng n số hạng đầu tiên"
+                ];
+              } else if (docTitleLower.includes("đường thẳng và mặt phẳng")) {
+                sgkSections = [
+                  "Các khái niệm mở đầu và tính chất thừa nhận",
+                  "Cách xác định một mặt phẳng, hình chóp và tứ diện"
+                ];
+              } else {
+                sgkSections = [
+                  "Nội dung trọng tâm và lý thuyết cơ bản",
+                  "Hệ thống bài tập luyện tập và vận dụng"
+                ];
               }
 
               let phanDinhXml = "";
               tietList.forEach((tNum, idx) => {
-                let specificContent = "";
-                
-                if (extractedSections.length > idx) {
-                  specificContent = extractedSections[idx];
-                } else {
-                  // Fallback thông minh theo vị trí tiết
-                  if (tietList.length === 1) {
-                    specificContent = "Nội dung trọng tâm và bài tập vận dụng";
-                  } else if (idx === 0) {
-                    specificContent = "Khái niệm trọng tâm và các tính chất cơ bản";
-                  } else if (idx === 1) {
-                    specificContent = "Các tính chất nâng cao và bài tập áp dụng";
-                  } else {
-                    specificContent = "Luyện tập, củng cố và vận dụng thực tế";
-                  }
-                }
-
-                // Chuẩn hóa tên nội dung không bị quá dài
-                if (specificContent.length > 55) {
-                  specificContent = specificContent.substring(0, 52) + "...";
-                }
+                let sectionContent = sgkSections[idx] || `Luyện tập chuyên đề tiết ${tNum}`;
 
                 phanDinhXml += `
                   <w:p>
                     <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
                     <w:r>
                       <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${specificContent}</w:t>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
                     </w:r>
                   </w:p>
                 `;
@@ -193,7 +189,7 @@ export const injectContentIntoDocx = async (
             }
           }
         } catch (err) {
-          console.warn("Lỗi phân định tiết bám sát SGK:", err);
+          console.warn("Lỗi phân định tiết theo SGK:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
