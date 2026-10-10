@@ -27,7 +27,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM|Năng lực số\s*\(tích hợp\)|Năng lực số).*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?PHÂN ĐỊNH GIẢNG DẠY.*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?PHÂN ĐỊNH NỘI DUNG GIẢNG DẠY.*?<\/w:p>/gis, '');
 
   return cleaned;
 }
@@ -88,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (BỔ SUNG PHÂN ĐỊNH CHI TIẾT THEO TIẾT PPCT)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (AN TOÀN TUYỆT ĐỐI + BẢNG PHÂN ĐỊNH TIẾT)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -117,22 +117,22 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // Tự động quét thông tin tiết theo PPCT từ phần đầu file để chèn dòng phân định rõ ràng phục vụ thanh tra
+        // Tự động quét số tiết theo PPCT để chèn bảng phân định chi tiết phục vụ thanh tra
         try {
           const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
           if (headerAreaMatch) {
             const headerSnippet = headerAreaMatch[0];
             const matchTietDetail = headerSnippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s]+)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
             
-            if (matchTietDetail) {
+            if (matchTietDetail && matchTietDetail[1]) {
               const tietList = matchTietDetail[1].split(',').map(s => s.trim()).filter(Boolean);
               
               if (tietList.length > 0) {
-                let phanDinhHtml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="200" w:after="200"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">📌 BẢNG PHÂN ĐỊNH NỘI DUNG GIẢNG DẠY THEO PPCT (TIẾT: ${tietList.join(', ')})</w:t></w:r></w:p>`;
+                let phanDinhHtml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="160"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">📌 BẢNG PHÂN ĐỊNH NỘI DUNG GIẢNG DẠY THEO PPCT (CÁC TIẾT: ${tietList.join(', ')})</w:t></w:r></w:p>`;
                 
                 tietList.forEach((tNum, idx) => {
-                  const noiDungGoiY = idx === 0 ? "Từ đầu bài đến hết phần Hình thành kiến thức cơ bản" : (idx === 1 ? "Tiếp tục nội dung kiến thức trọng tâm và Ví dụ" : "Luyện tập, Vận dụng và hoàn thành bài học");
-                  phanDinhHtml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="100"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="0F172A"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">- Tiết ${tNum}: ${noiDungGoiY}</w:t></w:r></w:p>`;
+                  const goiYNoiDung = idx === 0 ? "Từ đầu bài đến hết phần Hình thành kiến thức cơ bản" : (idx === 1 ? "Tiếp tục nội dung kiến thức trọng tâm và Ví dụ" : "Luyện tập, Vận dụng và hoàn thành bài học");
+                  phanDinhHtml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="0F172A"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">- Tiết ${tNum}: ${goiYNoiDung}</w:t></w:r></w:p>`;
                 });
 
                 let targetIdx = docXml.indexOf("I. MỤC TIÊU");
@@ -148,7 +148,7 @@ export const injectContentIntoDocx = async (
             }
           }
         } catch (err) {
-          console.warn("Lỗi chèn bảng phân định tiết:", err);
+          console.warn("Lỗi chèn bảng phân định:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition));
