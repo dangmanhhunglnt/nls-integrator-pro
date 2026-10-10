@@ -22,7 +22,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?[(?:NLS\|AI\|STEM)][\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:NLS\|AI\|STEM)[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM|Năng lực số\s*\(tích hợp\)|Năng lực số).*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, '');
@@ -87,7 +87,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (ĐÃ FIX LỖI XML AN TOÀN)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -283,7 +283,6 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // BẢO VỆ XML: Chèn mốc tiết an toàn, kiểm tra khớp đúng thẻ đoạn văn
         try {
           const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
           const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
