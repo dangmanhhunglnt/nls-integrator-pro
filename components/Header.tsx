@@ -58,7 +58,7 @@ export default function Header({
           <div className="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-200 text-xs text-slate-500">
             <div className="flex items-center gap-1 font-semibold text-slate-700 bg-slate-100/80 px-2.5 py-1 rounded-lg">
               <Award className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Tác giả: <strong className="text-slate-900">Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông)</span>
+              <span>Tác giả: <strong className="text-slate-900">Đặng Mạnh Hùng</strong> (Trường THPT Lý Nhân Tông)</span>
             </div>
           </div>
         </div>
