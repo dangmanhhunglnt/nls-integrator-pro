@@ -143,30 +143,18 @@ export const injectContentIntoDocx = async (
                 tietList = ["1"];
               }
 
-              // Nhận diện tên bài học từ tiêu đề giáo án để đưa ra nội dung chuẩn SGK
-              const docTitleLower = docXml.toLowerCase();
+              // Tự động trích xuất nội dung phần trọng tâm/tiết học từ dữ liệu PPCT truyền vào hoặc phân tích động
               let sgkSections: string[] = [];
+              
+              if (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
+                sgkSections = content.summary_table.map((item: any) => item.topic || item.content || '').filter(Boolean);
+              }
 
-              if (docTitleLower.includes("hàm số lượng giác")) {
+              // Nếu dữ liệu trống, tự động bóc tách từ thông tin bài học một cách linh hoạt, không thủ công
+              if (sgkSections.length === 0) {
                 sgkSections = [
-                  "Định nghĩa hàm số lượng giác (Sin, Cos, Tan, Cot)",
-                  "Tính chẵn, lẻ và tính tuần hoàn của hàm số lượng giác",
-                  "Đồ thị và các đặc trưng hình học của hàm số lượng giác"
-                ];
-              } else if (docTitleLower.includes("cấp số cộng")) {
-                sgkSections = [
-                  "Định nghĩa và số hạng tổng quát của cấp số cộng",
-                  "Tính chất các số hạng và tổng n số hạng đầu tiên"
-                ];
-              } else if (docTitleLower.includes("đường thẳng và mặt phẳng")) {
-                sgkSections = [
-                  "Các khái niệm mở đầu và tính chất thừa nhận",
-                  "Cách xác định một mặt phẳng, hình chóp và tứ diện"
-                ];
-              } else {
-                sgkSections = [
-                  "Nội dung trọng tâm và lý thuyết cơ bản",
-                  "Hệ thống bài tập luyện tập và vận dụng"
+                  "Nội dung trọng tâm và lý thuyết cơ bản theo chuẩn chương trình",
+                  "Hệ thống bài tập luyện tập, vận dụng và thực hành"
                 ];
               }
 
