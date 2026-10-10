@@ -88,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (CHÈN MỐC TIẾT BÔI VÀNG NGAY SAU TIẾN TRÌNH DẠY HỌC)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (CHÈN MỐC TIẾT BÔI VÀNG CHUẨN XÁC)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -117,7 +117,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // Tự động quét số tiết theo PPCT và chèn các dòng phân định bôi vàng ngay dưới mục III. TIẾN TRÌNH DẠY HỌC
+        // Quét danh sách tiết theo PPCT và chèn chính xác dòng bôi vàng hệt như ảnh mẫu của thầy
         try {
           const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
           if (headerAreaMatch) {
@@ -130,7 +130,11 @@ export const injectContentIntoDocx = async (
               if (tietList.length > 0) {
                 let phanDinhXml = "";
                 tietList.forEach((tNum, idx) => {
-                  const goiYNoiDung = idx === 0 ? "dạy hết mục 2" : (idx === 1 ? "dạy hết mục 4" : "luyện tập và vận dụng");
+                  // Gợi ý nội dung theo đúng chuẩn cấu trúc bài học
+                  let noiDungTiet = "dạy hết mục 2";
+                  if (idx === 1) noiDungTiet = "dạy hết mục 4";
+                  else if (idx >= 2) noiDungTiet = "luyện tập";
+
                   phanDinhXml += `<w:p>
                     <w:pPr>
                       <w:ind w:left="360"/>
@@ -144,7 +148,7 @@ export const injectContentIntoDocx = async (
                         <w:sz w:val="26"/>
                         <w:szCs w:val="26"/>
                       </w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${goiYNoiDung}</w:t>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${noiDungTiet}</w:t>
                     </w:r>
                   </w:p>`;
                 });
