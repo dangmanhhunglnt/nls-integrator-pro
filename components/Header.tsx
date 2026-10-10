@@ -45,15 +45,15 @@ export default function Header({
         {/* BÊN TRÁI: LOGO, TÊN APP & TÁC GIẢ / HUY HIỆU CHUYÊN MÔN */}
         <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <h1 className="font-extrabold text-slate-800 text-sm sm:text-base tracking-tight flex items-center gap-1.5">
-              <span>NLS Integrator</span>
-              <span className="text-indigo-600">Pro</span>
-              <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-gradient-to-r from-emerald-500 to-indigo-600 text-white shadow-2xs ml-1">v3.0 PRO</span>
-            </h1>
+          <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
+            <Sparkles className="w-4 h-4" />
           </div>
+          <h1 className="font-extrabold text-slate-800 text-sm sm:text-base tracking-tight flex items-center gap-1.5">
+            <span>EduSpark AI</span>
+            <span className="text-indigo-600">Pro</span>
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm">v4.0 PRO</span>
+          </h1>
+        </div>
 
           <div className="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-200 text-xs text-slate-500">
             <div className="flex items-center gap-1 font-semibold text-slate-700 bg-slate-100/80 px-2.5 py-1 rounded-lg">
