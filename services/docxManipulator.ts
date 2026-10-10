@@ -118,7 +118,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT THÔNG MINH DỰA TRÊN TIÊU ĐỀ NỘI DUNG THỰC TẾ TRONG BÀI SOẠN
+        // 2. NHẬN DẠNG HOÀN TOÀN ĐỘNG DANH SÁCH TIẾT VÀ NỘI DUNG THEO TỪNG BÀI
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           if (timeIdx !== -1) {
@@ -126,28 +126,52 @@ export const injectContentIntoDocx = async (
             if (pEndIdx !== -1) {
               const insertTargetPos = pEndIdx + "</w:p>".length;
 
-              const snippet = docXml.substring(timeIdx, timeIdx + 400);
-              const matchTiet = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i) || snippet.match(/Tiết\s*([\d,\s-]+)/i);
+              // Trích xuất đoạn văn bản chứa thông tin tiết từ file Word
+              const snippet = docXml.substring(timeIdx, timeIdx + 500);
               
-              let tietList = ["3"]; 
-              if (matchTiet && matchTiet[1]) {
-                const rawStr = matchTiet[1];
-                tietList = rawStr.split(/[,-\s]+/).filter(Boolean);
+              // Bóc tách động chính xác các con số tiết từ PPCT (VD: 22, 23 hoặc 3, 6, 9, 12...)
+              let tietList: string[] = [];
+              const matchPpct = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i);
+              if (matchPpct && matchPpct[1]) {
+                tietList = matchPpct[1].split(/[,-\s]+/).filter(Boolean);
+              }
+              
+              if (tietList.length === 0) {
+                const matchTiet = snippet.match(/Tiết\s*([\d,\s-]+)/i);
+                if (matchTiet && matchTiet[1]) {
+                  tietList = matchTiet[1].split(/[,-\s]+/).filter(Boolean);
+                }
               }
 
-              // Mảng các nội dung gợi ý bám sát tiến trình giáo án Toán
-              const defaultSteps = [
-                "Các khái niệm mở đầu và tính chất thừa nhận",
-                "Cách xác định mặt phẳng, hình chóp và tứ diện",
-                "Luyện tập các dạng bài tập",
-                "Vận dụng và củng cố toàn bài"
-              ];
+              // Phòng hờ nếu không bắt được thì lấy mặc định 1 tiết là ["1"]
+              if (tietList.length === 0) {
+                tietList = ["1"];
+              }
+
+              const isHinhHoc = snippet.toLowerCase().includes("mặt phẳng") || snippet.toLowerCase().includes("không gian") || snippet.toLowerCase().includes("đường thẳng") || snippet.toLowerCase().includes("góc");
+              const isCapSo = snippet.toLowerCase().includes("cấp số") || snippet.toLowerCase().includes("dãy số");
+              const isLuongGiac = snippet.toLowerCase().includes("lượng giác") || snippet.toLowerCase().includes("hàm số lượng giác");
 
               let phanDinhXml = "";
               tietList.forEach((tNum, idx) => {
-                let noiDungTiet = defaultSteps[idx] || `Luyện tập tiết ${tNum}`;
-                if (idx === 0 && (snippet.includes("1.") || snippet.includes("I."))) {
-                  noiDungTiet = "Tìm hiểu các khái niệm trọng tâm và định lý";
+                let noiDungTiet = `Luyện tập và củng cố nội dung tiết ${tNum}`;
+                
+                if (tietList.length === 1) {
+                  noiDungTiet = "Tìm hiểu lý thuyết trọng tâm và bài tập vận dụng";
+                } else {
+                  if (idx === 0) {
+                    if (isCapSo) noiDungTiet = "Định nghĩa, số hạng tổng quát và tính chất cơ bản";
+                    else if (isHinhHoc) noiDungTiet = "Các khái niệm mở đầu và tính chất thừa nhận";
+                    else if (isLuongGiac) noiDungTiet = "Giá trị lượng giác của góc lượng giác";
+                    else noiDungTiet = "Lý thuyết trọng tâm và ví dụ minh họa";
+                  } else if (idx === 1) {
+                    if (isCapSo) noiDungTiet = "Công thức tổng n số hạng đầu tiên và bài tập áp dụng";
+                    else if (isHinhHoc) noiDungTiet = "Cách xác định mặt phẳng, hình chóp và tứ diện";
+                    else if (isLuongGiac) noiDungTiet = "Hệ thức lượng giác cơ bản và ứng dụng";
+                    else noiDungTiet = "Hệ thống bài tập luyện tập chuyên sâu";
+                  } else {
+                    noiDungTiet = "Luyện tập nâng cao và vận dụng thực tế";
+                  }
                 }
 
                 phanDinhXml += `
@@ -165,7 +189,7 @@ export const injectContentIntoDocx = async (
             }
           }
         } catch (err) {
-          console.warn("Lỗi chèn mốc tiết:", err);
+          console.warn("Lỗi nhận dạng tiết động:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
