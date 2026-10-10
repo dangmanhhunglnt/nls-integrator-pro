@@ -88,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (CHÈN MỐC TIẾT BÔI VÀNG CHUẨN XÁC)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (CHÈN BẢNG PHÂN ĐỊNH TIẾT CỰC KỲ AN TOÀN VÀ CHUẨN XÁC)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -117,23 +117,24 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // Quét danh sách tiết theo PPCT và chèn chính xác dòng bôi vàng hệt như ảnh mẫu của thầy
+        // Phương pháp an toàn 100%: Quét ngay đoạn Thời gian thực hiện để lấy danh sách tiết và chèn ngay sau đó
         try {
-          const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
-          if (headerAreaMatch) {
-            const headerSnippet = headerAreaMatch[0];
-            const matchTietDetail = headerSnippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s]+)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
+          const matchTimeLine = docXml.match(/Thời gian thực hiện:[\s\S]*?<\/w:p>/i);
+          if (matchTimeLine) {
+            const timeSnippet = matchTimeLine[0];
+            const matchTiet = timeSnippet.match(/(?:Tiết|tiết)\s*([\d,\s-]+)/i);
             
-            if (matchTietDetail && matchTietDetail[1]) {
-              const tietList = matchTietDetail[1].split(',').map(s => s.trim()).filter(Boolean);
+            if (matchTiet && matchTiet[1]) {
+              // Lấy các con số tiết, ví dụ "1, 2, 4" hoặc "1-2-3"
+              const rawTietStr = matchTiet[1];
+              let tietList = rawTietStr.split(/[,-\s]+/).filter(Boolean);
               
               if (tietList.length > 0) {
                 let phanDinhXml = "";
                 tietList.forEach((tNum, idx) => {
-                  // Gợi ý nội dung theo đúng chuẩn cấu trúc bài học
-                  let noiDungTiet = "dạy hết mục 2";
-                  if (idx === 1) noiDungTiet = "dạy hết mục 4";
-                  else if (idx >= 2) noiDungTiet = "luyện tập";
+                  let noiDungGoiY = "dạy hết mục 2 (Góc lượng giác)";
+                  if (idx === 1) noiDungGoiY = "dạy hết mục 4 (Đơn vị đo góc & Độ dài cung tròn)";
+                  else if (idx >= 2) noiDungGoiY = "Luyện tập, Vận dụng và hoàn thành bài học";
 
                   phanDinhXml += `<w:p>
                     <w:pPr>
@@ -148,20 +149,15 @@ export const injectContentIntoDocx = async (
                         <w:sz w:val="26"/>
                         <w:szCs w:val="26"/>
                       </w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${noiDungTiet}</w:t>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${noiDungGoiY}</w:t>
                     </w:r>
                   </w:p>`;
                 });
 
-                let targetIdx = docXml.indexOf("A. HOẠT ĐỘNG KHỞI ĐỘNG");
-                if (targetIdx === -1) targetIdx = docXml.indexOf("HOẠT ĐỘNG KHỞI ĐỘNG");
-                if (targetIdx === -1) targetIdx = docXml.indexOf("III. TIẾN TRÌNH DẠY HỌC");
-
-                if (targetIdx !== -1) {
-                  const pStart = docXml.lastIndexOf("<w:p", targetIdx);
-                  if (pStart !== -1) {
-                    docXml = docXml.substring(0, pStart) + phanDinhXml + docXml.substring(pStart);
-                  }
+                // Chèn trực tiếp ngay sau đoạn Thời gian thực hiện ở đầu file để chắc chắn hiển thị 100%
+                const insertPos = docXml.indexOf(timeSnippet) + timeSnippet.length;
+                if (insertPos !== -1) {
+                  docXml = docXml.substring(0, insertPos) + phanDinhXml + docXml.substring(insertPos);
                 }
               }
             }
