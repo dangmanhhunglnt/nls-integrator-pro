@@ -5,7 +5,7 @@ import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZ
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
-import { Sparkles, ShieldAlert, Cpu, CheckCircle, Activity, Layers, Zap } from 'lucide-react';
+import { Sparkles, ShieldAlert, Cpu, CheckCircle, Activity, Layers} from 'lucide-react';
 import { supabase } from './config/supabaseClient';
 
 import Header from './components/Header';
@@ -636,51 +636,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <footer className="mt-16 border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-4 text-xs text-slate-600 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-[11px] shadow-xs">
-              NLS
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="font-black text-slate-900 text-xs">NLS Integrator Pro</span>
-              <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-gradient-to-r from-emerald-500 to-indigo-600 text-white shadow-2xs">v3.0 PRO</span>
-              <span className="text-slate-300 hidden sm:inline">•</span>
-              <span className="text-xs text-slate-500 hidden sm:inline">Tác giả: <strong className="text-slate-800">Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông)</span>
-            </div>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500 font-semibold bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/60">
-            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <span>CV 2345 • CV 5512 • TT 02/2025 • CV 3089 (GD STEM)</span>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setIsPricingOpen(true)}
-              className="py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-            >
-              <span>💎</span> Mở khóa Gói PRO
-            </button>
-            <a
-              href="https://zalo.me/0978386357"
-              target="_blank"
-              rel="noreferrer"
-              className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-extrabold text-xs flex items-center gap-1.5 transition"
-            >
-              💬 Zalo
-            </a>
-            <a
-              href="tel:0978386357"
-              className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center gap-1.5 transition"
-            >
-              📞 097 8386 357
-            </a>
-          </div>
-        </div>
-      </footer>
-
+      
       <PricingModal 
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
