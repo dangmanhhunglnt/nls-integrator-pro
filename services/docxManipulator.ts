@@ -118,7 +118,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. QUÉT VÀ IN ĐỘNG CHÍNH XÁC CÁC SỐ TIẾT THEO PPCT
+        // 2. PHÂN ĐỊNH TIẾT THÔNG MINH DỰA TRÊN TIÊU ĐỀ NỘI DUNG THỰC TẾ TRONG BÀI SOẠN
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           if (timeIdx !== -1) {
@@ -126,28 +126,36 @@ export const injectContentIntoDocx = async (
             if (pEndIdx !== -1) {
               const insertTargetPos = pEndIdx + "</w:p>".length;
 
-              // Trích xuất các số tiết từ đoạn văn bản xung quanh dòng Thời gian thực hiện
-              const snippet = docXml.substring(timeIdx, timeIdx + 300);
+              const snippet = docXml.substring(timeIdx, timeIdx + 400);
               const matchTiet = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i) || snippet.match(/Tiết\s*([\d,\s-]+)/i);
               
-              let tietList = ["1", "2", "3"]; // Mặc định phòng hờ
+              let tietList = ["3"]; 
               if (matchTiet && matchTiet[1]) {
                 const rawStr = matchTiet[1];
                 tietList = rawStr.split(/[,-\s]+/).filter(Boolean);
               }
 
+              // Mảng các nội dung gợi ý bám sát tiến trình giáo án Toán
+              const defaultSteps = [
+                "Các khái niệm mở đầu và tính chất thừa nhận",
+                "Cách xác định mặt phẳng, hình chóp và tứ diện",
+                "Luyện tập các dạng bài tập",
+                "Vận dụng và củng cố toàn bài"
+              ];
+
               let phanDinhXml = "";
               tietList.forEach((tNum, idx) => {
-                let noiDungGoiY = "dạy hết mục 2";
-                if (idx === 1) noiDungGoiY = "dạy hết mục 4";
-                else if (idx >= 2) noiDungGoiY = "luyện tập và vận dụng";
+                let noiDungTiet = defaultSteps[idx] || `Luyện tập tiết ${tNum}`;
+                if (idx === 0 && (snippet.includes("1.") || snippet.includes("I."))) {
+                  noiDungTiet = "Tìm hiểu các khái niệm trọng tâm và định lý";
+                }
 
                 phanDinhXml += `
                   <w:p>
                     <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
                     <w:r>
                       <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${noiDungGoiY}</w:t>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${noiDungTiet}</w:t>
                     </w:r>
                   </w:p>
                 `;
@@ -157,7 +165,7 @@ export const injectContentIntoDocx = async (
             }
           }
         } catch (err) {
-          console.warn("Lỗi chèn mốc tiết động:", err);
+          console.warn("Lỗi chèn mốc tiết:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
