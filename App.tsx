@@ -5,13 +5,12 @@ import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZ
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
-import { Sparkles, ShieldAlert, Cpu, CheckCircle } from 'lucide-react';
+import { Sparkles, ShieldAlert, Cpu, CheckCircle, Activity, Layers, Zap } from 'lucide-react';
 import { supabase } from './config/supabaseClient';
 
 import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import ControlCenter from './components/ControlCenter';
-import TerminalSidebar from './components/TerminalSidebar';
 import { PricingModal } from './components/PricingModal';
 
 function formatCleanFilenamePart(str: string): string {
@@ -220,7 +219,7 @@ const App: React.FC = () => {
     if (isPracticeOrDrill && !isSpatialOrSimulation && !isDataOrAI) {
       return {
         status: "KHÔNG NÊN GƯỢNG ÉP NĂNG LỰC SỐ / AI",
-        badgeColor: "bg-amber-50 border-amber-300 text-amber-900",
+        badgeColor: "bg-amber-50/80 border-amber-200 text-amber-900",
         icon: <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />,
         tool: "Bảng phấn, Giấy vở, Phiếu in trực tiếp",
         action: "Tập trung rèn kỹ năng biến đổi, thao tác tay và tư duy chiều sâu.",
@@ -231,7 +230,7 @@ const App: React.FC = () => {
     if (isSpatialOrSimulation) {
       return {
         status: "BẮT BUỘC TÍCH HỢP NĂNG LỰC SỐ (MÔ PHỎNG TRỰC QUAN)",
-        badgeColor: "bg-blue-50 border-blue-300 text-blue-900",
+        badgeColor: "bg-blue-50/80 border-blue-200 text-blue-900",
         icon: <Cpu className="w-5 h-5 text-blue-600 shrink-0" />,
         tool: "GeoGebra 3D, PhET Simulations, Phần mềm mô phỏng hình học",
         action: "Chèn vào Hoạt động Khám phá & Hình thành kiến thức.",
@@ -242,7 +241,7 @@ const App: React.FC = () => {
     if (isDataOrAI) {
       return {
         status: "TÍCH HỢP NĂNG LỰC SỐ & TRỢ LÝ AI (XỬ LÝ DỮ LIỆU)",
-        badgeColor: "bg-purple-50 border-purple-300 text-purple-900",
+        badgeColor: "bg-purple-50/80 border-purple-200 text-purple-900",
         icon: <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />,
         tool: "Bảng tính Excel/Google Sheets, Công cụ phân tích AI",
         action: "Chèn vào Hoạt động Luyện tập & Vận dụng.",
@@ -252,7 +251,7 @@ const App: React.FC = () => {
 
     return {
       status: "TÍCH HỢP MỨC HỖ TRỢ TRÌNH CHIẾU THỰC CHẤT",
-      badgeColor: "bg-emerald-50 border-emerald-300 text-emerald-900",
+      badgeColor: "bg-emerald-50/80 border-emerald-200 text-emerald-900",
       icon: <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />,
       tool: "Slide trình chiếu, Phiếu học tập số",
       action: "Chèn câu hỏi tương tác mở đầu hoặc củng cố.",
@@ -300,7 +299,7 @@ const App: React.FC = () => {
 
     const modelName = PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.name || "Linh hoạt";
     addLog(`⚙️ Chiến lược: ${modelName}`);
-    addLog(`📚 Môn: ${state.subject} - Khối: ${state.grade}`);
+    addLog(`📚 Môn: ${state.subject} | Khối: ${state.grade}`);
     addLog(`🎨 Màu chữ chèn: ${highlightColor === 'FF0000' ? 'Đỏ' : highlightColor === '1D4ED8' ? 'Xanh đậm' : 'Đen'}`);
 
     try {
@@ -312,14 +311,12 @@ const App: React.FC = () => {
         ? `CD${gradeNum}` 
         : formatCleanFilenamePart(`${state.subject || 'Mon'}${state.grade || ''}`);
 
-      // NẾU CÓ FILE PPCT -> XỬ LÝ ĐÚNG BÀI HỌC ĐƯỢC CHỌN THỦ CÔNG TỪ DROPDOWN
       if (ppctFile) {
         addLog(`📋 Đang đọc và đối chiếu file PPCT: ${ppctFile.name}...`);
         
         const { parsePPCTDocument, processSingleLessonFromPPCT } = await import('./services/ppctParser');
         const ppctRows = await parsePPCTDocument(ppctFile);
 
-        // Lấy tên bài học từ dropdown chọn thủ công của thầy (nếu chưa chọn thì lấy tên file làm dự phòng)
         const currentLessonRawName = state.selectedLessonManual || state.file.name.replace(/\.docx$/i, '');
         addLog(`🎯 Đang xử lý bài học theo lựa chọn: "${currentLessonRawName}"...`);
 
@@ -379,7 +376,6 @@ const App: React.FC = () => {
         return;
       }
 
-      // NẾU KHÔNG CÓ FILE PPCT -> XỬ LÝ BÀI LẺ ĐƠN DÒNG TRUYỀN THỐNG
       const currentFile = state.file;
       addLog(`🔍 Phân tích cấu trúc giáo án: ${currentFile.name}...`);
       const textContext = await extractTextFromDocx(currentFile);
@@ -473,7 +469,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 flex flex-col justify-between overflow-x-hidden selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 flex flex-col justify-between selection:bg-indigo-100 selection:text-indigo-900">
       <div>
         <Header 
           userApiKey={userApiKey}
@@ -491,7 +487,7 @@ const App: React.FC = () => {
           <HeroSection appVersion={APP_VERSION} />
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-6 space-y-6">
+            <div className="lg:col-span-7 space-y-6">
               <ControlCenter 
                 state={state}
                 setState={setState}
@@ -514,23 +510,28 @@ const App: React.FC = () => {
               />
             </div>
 
-            <div className="lg:col-span-6 space-y-4">
+            <div className="lg:col-span-5 space-y-5">
               {pedagogicalEvaluation && (
-                <div className={`rounded-2xl p-4.5 border shadow-sm transition-all animate-fade-in-up ${pedagogicalEvaluation.badgeColor}`}>
+                <div className={`rounded-2xl p-4.5 border shadow-xs transition-all animate-fade-in-up backdrop-blur-md ${pedagogyScheme(pedagogicalEvaluation.badgeColor)}`}>
                   <div className="flex items-start gap-3">
-                    <div className="mt-0.5">{pedagogicalEvaluation.icon}</div>
-                    <div className="flex-1 space-y-2">
-                      <h4 className="text-xs font-black tracking-wide uppercase">
+                    <div className="mt-0.5 p-2 rounded-xl bg-white/80 shadow-2xs">{pedagogicalEvaluation.icon}</div>
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-md bg-white/70 shadow-2xs text-slate-700">
+                          Ma trận đề xuất
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-black tracking-wide uppercase text-slate-900">
                         {pedagogicalEvaluation.status}
                       </h4>
-                      <div className="text-[11px] grid grid-cols-1 gap-1.5 pt-1.5 border-t border-black/5 dark:border-white/5">
+                      <div className="text-[11px] space-y-1 pt-1 border-t border-slate-200/50">
                         <div>
-                          <span className="font-bold text-slate-800 dark:text-slate-200">🛠 Công cụ / Học liệu: </span> 
-                          <span className="font-semibold text-indigo-700 dark:text-indigo-300">{pedagogicalEvaluation.tool}</span>
+                          <span className="font-bold text-slate-700">🛠 Học liệu đề xuất: </span> 
+                          <span className="font-semibold text-indigo-700">{pedagogicalEvaluation.tool}</span>
                         </div>
                         <div>
-                          <span className="font-bold text-slate-800 dark:text-slate-200">📍 Khuyến nghị triển khai: </span> 
-                          <span className="text-slate-700 dark:text-slate-300">{pedagogicalEvaluation.action}</span>
+                          <span className="font-bold text-slate-700">📍 Hành động: </span> 
+                          <span className="text-slate-600">{pedagogicalEvaluation.action}</span>
                         </div>
                       </div>
                     </div>
@@ -538,93 +539,121 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {state.isProcessing ? (
-                <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-2xl border border-indigo-500/30 text-center flex flex-col items-center justify-center min-h-[380px] animate-fade-in-up">
-                  <div className="relative z-10 flex flex-col items-center justify-center w-full">
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-5">
-                      <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
-                      <div className="absolute inset-0 rounded-full border-4 border-indigo-400 border-t-transparent animate-spin"></div>
-                      <div className="absolute inset-2 sm:inset-3 rounded-full border-4 border-purple-400 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}></div>
+              {/* COMMERICAL ACTIVITY & STATUS PANEL (Thay thế hoàn toàn Terminal Console đen) */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                      <Activity className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-black text-slate-800 uppercase tracking-wide">Trạng thái Xử lý</h3>
+                      <p className="text-[11px] text-slate-400">Hệ thống AI chuẩn hóa tự động</p>
+                    </div>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 ${
+                    state.isProcessing 
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse' 
+                      : state.result 
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                      : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${state.isProcessing ? 'bg-amber-500 animate-ping' : state.result ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                    {state.isProcessing ? 'Đang phân tích...' : state.result ? 'Sẵn sàng tải về' : 'Đang chờ file'}
+                  </span>
+                </div>
+
+                {state.isProcessing ? (
+                  <div className="py-8 text-center space-y-4 animate-fade-in-up">
+                    <div className="relative w-14 h-14 mx-auto">
+                      <div className="absolute inset-0 rounded-full border-3 border-indigo-100"></div>
+                      <div className="absolute inset-0 rounded-full border-3 border-indigo-600 border-t-transparent animate-spin"></div>
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-amber-300 animate-pulse" />
+                        <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
                       </div>
                     </div>
-
-                    <h3 className="text-base sm:text-lg font-black text-white tracking-wide mb-2 uppercase">
-                      AI Đang xử lý giáo án chuẩn 5512...
-                    </h3>
-
-                    <p className="text-xs sm:text-sm text-indigo-200/80 max-w-sm mx-auto font-medium leading-relaxed">
-                      Đang tích hợp Năng lực số & Trợ lý AI, giữ nguyên định dạng MathType...
-                    </p>
-
-                    <div className="w-56 sm:w-64 h-2 bg-slate-800 rounded-full mt-6 overflow-hidden border border-white/10 shadow-inner">
-                      <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-[shimmer_1.5s_infinite]"></div>
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">AI Core đang chạy...</h4>
+                      <p className="text-[11px] text-slate-500 max-w-xs mx-auto">Tích hợp Năng lực số, giữ nguyên công thức MathType chuẩn 5512.</p>
                     </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 space-y-2">
+                      <div className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Nhật ký hoạt động</span>
+                      </div>
+                      <div className="max-h-36 overflow-y-auto space-y-1 text-[11px] text-slate-600 font-mono pr-1 custom-scrollbar">
+                        {state.logs.length > 0 ? (
+                          state.logs.map((log, idx) => (
+                            <div key={idx} className="py-0.5 border-b border-slate-200/40 last:border-0 flex items-start gap-1.5">
+                              <span className="text-indigo-500 shrink-0">›</span>
+                              <span className="break-all">{log}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-slate-400 italic py-2 text-center">
+                            Chưa có hoạt động nào. Hãy tải file và bấm khởi tạo.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                    <span className="text-[11px] text-slate-400 font-mono mt-4 block">
-                      ⚡ Đang kết nối máy chủ phân tích...
-                    </span>
+              {/* COMMERCIAL CARD: HƯỚNG DẪN CHUYÊN MÔN */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+                <h4 className="font-extrabold text-xs uppercase tracking-wide text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs">💡</span>
+                  <span>Định hướng tích hợp chuyên môn</span>
+                </h4>
+                <div className="text-[11px] text-slate-600 space-y-2 leading-relaxed">
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 font-black text-[9px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <span><strong>Mục tiêu:</strong> Bổ sung chuẩn đầu ra NLS (TT 02/2025), Giáo dục AI hoặc Năng lực STEM vào mục II chuẩn xác.</span>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 font-black text-[9px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                    <span><strong>Học liệu số:</strong> Ưu tiên công cụ trực quan, tuyệt đối không yêu cầu học sinh tạo tài khoản cá nhân.</span>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 font-black text-[9px] flex items-center justify-center shrink-0 mt-0.5">3</span>
+                    <span><strong>Tiến trình bài dạy:</strong> Thao tác thực chất, đúng tâm lý lứa tuổi và không làm loãng thời lượng tiết học.</span>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <TerminalSidebar logs={state.logs.length > 0 ? state.logs : [
-                    "🚀 Hệ thống sẵn sàng.",
-                    "📂 Hãy chọn môn, khối lớp và tải file giáo án (.docx) ở cột bên trái.",
-                    "🎯 Hệ thống sẽ tự động đối chiếu ma trận sư phạm và chuẩn hoá."
-                  ]} isProcessing={state.isProcessing} />
+              </div>
 
-                  <div className="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-xs space-y-2.5">
-                    <h4 className="font-extrabold text-xs uppercase tracking-wide text-slate-700 flex items-center gap-2">
-                      <span>📋</span> Định hướng tích hợp chuyên môn
-                    </h4>
-                    <div className="text-[11px] text-slate-500 space-y-1.5 leading-relaxed">
-                      <div className="flex items-start gap-2">
-                        <span className="font-bold text-indigo-600">1.</span>
-                        <span><strong>Mục tiêu:</strong> Bổ sung chuẩn đầu ra NLS (TT 02/2025), Giáo dục AI hoặc Năng lực STEM vào mục II.</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="font-bold text-indigo-600">2.</span>
-                        <span><strong>Học liệu số:</strong> Ưu tiên công cụ trực quan, tuyệt đối không yêu cầu HS tạo tài khoản cá nhân.</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="font-bold text-indigo-600">3.</span>
-                        <span><strong>Tiến trình bài dạy:</strong> Thao tác thực chất, đúng tâm lý lứa tuổi và không làm loãng thời lượng tiết học.</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </main>
       </div>
 
-      <footer className="mt-8 border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-3 text-xs text-slate-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-[10px] shadow-xs">
+      <footer className="mt-12 border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-4 text-xs text-slate-600 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-[11px] shadow-xs">
               NLS
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-slate-800 text-xs">NLS Integrator Pro</span>
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-gradient-to-r from-emerald-500 to-indigo-600 text-white">v3.0 PRO</span>
+            <div className="flex items-center gap-2.5">
+              <span className="font-black text-slate-900 text-xs">NLS Integrator Pro</span>
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-gradient-to-r from-emerald-500 to-indigo-600 text-white shadow-2xs">v3.0 PRO</span>
               <span className="text-slate-300 hidden sm:inline">•</span>
-              <span className="text-[11px] text-slate-500 hidden sm:inline">Tác giả: <strong className="text-slate-700">Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông)</span>
+              <span className="text-[11px] text-slate-500 hidden sm:inline">Tác giả: <strong className="text-slate-800">Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông)</span>
             </div>
           </div>
 
-          <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <div className="hidden lg:flex items-center gap-2 text-[11px] text-slate-500 font-semibold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/60">
+            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
             <span>CV 2345 • CV 5512 • TT 02/2025 • CV 3089 (GD STEM)</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => setIsPricingOpen(true)}
-              className="py-1 px-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center gap-1 transition shadow-xs cursor-pointer"
+              className="py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] flex items-center gap-1.5 transition shadow-xs cursor-pointer"
             >
               <span>💎</span> Mở khóa Gói PRO
             </button>
@@ -632,13 +661,13 @@ const App: React.FC = () => {
               href="https://zalo.me/0978386357"
               target="_blank"
               rel="noreferrer"
-              className="py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] flex items-center gap-1 transition"
+              className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-extrabold text-[11px] flex items-center gap-1.5 transition"
             >
               💬 Zalo
             </a>
             <a
               href="tel:0978386357"
-              className="py-1 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] flex items-center gap-1 transition"
+              className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[11px] flex items-center gap-1.5 transition"
             >
               📞 097 8386 357
             </a>
@@ -659,15 +688,17 @@ const App: React.FC = () => {
 
       <style>{`
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-        .animate-fade-in-left { animation: fadeInLeft 0.3s ease-out forwards; }
-        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .animate-fade-in-up { animation: fadeInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #334155; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
       `}</style>
     </div>
   );
 };
+
+function pedagogyScheme(badge: string) {
+  return badge;
+}
 
 export default App;
