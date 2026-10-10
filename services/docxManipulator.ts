@@ -153,14 +153,14 @@ export const injectContentIntoDocx = async (
                   </w:p>`;
                 });
 
-                let targetIdx = docXml.indexOf("III. TIẾN TRÌNH DẠY HỌC");
-                if (targetIdx === -1) targetIdx = docXml.indexOf("III. TIẾN TRÌNH DẠY HỌC:");
+                let targetIdx = docXml.indexOf("A. HOẠT ĐỘNG KHỞI ĐỘNG");
+                if (targetIdx === -1) targetIdx = docXml.indexOf("HOẠT ĐỘNG KHỞI ĐỘNG");
+                if (targetIdx === -1) targetIdx = docXml.indexOf("III. TIẾN TRÌNH DẠY HỌC");
 
                 if (targetIdx !== -1) {
-                  const pEnd = docXml.indexOf("</w:p>", targetIdx);
-                  if (pEnd !== -1) {
-                    const splitPos = pEnd + "</w:p>".length;
-                    docXml = docXml.substring(0, splitPos) + phanDinhXml + docXml.substring(splitPos);
+                  const pStart = docXml.lastIndexOf("<w:p", targetIdx);
+                  if (pStart !== -1) {
+                    docXml = docXml.substring(0, pStart) + phanDinhXml + docXml.substring(pStart);
                   }
                 }
               }
