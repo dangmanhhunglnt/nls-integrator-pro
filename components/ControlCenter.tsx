@@ -35,7 +35,7 @@ export default function ControlCenter({
   const [ppctLessons, setPpctLessons] = useState<string[]>([]);
   const [selectedLessonManual, setSelectedLessonManual] = useState<string>('');
   
-  // Mặc định để chế độ PPCT là TẮT (false) theo yêu cầu của thầy
+  // Mặc định để chế độ PPCT là TẮT (false)
   const [isPpctActive, setIsPpctActive] = useState<boolean>(false);
 
   useEffect(() => {
@@ -403,16 +403,25 @@ export default function ControlCenter({
                 </div>
             </div>
 
-            {/* 3. CHẾ ĐỘ TÍCH HỢP NĂNG LỰC & CẤU HÌNH NÂNG CAO */}
-            <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 space-y-3">
-                <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-                    <div className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
-                      <Activity className="w-3.5 h-3.5" />
+            {/* 3. CHẾ ĐỘ TÍCH HỢP NĂNG LỰC & CẤU HÌNH NÂNG CAO (TỰ ĐỘNG MỜ KHI BẬT PPCT) */}
+            <div className={`col-span-1 md:col-span-2 bg-white rounded-2xl p-4 shadow-xs border border-slate-200/80 space-y-3 transition-all ${
+                hasPpct ? 'opacity-50 pointer-events-none bg-slate-50/80' : ''
+            }`}>
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
+                          <Activity className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide block">Chế độ tích hợp năng lực</span>
+                          <p className="text-[10px] text-slate-400">Lựa chọn tiêu chuẩn tích hợp theo định hướng mới của Bộ GD&ĐT</p>
+                        </div>
                     </div>
-                    <div>
-                      <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide block">Chế độ tích hợp năng lực</span>
-                      <p className="text-[10px] text-slate-400">Lựa chọn tiêu chuẩn tích hợp theo định hướng mới của Bộ GD&ĐT</p>
-                    </div>
+                    {hasPpct && (
+                        <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-full uppercase tracking-wider">
+                            ✨ Đang tự động hóa theo PPCT
+                        </span>
+                    )}
                 </div>
                 
                 {/* 4 Nút chế độ tích hợp */}
