@@ -351,7 +351,7 @@ export async function processSingleLessonFromPPCT(
   return results;
 }
 
-// Lấy danh sách các bài học duy nhất từ PPCT để đưa vào ô chọn thủ công
+// Lấy danh sách các bài học duy nhất từ PPCT để đưa vào ô chọn thủ công (Đã lọc sạch các dòng rác, tiêu đề)
 export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]> {
   const rows = await parsePPCTDocument(ppctFile);
   const uniqueLessons: string[] = [];
@@ -360,6 +360,21 @@ export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]
   for (const r of rows) {
     if (r.baiHoc && r.baiHoc.trim().length > 2) {
       const cleanName = r.baiHoc.trim();
+      const lowerKey = cleanName.toLowerCase();
+      
+      // Bỏ qua các dòng không phải tên bài học (tiêu đề cột, chữ câu, tuần, tiết, nội dung...)
+      if (
+        lowerKey.includes('nội dung') ||
+        lowerKey.includes('tên bài') ||
+        lowerKey.includes('chương') ||
+        lowerKey.includes('ghi chú') ||
+        lowerKey.includes('tiết số') ||
+        lowerKey.startsWith('câu ') ||
+        lowerKey.startsWith('bài học')
+      ) {
+        continue;
+      }
+
       const key = cleanName.toLowerCase();
       if (!seen.has(key)) {
         seen.add(key);
