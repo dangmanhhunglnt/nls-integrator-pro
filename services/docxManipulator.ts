@@ -87,7 +87,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (TỰ ĐỘNG PHÂN RÃ SỐ TIẾT CHUẨN XÁC)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -116,6 +116,17 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
+        // Tự động bóc tách số tiết thực tế từ file Word (ví dụ: 3 tiết, 4 tiết, hoặc danh sách tiết PPCT)
+        let tietPhanRaInfo = "";
+        try {
+          const matchTiet = docXml.match(/(?:Tiết|tiết)\s*([\d,\s]+(?:\s*theo PPCT[^)]*)?)/i) || docXml.match(/Thời gian thực hiện:\s*([\d\s]+)\s*tiết/i);
+          if (matchTiet) {
+            tietPhanRaInfo = `[Phân rã theo PPCT: ${matchTiet[0].trim()}]`;
+          }
+        } catch(err) {
+          console.warn(err);
+        }
+
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition));
         
         if (!hasNewContent) {
@@ -167,7 +178,7 @@ export const injectContentIntoDocx = async (
             rPrBody += style.fontTag;
           }
 
-          const headerTitle = customPrefix || `👉 ${label}:`;
+          const headerTitle = customPrefix || `👉 ${label} ${tietPhanRaInfo}:`;
 
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
@@ -178,32 +189,21 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
 
           lines.forEach(line => {
-           const isTietLine = /^(?:📌\s*)?Tiết\s*\d+/i.test(line);
-           if (isTietLine) {
+           let cleanLine = line
+             .replace(/\*\*/g, "")
+             .replace(/__/, "")
+             .replace(/^\s*[-•+]\s*/, "")
+             .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
+             .trim();
+
+           if (cleanLine) {
              xmlBlock += `<w:p>
-                          <w:pPr><w:spacing w:before="200" w:after="100"/></w:pPr>
+                          <w:pPr><w:ind w:left="720"/></w:pPr>
                           <w:r>
-                            <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                            <w:t xml:space="preserve">${escapeXml(line)}</w:t>
+                            <w:rPr>${rPrBody}</w:rPr>
+                            <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
                           </w:r>
                         </w:p>`;
-           } else {
-             let cleanLine = line
-               .replace(/\*\*/g, "")
-               .replace(/__/, "")
-               .replace(/^\s*[-•+]\s*/, "")
-               .replace(/^(👉|NLS:|Tiết \d+:|Tích hợp NLS:)\s*/gi, "")
-               .trim();
-
-             if (cleanLine) {
-               xmlBlock += `<w:p>
-                            <w:pPr><w:ind w:left="720"/></w:pPr>
-                            <w:r>
-                              <w:rPr>${rPrBody}</w:rPr>
-                              <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                            </w:r>
-                          </w:p>`;
-             }
            }
           });
 
@@ -282,64 +282,6 @@ export const injectContentIntoDocx = async (
 
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
-
-        // PHÂN RÃ CHÍNH XÁC SỐ TIẾT THEO ĐÚNG PPCT VÀ CHÈN MỐC CĂN GIỮA BÔI VÀNG NỔI BẬT
-        try {
-          let tietList: string[] = [];
-          const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
-          if (headerAreaMatch) {
-            const headerSnippet = headerAreaMatch[0];
-            const foundPPCT = headerSnippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s]+)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
-            if (foundPPCT && foundPPCT[1]) {
-              tietList = foundPPCT[1].split(',').map(s => s.trim()).filter(Boolean);
-            }
-          }
-
-          if (tietList.length === 0) {
-            const matchTietNum = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
-            const numTiet = matchTietNum ? parseInt(matchTietNum[1], 10) : 1;
-            for(let i = 1; i <= numTiet; i++) tietList.push(String(i));
-          }
-
-          if (tietList.length > 0) {
-            const totalTiet = tietList.length;
-            tietList.forEach((tLabel, index) => {
-              const currentTietNum = index + 1;
-              const displayLabel = totalTiet > 1 ? `TIẾT ${currentTietNum} (TRONG TỔNG SỐ ${totalTiet} TIẾT - PPCT: ${tLabel})` : `TIẾT ${tLabel} (THEO PPCT)`;
-              
-              const centerYellowTietXml = `<w:p>
-                <w:pPr>
-                  <w:jc w:val="center"/>
-                  <w:spacing w:before="300" w:after="150"/>
-                </w:pPr>
-                <w:r>
-                  <w:rPr>
-                    <w:b/>
-                    <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
-                    <w:color w:val="000000"/>
-                    <w:sz w:val="28"/>
-                    <w:szCs w:val="28"/>
-                  </w:rPr>
-                  <w:t xml:space="preserve">📌 ${displayLabel}</w:t>
-                </w:r>
-              </w:p>`;
-
-              // Chèn ngay trước các mục Hoạt động hoặc phân chia nội dung chính
-              const targetKey = index === 0 ? "B. HÌNH THÀNH KIẾN THỨC MỚI" : (index === 1 ? "C. LUYỆN TẬP" : "D. VẬN DỤNG");
-              let pos = docXml.indexOf(targetKey);
-              if (pos === -1) pos = docXml.indexOf("HÌNH THÀNH KIẾN THỨC");
-
-              if (pos !== -1) {
-                const pStart = docXml.lastIndexOf("<w:p", pos);
-                if (pStart !== -1) {
-                  docXml = docXml.substring(0, pStart) + centerYellowTietXml + docXml.substring(pStart);
-                }
-              }
-            });
-          }
-        } catch (err) {
-          console.warn("Lỗi phân rã tiết:", err);
-        }
 
         for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw, 0);
@@ -571,7 +513,7 @@ export const createAppendixDocx = async (
       <w:trPr><w:tblHeader/></w:trPr>
       <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
       <w:tc><w:tcPr><w:tcW w:w="1600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
-      <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
+      <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
       <w:tc><w:tcPr><w:tcW w:w="3600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện cụ thể của HS</w:t></w:r></w:p></w:tc>
       <w:tc><w:tcPr><w:tcW w:w="1400" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
     </w:tr>`;
