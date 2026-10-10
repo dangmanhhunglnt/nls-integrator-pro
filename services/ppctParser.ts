@@ -11,7 +11,7 @@ export interface PPCTRow {
 }
 
 /**
- * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX) - CHUẨN XÁC TUYỆT ĐỐI
+ * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX) - TỐI ƯU CHỐNG NHẢY TRANG / NGẮT TRANG
  */
 export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   const arrayBuffer = await ppctFile.arrayBuffer();
@@ -22,6 +22,7 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   const docXml = docFile.asText();
   const rows: PPCTRow[] = [];
 
+  // Quét tất cả các dòng (w:tr) trong toàn bộ file Word, bất kể nằm ở trang nào hay bị ngắt trang
   const trMatches = docXml.match(/<w:tr\b[\s\S]*?<\/w:tr>/gi);
   if (!trMatches || trMatches.length <= 1) return rows;
 
@@ -50,7 +51,8 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
     const tiet = extractCellText(tcMatches[1]);
     const baiHocRaw = extractCellText(tcMatches[2]);
     
-    // Nếu dòng dưới bị gộp ô (tên bài trống), giữ lại tên bài của dòng trên
+    // Kể cả khi sang trang mới mà tên bài bị để trống (w:tc bị ngắt trang gộp ô), 
+    // hệ thống vẫn giữ lại currentBaiHoc của trang trước đó để không bị mất mát dữ liệu
     if (baiHocRaw && baiHocRaw.length > 2 && !baiHocRaw.toLowerCase().includes('bài học') && !baiHocRaw.toLowerCase().includes('nội dung')) {
       currentBaiHoc = baiHocRaw;
     }
@@ -201,7 +203,7 @@ export async function processBatchPPCT(
 }
 
 /**
- * 3. HÀM XỬ LÝ THEO TỪNG BÀI ĐỘC LẬP (DÀNH CHO GIAO DIỆN CHỌN BÀI - HỖ TRỢ TÁCH NHÓM TUẦN/TIẾT)
+ * 3. HÀM XỬ LÝ THEO TỪNG BÀI ĐỘC LẬP (DÀNH CHO GIAO DIỆN CHỌN BÀI - ĐÃ KHẮC PHỤC LỖI NHẬN DẠNG NHẦM BÀI)
  */
 export async function processSingleLessonFromPPCT(
   ppctRows: PPCTRow[],
@@ -212,24 +214,25 @@ export async function processSingleLessonFromPPCT(
   colorHex: HighlightColor,
   generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
 ): Promise<{ name: string; blob: Blob }[]> {
-  // Chuẩn hóa tên mục tiêu loại bỏ số thứ tự đầu dòng (ví dụ "9. Dãy số" -> "dãy số")
-  const normalizedTarget = targetLessonName
+  // Chuẩn hóa tên bài học mục tiêu thật sạch sẽ (loại bỏ chữ "Bài X:", khoảng trắng và dấu)
+  const cleanTarget = targetLessonName
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/^(\d+[\.,\s]*|c\d+\s*-\s*b\d+\s*-|bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
-    .replace(/[^a-z0-9]/g, '');
+    .replace(/^(bài|chương)\s*\d+[\.,\s*]*/gi, '')
+    .trim();
 
-  // LỌC CHÍNH XÁC TUYỆT ĐỐI KHÔNG BỊ NHẦM LẪN SANG CÁC BÀI KHÁC
+  // LỌC CHÍNH XÁC TUYỆT ĐỐI TÊN BÀI HỌC TRONG BẢNG PPCT (TRÁNH GỌM NHẦM BÀI KHÁC)
   const matchingRows = ppctRows.filter(r => {
-    const normalizedBai = r.baiHoc
+    const cleanRowName = (r.baiHoc || '')
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/^(\d+[\.,\s]*|bai\s*\d+\s*[:.-]?|chuong\s*\d+\s*[:.-]?)/i, '')
-      .replace(/[^a-z0-9]/g, '');
+      .replace(/^(bài|chương)\s*\d+[\.,\s*]*/gi, '')
+      .trim();
     
-    return normalizedTarget === normalizedBai || normalizedBai.includes(normalizedTarget) || normalizedTarget.includes(normalizedBai);
+    // So sánh khớp chính xác tên bài học hoặc chuỗi chứa trọn vẹn tên bài
+    return cleanRowName === cleanTarget || (cleanTarget.length > 3 && cleanRowName.includes(cleanTarget)) || (cleanRowName.length > 3 && cleanTarget.includes(cleanRowName));
   });
 
   if (matchingRows.length === 0) {
@@ -271,7 +274,6 @@ export async function processSingleLessonFromPPCT(
     let mode: IntegrationMode = 'NLS';
     let hasIntegration = false;
 
-    // BỔ SUNG LOGIC NHẬN DIỆN LINH HOẠT CẢ AI, NLS VÀ STEM TỪ CỘT GHI CHÚ PPCT
     if (combinedGhiChu.includes('STEM')) {
       mode = 'STEM';
       hasIntegration = true;
