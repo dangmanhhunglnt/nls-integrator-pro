@@ -351,7 +351,7 @@ export async function processSingleLessonFromPPCT(
   return results;
 }
 
-// Lấy danh sách các bài học duy nhất từ PPCT để đưa vào ô chọn thủ công (Đã lọc sạch các dòng rác, tiêu đề)
+// Lấy danh sách các bài học duy nhất từ PPCT (Loại bỏ hoàn toàn các bài bị lặp tên)
 export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]> {
   const rows = await parsePPCTDocument(ppctFile);
   const uniqueLessons: string[] = [];
@@ -362,7 +362,7 @@ export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]
       const cleanName = r.baiHoc.trim();
       const lowerKey = cleanName.toLowerCase();
       
-      // Bỏ qua các dòng không phải tên bài học (tiêu đề cột, chữ câu, tuần, tiết, nội dung...)
+      // Bỏ qua các dòng rác, tiêu đề bảng
       if (
         lowerKey.includes('nội dung') ||
         lowerKey.includes('tên bài') ||
@@ -375,9 +375,14 @@ export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]
         continue;
       }
 
-      const key = cleanName.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
+      // Chuẩn hóa key để loại bỏ các bài trùng tên hệt nhau
+      const normalizationKey = lowerKey
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, '');
+
+      if (!seen.has(normalizationKey)) {
+        seen.add(normalizationKey);
         uniqueLessons.push(cleanName);
       }
     }
