@@ -88,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (TỰ ĐỘNG CHÈN DÒNG PHÂN ĐỊNH TIẾT RIÊNG BIỆT)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (BỔ SUNG PHÂN ĐỊNH CHI TIẾT THEO TIẾT PPCT)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -117,47 +117,38 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // Bóc tách thông tin tiết/PPCT từ văn bản để tạo banner phân định riêng biệt
+        // Tự động quét thông tin tiết theo PPCT từ phần đầu file để chèn dòng phân định rõ ràng phục vụ thanh tra
         try {
           const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
           if (headerAreaMatch) {
             const headerSnippet = headerAreaMatch[0];
-            const matchTietDetail = headerSnippet.match(/(?:Tiết|tiết)\s*([\d,\s]+(?:\s*theo PPCT[^)]*)?)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
+            const matchTietDetail = headerSnippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s]+)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
             
             if (matchTietDetail) {
-              const tietInfoStr = matchTietDetail[0].trim();
+              const tietList = matchTietDetail[1].split(',').map(s => s.trim()).filter(Boolean);
               
-              // Tạo dòng banner riêng biệt: căn giữa, bôi vàng rực rỡ, chữ đậm trang trọng
-              const centerYellowTietXml = `<w:p>
-                <w:pPr>
-                  <w:jc w:val="center"/>
-                  <w:spacing w:before="300" w:after="200"/>
-                </w:pPr>
-                <w:r>
-                  <w:rPr>
-                    <w:b/>
-                    <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
-                    <w:color w:val="000000"/>
-                    <w:sz w:val="28"/>
-                    <w:szCs w:val="28"/>
-                  </w:rPr>
-                  <w:t xml:space="preserve">📌 PHÂN ĐỊNH GIẢNG DẠY: ${escapeXml(tietInfoStr).toUpperCase()}</w:t>
-                </w:r>
-              </w:p>`;
+              if (tietList.length > 0) {
+                let phanDinhHtml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="200" w:after="200"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">📌 BẢNG PHÂN ĐỊNH NỘI DUNG GIẢNG DẠY THEO PPCT (TIẾT: ${tietList.join(', ')})</w:t></w:r></w:p>`;
+                
+                tietList.forEach((tNum, idx) => {
+                  const noiDungGoiY = idx === 0 ? "Từ đầu bài đến hết phần Hình thành kiến thức cơ bản" : (idx === 1 ? "Tiếp tục nội dung kiến thức trọng tâm và Ví dụ" : "Luyện tập, Vận dụng và hoàn thành bài học");
+                  phanDinhHtml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="100"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="0F172A"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">- Tiết ${tNum}: ${noiDungGoiY}</w:t></w:r></w:p>`;
+                });
 
-              let targetIdx = docXml.indexOf("I. MỤC TIÊU");
-              if (targetIdx === -1) targetIdx = docXml.indexOf("I. MỤC TIÊU:");
+                let targetIdx = docXml.indexOf("I. MỤC TIÊU");
+                if (targetIdx === -1) targetIdx = docXml.indexOf("I. MỤC TIÊU:");
 
-              if (targetIdx !== -1) {
-                const pStart = docXml.lastIndexOf("<w:p", targetIdx);
-                if (pStart !== -1) {
-                  docXml = docXml.substring(0, pStart) + centerYellowTietXml + docXml.substring(pStart);
+                if (targetIdx !== -1) {
+                  const pStart = docXml.lastIndexOf("<w:p", targetIdx);
+                  if (pStart !== -1) {
+                    docXml = docXml.substring(0, pStart) + phanDinhHtml + docXml.substring(pStart);
+                  }
                 }
               }
             }
           }
         } catch (err) {
-          console.warn("Không thể chèn banner phân định tiết:", err);
+          console.warn("Lỗi chèn bảng phân định tiết:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition));
