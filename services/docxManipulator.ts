@@ -283,16 +283,31 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // BỔ SUNG CHÈN MỐC TIẾT CĂN GIỮA, BÔI VÀNG NỔI BẬT AN TOÀN TUYỆT ĐỐI
+        // BÓC TÁCH CHUẨN XÁC DANH SÁCH TIẾT (VÍ DỤ: Tiết 1,2) ĐỂ CHÈN MỐC CĂN GIỮA BÔI VÀNG
         try {
-          const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
-          const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
-          
-          if (numTiet > 1) {
+          let tietList: string[] = [];
+          const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
+          if (headerAreaMatch) {
+            const headerSnippet = headerAreaMatch[0];
+            const foundTiers = headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
+            if (foundTiers && foundTiers[1]) {
+              tietList = foundTiers[1].split(',').map(s => s.trim()).filter(Boolean);
+            }
+          }
+
+          if (tietList.length === 0) {
+            const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
+            const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
+            if (numTiet > 1) {
+              for(let i = 1; i <= numTiet; i++) tietList.push(String(i));
+            }
+          }
+
+          if (tietList.length > 0) {
             const formKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC", "Hoạt động 2:"];
             let searchStartIdx = 0;
             
-            for (let t = 1; t <= numTiet; t++) {
+            tietList.forEach((tLabel) => {
               let formPos = -1;
               for (const fk of formKeywords) {
                 const idx = docXml.indexOf(fk, searchStartIdx);
@@ -318,14 +333,14 @@ export const injectContentIntoDocx = async (
                         <w:sz w:val="24"/>
                         <w:szCs w:val="24"/>
                       </w:rPr>
-                      <w:t xml:space="preserve">📌 TIẾT ${t} (Dạy nội dung trọng tâm phần ${t} theo PPCT)</w:t>
+                      <w:t xml:space="preserve">📌 TIẾT ${tLabel} (Dạy nội dung theo PPCT)</w:t>
                     </w:r>
                   </w:p>`;
                   docXml = docXml.substring(0, pStart) + centerYellowTietXml + docXml.substring(pStart);
                   searchStartIdx = pStart + centerYellowTietXml.length + 500;
                 }
               }
-            }
+            });
           }
         } catch (err) {
           console.warn("Không thể tự động chèn mốc tiết căn giữa bôi vàng:", err);
