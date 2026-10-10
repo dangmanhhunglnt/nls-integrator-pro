@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, BookOpen, ChevronRight, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, RefreshCw, Sliders, FileText, Palette, Files, Lightbulb } from 'lucide-react';
+import { Activity, BookOpen, ChevronRight, FileUp, Wand2, Sparkles, Download, Layers, Target, CheckCircle2, Sliders, FileText, Palette, Files, Lightbulb } from 'lucide-react';
 import { AppState, SubjectType, GradeType, GeneratedNLSContent, IntegrationMode, IntegrationLevel, OutputFormat, HighlightColor, LessonCategory } from '../types';
 import { PEDAGOGY_MODELS } from '../utils';
 import SmartEditor from './SmartEditor';
@@ -34,6 +34,9 @@ export default function ControlCenter({
   const [selectedPpctName, setSelectedPpctName] = useState<string>('');
   const [ppctLessons, setPpctLessons] = useState<string[]>([]);
   const [selectedLessonManual, setSelectedLessonManual] = useState<string>('');
+  
+  // State khóa/mở chế độ PPCT
+  const [isPpctActive, setIsPpctActive] = useState<boolean>(true);
 
   useEffect(() => {
     if (Boolean(stemTopic)) {
@@ -48,15 +51,39 @@ export default function ControlCenter({
   };
 
   const fileCount = state.files && state.files.length > 0 ? state.files.length : (state.file ? 1 : 0);
-  const hasPpct = Boolean(selectedPpctName);
+  const hasPpct = Boolean(selectedPpctName) && isPpctActive;
 
   return (
     <>
       {state.step === 'upload' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up" style={{animationDelay: '0.1s'}}>
             
-            {/* 1. TÀI LIỆU ĐẦU VÀO (ĐÃ ĐƯA LÊN TRÊN CÙNG ĐỂ NẠP FILE TRƯỚC) */}
+            {/* 1. TÀI LIỆU ĐẦU VÀO (CÓ NÚT KHÓA / MỞ PPCT) */}
             <div className="col-span-1 md:col-span-2 space-y-3">
+                <div className="flex items-center justify-between px-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">
+                        Tài liệu đầu vào & Phân phối chương trình
+                    </label>
+                    {/* Nút Khóa / Mở Chế độ PPCT */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const nextState = !isPpctActive;
+                            setIsPpctActive(nextState);
+                            if (!nextState && handlePpctFileChange) {
+                                handlePpctFileChange(null);
+                            }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
+                            isPpctActive 
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs' 
+                                : 'bg-slate-200 text-slate-600 border border-slate-300'
+                        }`}
+                    >
+                        <span>{isPpctActive ? '🔓 Đang Bật PPCT' : '🔒 Đang Khóa PPCT'}</span>
+                    </button>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
@@ -84,9 +111,6 @@ export default function ControlCenter({
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0">
-                                            <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 cursor-pointer">
-                                                <RefreshCw className="w-3 h-3" /> Đổi
-                                            </span>
                                             <button
                                                 type="button"
                                                 onClick={(e) => {
@@ -116,15 +140,22 @@ export default function ControlCenter({
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
-                            File Phân phối chương trình (Tùy chọn)
+                            File Phân phối chương trình {isPpctActive ? '(Đang mở)' : '(Đang khóa)'}
                         </label>
-                        <label className={`relative flex flex-col items-center justify-center w-full h-24 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-3 group ${
-                          selectedPpctName 
-                          ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
-                          : 'border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
+                        <label className={`relative flex flex-col items-center justify-center w-full h-24 rounded-2xl border-2 border-dashed transition-all overflow-hidden p-3 group ${
+                          !isPpctActive 
+                          ? 'opacity-40 bg-slate-100 border-slate-300 cursor-not-allowed' 
+                          : selectedPpctName 
+                              ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs cursor-pointer' 
+                              : 'border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs cursor-pointer'
                         }`}>
                             <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
-                                {selectedPpctName ? (
+                                {!isPpctActive ? (
+                                    <div className="text-center text-slate-400">
+                                        <p className="font-bold text-xs">PPCT đang bị khóa</p>
+                                        <span className="text-[9px]">Bấm nút "Đang Khóa" ở trên để mở lại</span>
+                                    </div>
+                                ) : selectedPpctName ? (
                                     <div className="flex items-center gap-2 w-full px-2">
                                         <div className="w-8 h-8 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
                                             <CheckCircle2 className="w-4 h-4" />
@@ -140,9 +171,6 @@ export default function ControlCenter({
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0">
-                                            <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 cursor-pointer">
-                                                <RefreshCw className="w-3 h-3" /> Đổi
-                                            </span>
                                             <button
                                                 type="button"
                                                 onClick={(e) => {
@@ -174,10 +202,11 @@ export default function ControlCenter({
                             <input 
                               type="file" 
                               accept=".docx" 
+                              disabled={!isPpctActive}
                               className="hidden" 
                               onChange={async (e) => {
                                 const ppctFile = e.target.files?.[0] || null;
-                                if (ppctFile) {
+                                if (ppctFile && isPpctActive) {
                                   setSelectedPpctName(ppctFile.name);
                                   if (handlePpctFileChange) {
                                     handlePpctFileChange(ppctFile);
@@ -199,8 +228,8 @@ export default function ControlCenter({
                     </div>
                 </div>
 
-                {/* KHUNG CHỌN BÀI HỌC TỪ PPCT */}
-                {hasPpct && ppctLessons.length > 0 && (
+                {/* KHUNG CHỌN BÀI HỌC TỪ PPCT (CHỈ HIỆN KHI BẬT VÀ ĐÃ NẠP FILE) */}
+                {isPpctActive && hasPpct && ppctLessons.length > 0 && (
                     <div className="p-3 bg-indigo-50/70 rounded-2xl border border-indigo-200 space-y-1.5 animate-fade-in-up">
                         <label className="text-[11px] font-extrabold text-indigo-900 uppercase flex items-center gap-1.5">
                             <Target className="w-3.5 h-3.5 text-indigo-600" /> Chọn chính xác bài học từ PPCT:
