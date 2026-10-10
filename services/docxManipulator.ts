@@ -283,13 +283,14 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // BÓC TÁCH CHUẨN XÁC DANH SÁCH TIẾT (VÍ DỤ: Tiết 1,2) ĐỂ CHÈN MỐC CĂN GIỮA BÔI VÀNG
+        // BÓC TÁCH CHUẨN XÁC VÀ RẢI ĐỀU TẤT CẢ CÁC TIẾT (1, 2, 4...) VÀO CÁC HOẠT ĐỘNG
         try {
           let tietList: string[] = [];
           const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
           if (headerAreaMatch) {
             const headerSnippet = headerAreaMatch[0];
-            const foundTiers = headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
+            // Bắt trọn vẹn tất cả các số tiết sau chữ PPCT hoặc trong ngoặc (Ví dụ: 1,2, 4 hoặc 1, 2, 4)
+            const foundTiers = headerSnippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s]+)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
             if (foundTiers && foundTiers[1]) {
               tietList = foundTiers[1].split(',').map(s => s.trim()).filter(Boolean);
             }
@@ -304,17 +305,29 @@ export const injectContentIntoDocx = async (
           }
 
           if (tietList.length > 0) {
-            const formKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC", "Hoạt động 2:"];
-            let searchStartIdx = 0;
+            // Danh sách các Hoạt động lớn trong giáo án để rải đều các tiết tương ứng
+            const activityKeywords = [
+              "B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", 
+              "C. LUYỆN TẬP", "LUYỆN TẬP", 
+              "D. VẬN DỤNG", "VẬN DỤNG",
+              "Hoạt động 2:", "Hoạt động 3:", "Hoạt động 4:"
+            ];
             
-            tietList.forEach((tLabel) => {
+            let searchStartIdx = 0;
+            tietList.forEach((tLabel, index) => {
               let formPos = -1;
-              for (const fk of formKeywords) {
-                const idx = docXml.indexOf(fk, searchStartIdx);
+              // Ưu tiên quét theo thứ tự xuất hiện của các hoạt động lớn tương ứng với từng tiết
+              for (let i = index; i < activityKeywords.length; i++) {
+                const idx = docXml.indexOf(activityKeywords[i], searchStartIdx);
                 if (idx !== -1) {
                   formPos = idx;
                   break;
                 }
+              }
+
+              // Fallback nếu không tìm thấy từ khóa hoạt động cụ thể thì tìm theo vị trí tuyến tính
+              if (formPos === -1) {
+                formPos = docXml.indexOf("HÌNH THÀNH KIẾN THỨC", searchStartIdx);
               }
 
               if (formPos !== -1) {
@@ -323,27 +336,27 @@ export const injectContentIntoDocx = async (
                   const centerYellowTietXml = `<w:p>
                     <w:pPr>
                       <w:jc w:val="center"/>
-                      <w:spacing w:before="240" w:after="120"/>
+                      <w:spacing w:before="280" w:after="140"/>
                     </w:pPr>
                     <w:r>
                       <w:rPr>
                         <w:b/>
                         <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
                         <w:color w:val="000000"/>
-                        <w:sz w:val="24"/>
-                        <w:szCs w:val="24"/>
+                        <w:sz w:val="26"/>
+                        <w:szCs w:val="26"/>
                       </w:rPr>
-                      <w:t xml:space="preserve">📌 TIẾT ${tLabel} (Dạy nội dung theo PPCT)</w:t>
+                      <w:t xml:space="preserve">📌 TIẾT ${tLabel} (Theo PPCT)</w:t>
                     </w:r>
                   </w:p>`;
                   docXml = docXml.substring(0, pStart) + centerYellowTietXml + docXml.substring(pStart);
-                  searchStartIdx = pStart + centerYellowTietXml.length + 500;
+                  searchStartIdx = pStart + centerYellowTietXml.length + 800;
                 }
               }
             });
           }
         } catch (err) {
-          console.warn("Không thể tự động chèn mốc tiết căn giữa bôi vàng:", err);
+          console.warn("Không thể tự động chèn đầy đủ các mốc tiết:", err);
         }
 
         for (const kw of endKeywords) {
