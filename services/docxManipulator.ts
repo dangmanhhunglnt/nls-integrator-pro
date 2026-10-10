@@ -88,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (AN TOÀN TUYỆT ĐỐI + BẢNG PHÂN ĐỊNH TIẾT)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (CHÈN MỐC TIẾT BÔI VÀNG NGAY SAU TIẾN TRÌNH DẠY HỌC)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -117,7 +117,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // Tự động quét số tiết theo PPCT để chèn bảng phân định chi tiết phục vụ thanh tra
+        // Tự động quét số tiết theo PPCT và chèn các dòng phân định bôi vàng ngay dưới mục III. TIẾN TRÌNH DẠY HỌC
         try {
           const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
           if (headerAreaMatch) {
@@ -128,27 +128,42 @@ export const injectContentIntoDocx = async (
               const tietList = matchTietDetail[1].split(',').map(s => s.trim()).filter(Boolean);
               
               if (tietList.length > 0) {
-                let phanDinhHtml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="160"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">📌 BẢNG PHÂN ĐỊNH NỘI DUNG GIẢNG DẠY THEO PPCT (CÁC TIẾT: ${tietList.join(', ')})</w:t></w:r></w:p>`;
-                
+                let phanDinhXml = "";
                 tietList.forEach((tNum, idx) => {
-                  const goiYNoiDung = idx === 0 ? "Từ đầu bài đến hết phần Hình thành kiến thức cơ bản" : (idx === 1 ? "Tiếp tục nội dung kiến thức trọng tâm và Ví dụ" : "Luyện tập, Vận dụng và hoàn thành bài học");
-                  phanDinhHtml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="0F172A"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">- Tiết ${tNum}: ${goiYNoiDung}</w:t></w:r></w:p>`;
+                  const goiYNoiDung = idx === 0 ? "dạy hết mục 2" : (idx === 1 ? "dạy hết mục 4" : "luyện tập và vận dụng");
+                  phanDinhXml += `<w:p>
+                    <w:pPr>
+                      <w:ind w:left="360"/>
+                      <w:spacing w:before="120" w:after="120"/>
+                    </w:pPr>
+                    <w:r>
+                      <w:rPr>
+                        <w:b/>
+                        <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
+                        <w:color w:val="000000"/>
+                        <w:sz w:val="26"/>
+                        <w:szCs w:val="26"/>
+                      </w:rPr>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${goiYNoiDung}</w:t>
+                    </w:r>
+                  </w:p>`;
                 });
 
-                let targetIdx = docXml.indexOf("I. MỤC TIÊU");
-                if (targetIdx === -1) targetIdx = docXml.indexOf("I. MỤC TIÊU:");
+                let targetIdx = docXml.indexOf("III. TIẾN TRÌNH DẠY HỌC");
+                if (targetIdx === -1) targetIdx = docXml.indexOf("III. TIẾN TRÌNH DẠY HỌC:");
 
                 if (targetIdx !== -1) {
-                  const pStart = docXml.lastIndexOf("<w:p", targetIdx);
-                  if (pStart !== -1) {
-                    docXml = docXml.substring(0, pStart) + phanDinhHtml + docXml.substring(pStart);
+                  const pEnd = docXml.indexOf("</w:p>", targetIdx);
+                  if (pEnd !== -1) {
+                    const splitPos = pEnd + "</w:p>".length;
+                    docXml = docXml.substring(0, splitPos) + phanDinhXml + docXml.substring(splitPos);
                   }
                 }
               }
             }
           }
         } catch (err) {
-          console.warn("Lỗi chèn bảng phân định:", err);
+          console.warn("Lỗi chèn mốc tiến trình tiết:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition));
