@@ -236,7 +236,7 @@ export const injectContentIntoDocx = async (
               <w:trPr><w:tblHeader/></w:trPr>
               <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
               <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
@@ -283,6 +283,7 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
+        // BỔ SUNG CHÈN MỐC TIẾT CĂN GIỮA, BÔI VÀNG NỔI BẬT AN TOÀN TUYỆT ĐỐI
         try {
           const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
           const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
@@ -304,21 +305,30 @@ export const injectContentIntoDocx = async (
               if (formPos !== -1) {
                 const pStart = docXml.lastIndexOf("<w:p", formPos);
                 if (pStart !== -1) {
-                  const tietInsertXml = `<w:p>
-                    <w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr>
+                  const centerYellowTietXml = `<w:p>
+                    <w:pPr>
+                      <w:jc w:val="center"/>
+                      <w:spacing w:before="240" w:after="120"/>
+                    </w:pPr>
                     <w:r>
-                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
-                      <w:t xml:space="preserve">📌 Tiết ${t}: Dạy nội dung trọng tâm phần ${t} của bài học</w:t>
+                      <w:rPr>
+                        <w:b/>
+                        <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
+                        <w:color w:val="000000"/>
+                        <w:sz w:val="24"/>
+                        <w:szCs w:val="24"/>
+                      </w:rPr>
+                      <w:t xml:space="preserve">📌 TIẾT ${t} (Dạy nội dung trọng tâm phần ${t} theo PPCT)</w:t>
                     </w:r>
                   </w:p>`;
-                  docXml = docXml.substring(0, pStart) + tietInsertXml + docXml.substring(pStart);
-                  searchStartIdx = pStart + tietInsertXml.length + 500;
+                  docXml = docXml.substring(0, pStart) + centerYellowTietXml + docXml.substring(pStart);
+                  searchStartIdx = pStart + centerYellowTietXml.length + 500;
                 }
               }
             }
           }
         } catch (err) {
-          console.warn("Không thể tự động chèn mốc tiết vào tiến trình:", err);
+          console.warn("Không thể tự động chèn mốc tiết căn giữa bôi vàng:", err);
         }
 
         for (const kw of endKeywords) {
