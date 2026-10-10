@@ -27,6 +27,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM|Năng lực số\s*\(tích hợp\)|Năng lực số).*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BẢNG TỔNG HỢP NĂNG LỰC SỐ.*?<\/w:p>\s*(?:<w:tbl\b[^>]*>(?:(?!<\/w:tbl>).)*?<\/w:tbl>)?/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?PHÂN ĐỊNH GIẢNG DẠY.*?<\/w:p>/gis, '');
 
   return cleaned;
 }
@@ -87,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (PHÂN RÃ TIẾT CHUẨN XÁC THEO PPCT)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (TỰ ĐỘNG CHÈN DÒNG PHÂN ĐỊNH TIẾT RIÊNG BIỆT)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -116,15 +117,47 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // Bóc tách danh sách tiết theo PPCT (ví dụ: "3, 6, 9, 12" hoặc "1, 2, 4") trực tiếp từ văn bản gốc
-        let tietList: string[] = [];
+        // Bóc tách thông tin tiết/PPCT từ văn bản để tạo banner phân định riêng biệt
         try {
-          const matchPPCT = docXml.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s]+)/i) || docXml.match(/Tiết\s*([\d,\s]+)/i);
-          if (matchPPCT && matchPPCT[1]) {
-            tietList = matchPPCT[1].split(',').map(s => s.trim()).filter(Boolean);
+          const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
+          if (headerAreaMatch) {
+            const headerSnippet = headerAreaMatch[0];
+            const matchTietDetail = headerSnippet.match(/(?:Tiết|tiết)\s*([\d,\s]+(?:\s*theo PPCT[^)]*)?)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
+            
+            if (matchTietDetail) {
+              const tietInfoStr = matchTietDetail[0].trim();
+              
+              // Tạo dòng banner riêng biệt: căn giữa, bôi vàng rực rỡ, chữ đậm trang trọng
+              const centerYellowTietXml = `<w:p>
+                <w:pPr>
+                  <w:jc w:val="center"/>
+                  <w:spacing w:before="300" w:after="200"/>
+                </w:pPr>
+                <w:r>
+                  <w:rPr>
+                    <w:b/>
+                    <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
+                    <w:color w:val="000000"/>
+                    <w:sz w:val="28"/>
+                    <w:szCs w:val="28"/>
+                  </w:rPr>
+                  <w:t xml:space="preserve">📌 PHÂN ĐỊNH GIẢNG DẠY: ${escapeXml(tietInfoStr).toUpperCase()}</w:t>
+                </w:r>
+              </w:p>`;
+
+              let targetIdx = docXml.indexOf("I. MỤC TIÊU");
+              if (targetIdx === -1) targetIdx = docXml.indexOf("I. MỤC TIÊU:");
+
+              if (targetIdx !== -1) {
+                const pStart = docXml.lastIndexOf("<w:p", targetIdx);
+                if (pStart !== -1) {
+                  docXml = docXml.substring(0, pStart) + centerYellowTietXml + docXml.substring(pStart);
+                }
+              }
+            }
           }
-        } catch(err) {
-          console.warn("Không bóc tách được danh sách tiết:", err);
+        } catch (err) {
+          console.warn("Không thể chèn banner phân định tiết:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition));
@@ -178,9 +211,7 @@ export const injectContentIntoDocx = async (
             rPrBody += style.fontTag;
           }
 
-          // Hiển thị rõ ràng các tiết theo đúng PPCT (ví dụ: Tiết 3, Tiết 6,...) vào phần tích hợp AI
-          const tietStr = tietList.length > 0 ? ` (Phân rã theo PPCT - Tiết ${tietList.join(', ')})` : "";
-          const headerTitle = customPrefix || `👉 ${label}${tietStr}:`;
+          const headerTitle = customPrefix || `👉 ${label}:`;
 
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
