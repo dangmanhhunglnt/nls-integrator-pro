@@ -35,8 +35,8 @@ export default function ControlCenter({
   const [ppctLessons, setPpctLessons] = useState<string[]>([]);
   const [selectedLessonManual, setSelectedLessonManual] = useState<string>('');
   
-  // State khóa/mở chế độ PPCT
-  const [isPpctActive, setIsPpctActive] = useState<boolean>(true);
+  // Mặc định để chế độ PPCT là TẮT (false) theo yêu cầu của thầy
+  const [isPpctActive, setIsPpctActive] = useState<boolean>(false);
 
   useEffect(() => {
     if (Boolean(stemTopic)) {
@@ -58,7 +58,7 @@ export default function ControlCenter({
       {state.step === 'upload' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up" style={{animationDelay: '0.1s'}}>
             
-            {/* 1. TÀI LIỆU ĐẦU VÀO (CÓ NÚT KHÓA / MỞ PPCT) */}
+            {/* 1. TÀI LIỆU ĐẦU VÀO (CÓ NÚT KHÓA / MỞ PPCT MẶC ĐỊNH TẮT) */}
             <div className="col-span-1 md:col-span-2 space-y-3">
                 <div className="flex items-center justify-between px-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">
