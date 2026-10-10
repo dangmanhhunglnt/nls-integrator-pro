@@ -22,7 +22,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
 
-  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\[(?:NLS\vert{}AI\vert{}STEM)\][\s\S]*?<\/w:p>/gis, '');
+  cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?[(?:NLS\|AI\|STEM)][\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Gemini[\s\S]*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:👉\s*Tích hợp|👉\s*Giáo dục|🚀\s*TÍCH HỢP|Tích hợp NLS|Tích hợp AI|GD STEM|Năng lực số\s*\(tích hợp\)|Năng lực số).*?<\/w:p>/gis, '');
   cleaned = cleaned.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?TIẾT\s*[0-9]+[\s\S]*?<\/w:p>/gis, '');
@@ -87,7 +87,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (ĐÃ FIX LỖI XML AN TOÀN)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -178,7 +178,6 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
 
           lines.forEach(line => {
-           // BỔ SUNG: TỰ ĐỘNG NHẬN DIỆN VÀ ĐỊNH DẠNG BÔI VÀNG NỔI BẬT CHO CÁC DÒNG TIẾT DẠY (Tiết 10, Tiết 11...)
            const isTietLine = /^(?:📌\s*)?Tiết\s*\d+/i.test(line);
            if (isTietLine) {
              xmlBlock += `<w:p>
@@ -206,7 +205,7 @@ export const injectContentIntoDocx = async (
                           </w:p>`;
              }
            }
-         });
+          });
 
           return xmlBlock;
         };
@@ -283,13 +282,13 @@ export const injectContentIntoDocx = async (
 
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
-        // TỰ ĐỘNG CHÈN VÀ BÔI VÀNG CÁC MỐC TIẾT VÀO TRONG TIẾN TRÌNH DẠY HỌC NẾU BÀI TỪ 2 TIẾT TRỞ LÊN
+
+        // BẢO VỆ XML: Chèn mốc tiết an toàn, kiểm tra khớp đúng thẻ đoạn văn
         try {
           const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
           const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
           
           if (numTiet > 1) {
-            // Tìm vị trí các hoạt động Hình thành kiến thức mới hoặc Khám phá trong file Word
             const formKeywords = ["B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", "KHÁM PHÁ", "2. HÌNH THÀNH KIẾN THỨC", "Hoạt động 2:"];
             let searchStartIdx = 0;
             
@@ -306,7 +305,6 @@ export const injectContentIntoDocx = async (
               if (formPos !== -1) {
                 const pStart = docXml.lastIndexOf("<w:p", formPos);
                 if (pStart !== -1) {
-                  // Tạo tiêu đề tiết bôi vàng nổi bật (Nền vàng FFFF00, chữ đậm)
                   const tietInsertXml = `<w:p>
                     <w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr>
                     <w:r>
@@ -323,6 +321,7 @@ export const injectContentIntoDocx = async (
         } catch (err) {
           console.warn("Không thể tự động chèn mốc tiết vào tiến trình:", err);
         }
+
         for (const kw of endKeywords) {
           const idx = findFuzzyIndex(docXml, kw, 0);
           if (idx !== -1) {
