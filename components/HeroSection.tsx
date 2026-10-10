@@ -31,31 +31,49 @@ export default function HeroSection({ appVersion }: HeroSectionProps) {
         </p>
       </div>
 
-      {/* BÊN PHẢI: 3 THẺ TÍNH NĂNG MINI TINH TẾ */}
+      {/* BÊN PHẢI: 3 THẺ TÍNH NĂNG MINI CÓ TOOLTIP HƯỚNG DẪN KHI HOVER */}
       <div className="flex items-center gap-2 shrink-0 z-10">
         
-        <div className="group relative bg-white/90 border border-slate-200/80 rounded-xl px-3 py-2 text-center shadow-2xs hover:border-amber-400/60 transition-all">
+        {/* Thẻ 1: Tốc độ */}
+        <div className="group relative bg-white/90 border border-slate-200/80 rounded-xl px-3 py-2 text-center shadow-2xs hover:border-amber-400/60 transition-all cursor-pointer">
           <div className="w-5 h-5 bg-amber-50 rounded-lg flex items-center justify-center mx-auto mb-0.5 text-amber-600">
             <Zap className="w-3 h-3" />
           </div>
           <div className="text-[10px] font-bold text-slate-800">Tốc độ</div>
           <div className="text-[8px] text-slate-400 font-medium">Tự động 100%</div>
+
+          {/* Tooltip hướng dẫn khi hover */}
+          <div className="absolute right-0 -bottom-10 w-44 p-1.5 bg-slate-900/95 text-white text-[9px] rounded-lg border border-slate-700 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+            Xử lý và chèn NLS/AI tự động hoàn toàn chỉ trong vài giây.
+          </div>
         </div>
 
-        <div className="group relative bg-white/90 border border-slate-200/80 rounded-xl px-3 py-2 text-center shadow-2xs hover:border-indigo-400/60 transition-all">
+        {/* Thẻ 2: Chuẩn Form */}
+        <div className="group relative bg-white/90 border border-slate-200/80 rounded-xl px-3 py-2 text-center shadow-2xs hover:border-indigo-400/60 transition-all cursor-pointer">
           <div className="w-5 h-5 bg-indigo-50 rounded-lg flex items-center justify-center mx-auto mb-0.5 text-indigo-600">
             <LayoutTemplate className="w-3 h-3" />
           </div>
           <div className="text-[10px] font-bold text-slate-800">Chuẩn Form</div>
           <div className="text-[8px] text-slate-400 font-medium">CV 2345 & 5512</div>
+
+          {/* Tooltip hướng dẫn khi hover */}
+          <div className="absolute right-0 -bottom-12 w-48 p-1.5 bg-slate-900/95 text-white text-[9px] rounded-lg border border-slate-700 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+            Chuẩn CV 2345 (Tiểu học) & CV 5512 (THCS, THPT). Bảo lưu 100% MathType.
+          </div>
         </div>
 
-        <div className="group relative bg-white/90 border border-slate-200/80 rounded-xl px-3 py-2 text-center shadow-2xs hover:border-emerald-400/60 transition-all">
+        {/* Thẻ 3: Bảo mật */}
+        <div className="group relative bg-white/90 border border-slate-200/80 rounded-xl px-3 py-2 text-center shadow-2xs hover:border-emerald-400/60 transition-all cursor-pointer">
           <div className="w-5 h-5 bg-emerald-50 rounded-lg flex items-center justify-center mx-auto mb-0.5 text-emerald-600">
             <ShieldCheck className="w-3 h-3" />
           </div>
           <div className="text-[10px] font-bold text-slate-800">Bảo mật</div>
           <div className="text-[8px] text-slate-400 font-medium">An toàn dữ liệu</div>
+
+          {/* Tooltip hướng dẫn khi hover */}
+          <div className="absolute right-0 -bottom-10 w-44 p-1.5 bg-slate-900/95 text-white text-[9px] rounded-lg border border-slate-700 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+            Xử lý file trực tiếp trên trình duyệt, không lưu trữ dữ liệu giáo án.
+          </div>
         </div>
 
       </div>
