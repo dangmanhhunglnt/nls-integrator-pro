@@ -5,7 +5,7 @@ import { injectContentIntoDocx, createAppendixDocx, extractTextFromDocx, createZ
 import { PEDAGOGY_MODELS, getDeviceId } from './utils';
 import packageJson from './package.json';
 
-import { Sparkles, ShieldAlert, Cpu, CheckCircle, Activity, Layers } from 'lucide-react';
+import { Sparkles, ShieldAlert, Cpu, CheckCircle, Activity, Layers, Zap } from 'lucide-react';
 import { supabase } from './config/supabaseClient';
 
 import Header from './components/Header';
@@ -483,7 +483,7 @@ const App: React.FC = () => {
           onOpenPricing={() => setIsPricingOpen(true)}
         />
 
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-16">
+        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <HeroSection appVersion={APP_VERSION} />
 
           {/* BỐ CỤC MASTER - DETAIL CHUẨN SAAS (CỘT TRÁI: NHẬP LIỆU & CẤU HÌNH - CỘT PHẢI: TRẠNG THÁI & MA TRẬN) */}
@@ -514,7 +514,7 @@ const App: React.FC = () => {
             </div>
 
             {/* CỘT PHẢI (5 PHẦN - STICKY): MA TRẬN ĐỀ XUẤT, TRẠNG THÁI VÀ NHẬT KÝ XỬ LÝ */}
-            <div className="lg:col-span-5 space-y-5 lg:sticky lg:top-20">
+            <div className="lg:col-span-5 space-y-5 lg:sticky lg:top-6">
               
               {/* MA TRẬN ĐỀ XUẤT SƯ PHẠM */}
               {pedagogicalEvaluation && (
@@ -545,23 +545,23 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* TRẠNG THÁI HỆ THỐNG & NHẬT KÝ TIẾN TRÌNH */}
+              {/* TRẠNG THÁI HỆ THỐNG & NHẬT KÝ TIẾN TRÌNH - BẢO TOÀN GỐC & CẢI TIẾN HIỆU ỨNG NHẸ NHÀNG */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                      <Activity className="w-4 h-4" />
+                    <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shadow-2xs">
+                      <Activity className="w-4 h-4 animate-pulse text-indigo-600" />
                     </div>
                     <div>
                       <h3 className="text-xs font-black text-slate-800 uppercase tracking-wide">Trạng thái Xử lý</h3>
-                      <p className="text-[11px] text-slate-400">Hệ thống AI chuẩn hóa tự động</p>
+                      <p className="text-[11px] text-indigo-600 font-semibold">EduSpark AI Core Engine</p>
                     </div>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 ${
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 transition-all ${
                     state.isProcessing 
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse' 
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200 shadow-xs animate-pulse' 
                       : state.result 
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs' 
                       : 'bg-slate-100 text-slate-600'
                   }`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${state.isProcessing ? 'bg-amber-500 animate-ping' : state.result ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
@@ -570,17 +570,17 @@ const App: React.FC = () => {
                 </div>
 
                 {state.isProcessing ? (
-                  <div className="py-6 text-center space-y-3 animate-fade-in-up">
-                    <div className="relative w-12 h-12 mx-auto">
-                      <div className="absolute inset-0 rounded-full border-3 border-indigo-100"></div>
-                      <div className="absolute inset-0 rounded-full border-3 border-indigo-600 border-t-transparent animate-spin"></div>
+                  <div className="py-6 text-center space-y-3 animate-fade-in-up bg-indigo-50/30 rounded-xl border border-indigo-100/50">
+                    <div className="relative w-10 h-10 mx-auto">
+                      <div className="absolute inset-0 rounded-full border-2 border-indigo-200"></div>
+                      <div className="absolute inset-0 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" />
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
                       </div>
                     </div>
                     <div className="space-y-0.5">
                       <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">AI Core đang chạy...</h4>
-                      <p className="text-[11px] text-slate-500">Giữ nguyên định dạng MathType & chuẩn 5512.</p>
+                      <p className="text-[11px] text-slate-500">Giữ nguyên định dạng MathType &amp; chuẩn 5512.</p>
                     </div>
                   </div>
                 ) : (
@@ -635,6 +635,51 @@ const App: React.FC = () => {
           </div>
         </main>
       </div>
+
+      <footer className="mt-16 border-t border-slate-200/80 bg-white/90 backdrop-blur-md py-4 text-xs text-slate-600 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-[11px] shadow-xs">
+              NLS
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="font-black text-slate-900 text-xs">NLS Integrator Pro</span>
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-gradient-to-r from-emerald-500 to-indigo-600 text-white shadow-2xs">v3.0 PRO</span>
+              <span className="text-slate-300 hidden sm:inline">•</span>
+              <span className="text-xs text-slate-500 hidden sm:inline">Tác giả: <strong className="text-slate-800">Đặng Mạnh Hùng</strong> (THPT Lý Nhân Tông)</span>
+            </div>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500 font-semibold bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/60">
+            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+            <span>CV 2345 • CV 5512 • TT 02/2025 • CV 3089 (GD STEM)</span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsPricingOpen(true)}
+              className="py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+            >
+              <span>💎</span> Mở khóa Gói PRO
+            </button>
+            <a
+              href="https://zalo.me/0978386357"
+              target="_blank"
+              rel="noreferrer"
+              className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-extrabold text-xs flex items-center gap-1.5 transition"
+            >
+              💬 Zalo
+            </a>
+            <a
+              href="tel:0978386357"
+              className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center gap-1.5 transition"
+            >
+              📞 097 8386 357
+            </a>
+          </div>
+        </div>
+      </footer>
 
       <PricingModal 
         isOpen={isPricingOpen}
