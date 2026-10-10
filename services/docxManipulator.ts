@@ -283,80 +283,47 @@ export const injectContentIntoDocx = async (
         let insertAnchorPos = -1;
         let isBeforeKeyword = false;
 
-        // BÓC TÁCH CHUẨN XÁC VÀ RẢI ĐỀU TẤT CẢ CÁC TIẾT (1, 2, 4...) VÀO CÁC HOẠT ĐỘNG
+        // TRÍCH XUẤT VÀ CHÈN MỐC TIẾT CĂN GIỮA, BÔI VÀNG NGAY PHẦN ĐẦU GIÁO ÁN ĐỂ SỞ/TRƯỜNG DỄ KIỂM TRA
         try {
-          let tietList: string[] = [];
           const headerAreaMatch = docXml.match(/Thời gian thực hiện:[\s\S]*?(?=I\. MỤC TIÊU)/i);
           if (headerAreaMatch) {
             const headerSnippet = headerAreaMatch[0];
-            // Bắt trọn vẹn tất cả các số tiết sau chữ PPCT hoặc trong ngoặc (Ví dụ: 1,2, 4 hoặc 1, 2, 4)
-            const foundTiers = headerSnippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s]+)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
-            if (foundTiers && foundTiers[1]) {
-              tietList = foundTiers[1].split(',').map(s => s.trim()).filter(Boolean);
-            }
-          }
-
-          if (tietList.length === 0) {
-            const matchTietInfo = docXml.match(/Thời gian thực hiện:\s*(\d+)\s*tiết/i);
-            const numTiet = matchTietInfo ? parseInt(matchTietInfo[1], 10) : 1;
-            if (numTiet > 1) {
-              for(let i = 1; i <= numTiet; i++) tietList.push(String(i));
-            }
-          }
-
-          if (tietList.length > 0) {
-            // Danh sách các Hoạt động lớn trong giáo án để rải đều các tiết tương ứng
-            const activityKeywords = [
-              "B. HÌNH THÀNH KIẾN THỨC MỚI", "HÌNH THÀNH KIẾN THỨC MỚI", 
-              "C. LUYỆN TẬP", "LUYỆN TẬP", 
-              "D. VẬN DỤNG", "VẬN DỤNG",
-              "Hoạt động 2:", "Hoạt động 3:", "Hoạt động 4:"
-            ];
+            // Lấy trọn vẹn thông tin tiết (ví dụ: "Tiết 3 theo PPCT: 3, 6, 9, 12" hoặc "Tiết 1, 2")
+            const matchTietDetail = headerSnippet.match(/(?:Tiết|tiết)\s*([\d,\s]+(?:\s*theo PPCT:[^)]*)?)/i) || headerSnippet.match(/Tiết\s*([\d,\s]+)/i);
             
-            let searchStartIdx = 0;
-            tietList.forEach((tLabel, index) => {
-              let formPos = -1;
-              // Ưu tiên quét theo thứ tự xuất hiện của các hoạt động lớn tương ứng với từng tiết
-              for (let i = index; i < activityKeywords.length; i++) {
-                const idx = docXml.indexOf(activityKeywords[i], searchStartIdx);
-                if (idx !== -1) {
-                  formPos = idx;
-                  break;
-                }
-              }
+            if (matchTietDetail) {
+              const tietInfoStr = matchTietDetail[0].trim();
+              
+              // Tạo một dòng hiển thị trang trọng, căn giữa, bôi vàng rực rỡ ngay dưới phần thời gian thực hiện
+              const centerYellowTietXml = `<w:p>
+                <w:pPr>
+                  <w:jc w:val="center"/>
+                  <w:spacing w:before="240" w:after="240"/>
+                </w:pPr>
+                <w:r>
+                  <w:rPr>
+                    <w:b/>
+                    <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
+                    <w:color w:val="000000"/>
+                    <w:sz w:val="26"/>
+                    <w:szCs w:val="26"/>
+                  </w:rPr>
+                  <w:t xml:space="preserve">📌 PHÂN ĐỊNH GIẢNG DẠY: ${escapeXml(tietInfoStr).toUpperCase()}</w:t>
+                </w:r>
+              </w:p>`;
 
-              // Fallback nếu không tìm thấy từ khóa hoạt động cụ thể thì tìm theo vị trí tuyến tính
-              if (formPos === -1) {
-                formPos = docXml.indexOf("HÌNH THÀNH KIẾN THỨC", searchStartIdx);
-              }
-
-              if (formPos !== -1) {
-                const pStart = docXml.lastIndexOf("<w:p", formPos);
+              // Chèn ngay trước mục I. MỤC TIÊU để Ban giám hiệu/Thanh tra nhìn thấy ngay trang đầu tiên
+              const objIdx = findFuzzyIndex(docXml, "I. MỤC TIÊU", 0);
+              if (objIdx !== -1) {
+                const pStart = docXml.lastIndexOf("<w:p", objIdx);
                 if (pStart !== -1) {
-                  const centerYellowTietXml = `<w:p>
-                    <w:pPr>
-                      <w:jc w:val="center"/>
-                      <w:spacing w:before="280" w:after="140"/>
-                    </w:pPr>
-                    <w:r>
-                      <w:rPr>
-                        <w:b/>
-                        <w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/>
-                        <w:color w:val="000000"/>
-                        <w:sz w:val="26"/>
-                        <w:szCs w:val="26"/>
-                      </w:rPr>
-                      <w:t xml:space="preserve">📌 TIẾT ${tLabel} (Theo PPCT)</w:t>
-                    </w:r>
-                  </w:p>`;
                   docXml = docXml.substring(0, pStart) + centerYellowTietXml + docXml.substring(pStart);
-                  searchStartIdx = pStart + centerYellowTietXml.length + 800;
                 }
               }
-            });
+            }
           }
         } catch (err) {
-          console.warn("Không thể tự động chèn đầy đủ các mốc tiết:", err);
+          console.warn("Không thể chèn phân định tiết:", err);
         }
 
         for (const kw of endKeywords) {
