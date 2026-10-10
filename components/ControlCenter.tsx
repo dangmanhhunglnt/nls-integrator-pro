@@ -30,17 +30,11 @@ export default function ControlCenter({
   state, setState, mode, setMode, stemTopic = '', setStemTopic, level, setLevel, outputFormat, setOutputFormat, highlightColor, setHighlightColor, pedagogy, setPedagogy, handleFileChange, handlePpctFileChange, handleAnalyze, handleFinalizeAndDownload
 }: ControlCenterProps) {
 
-  // State độc lập quản lý trạng thái bật/tắt nút STEM
   const [isStemActive, setIsStemActive] = useState<boolean>(Boolean(stemTopic));
-
-  // State lưu file PPCT tại component để hiển thị UI
   const [selectedPpctName, setSelectedPpctName] = useState<string>('');
-  
-  // State bổ sung danh sách bài học từ PPCT để chọn thủ công
   const [ppctLessons, setPpctLessons] = useState<string[]>([]);
   const [selectedLessonManual, setSelectedLessonManual] = useState<string>('');
 
-  // Tự động đồng bộ trạng thái khi prop stemTopic từ component cha thay đổi
   useEffect(() => {
     if (Boolean(stemTopic)) {
       setIsStemActive(true);
@@ -61,7 +55,335 @@ export default function ControlCenter({
       {state.step === 'upload' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up" style={{animationDelay: '0.1s'}}>
             
-            {/* Card 1: Chế độ tích hợp năng lực */}
+            {/* THÔNG TIN GIÁO ÁN & MÔN HỌC (ĐÃ ĐƯA LÊN TRÊN CÙNG ĐỂ THUẬN TAY) */}
+            <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 hover:shadow-md transition-all space-y-4">
+                <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                    <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide block">Thông tin Giáo án</span>
+                      <p className="text-[11px] text-slate-400">Cấu hình môn học, phân loại bài dạy và chiến lược trích xuất</p>
+                    </div>
+                </div>
+                
+                {/* PHÂN LOẠI BÀI DẠY (CHÍNH KHÓA / CHUYÊN ĐỀ HỌC TẬP) */}
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-indigo-500" /> Phân loại bài dạy theo PPCT
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setState(prev => ({ ...prev, lessonCategory: 'MAIN' as LessonCategory }))}
+                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition cursor-pointer flex items-center justify-center gap-2 ${
+                            (state.lessonCategory || 'MAIN') === 'MAIN'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              : 'bg-slate-50/80 text-slate-700 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          📚 Chương trình chính khóa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setState(prev => ({ ...prev, lessonCategory: 'CHUYEN_DE' as LessonCategory }))}
+                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition cursor-pointer flex items-center justify-center gap-2 ${
+                            state.lessonCategory === 'CHUYEN_DE'
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                              : 'bg-slate-50/80 text-slate-700 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          🔬 Chuyên đề học tập (35 tiết)
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
+                          <Layers className="w-3 h-3 text-indigo-500" /> Môn học
+                        </label>
+                        <div className="relative group">
+                          <select 
+                            className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" 
+                            value={state.subject} 
+                            onChange={(e) => {
+                              const newSub = e.target.value as SubjectType;
+                              setState(prev => ({
+                                ...prev, 
+                                subject: newSub,
+                                grade: '' as GradeType
+                              }));
+                            }}
+                          >
+                              <option value="">-- Chọn môn --</option>
+                              
+                              <optgroup label="Cấp THCS & THPT - Môn Bắt buộc">
+                                  <option value="Toán">Toán học</option>
+                                  <option value="Ngữ Văn">Ngữ Văn</option>
+                                  <option value="Tiếng Anh">Tiếng Anh</option>
+                                  <option value="Lịch Sử">Lịch Sử</option>
+                                  <option value="Khoa học tự nhiên">Khoa học tự nhiên (THCS)</option>
+                                  <option value="Lịch sử và Địa lí">Lịch sử và Địa lí (THCS)</option>
+                                  <option value="Giáo dục thể chất">GD Thể chất</option>
+                                  <option value="Giáo dục quốc phòng và an ninh">GDQP & AN</option>
+                                  <option value="Hoạt động trải nghiệm, hướng nghiệp">HĐ Trải nghiệm, hướng nghiệp</option>
+                              </optgroup>
+
+                              <optgroup label="Cấp THCS & THPT - Môn Lựa chọn">
+                                  <option value="Vật Lí">Vật Lí</option>
+                                  <option value="Hóa Học">Hóa Học</option>
+                                  <option value="Sinh Học">Sinh Học</option>
+                                  <option value="Địa Lí">Địa Lí</option>
+                                  <option value="Giáo dục công dân">Giáo dục công dân (THCS)</option>
+                                  <option value="Giáo dục kinh tế và pháp luật">GDKT & PL (THPT)</option>
+                                  <option value="Tin Học">Tin Học</option>
+                                  <option value="Công nghệ (Công nghiệp)">Công nghệ (Công nghiệp)</option>
+                                  <option value="Công nghệ (Nông nghiệp)">Công nghệ (Nông nghiệp)</option>
+                                  <option value="Âm Nhạc">Âm Nhạc</option>
+                                  <option value="Mỹ Thuật">Mỹ Thuật</option>
+                              </optgroup>
+
+                              <optgroup label="Cấp Tiểu học (Cấp 1)">
+                                  <option value="Toán (Tiểu học)">Toán (Tiểu học)</option>
+                                  <option value="Tiếng Việt">Tiếng Việt</option>
+                                  <option value="Tiếng Anh (Tiểu học)">Tiếng Anh (Tiểu học)</option>
+                                  <option value="Tự nhiên và Xã hội">Tự nhiên và Xã hội (Lớp 1, 2, 3)</option>
+                                  <option value="Khoa học">Khoa học (Lớp 4, 5)</option>
+                                  <option value="Lịch sử và Địa lí (Tiểu học)">Lịch sử và Địa lí (Lớp 4, 5)</option>
+                                  <option value="Tin học và Công nghệ">Tin học và Công nghệ (Lớp 3, 4, 5)</option>
+                                  <option value="Đạo đức">Đạo đức</option>
+                                  <option value="Âm Nhạc (Tiểu học)">Âm Nhạc (Tiểu học)</option>
+                                  <option value="Mỹ Thuật (Tiểu học)">Mĩ Thuật (Tiểu học)</option>
+                                  <option value="Giáo dục thể chất (Tiểu học)">Giáo dục thể chất (Tiểu học)</option>
+                                  <option value="Hoạt động trải nghiệm">Hoạt động trải nghiệm (Tiểu học)</option>
+                              </optgroup>
+                          </select>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
+                          <Target className="w-3 h-3 text-indigo-500" /> Khối lớp
+                        </label>
+                        <div className="relative group">
+                          <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={state.grade} onChange={(e) => setState(prev => ({...prev, grade: e.target.value as GradeType}))}>
+                              <option value="">-- Chọn khối --</option>
+                              <optgroup label="Trung học Phổ thông (Cấp 3)">
+                                  <option value="Lớp 10">Lớp 10</option>
+                                  <option value="Lớp 11">Lớp 11</option>
+                                  <option value="Lớp 12">Lớp 12</option>
+                              </optgroup>
+                              <optgroup label="Trung học Cơ sở (Cấp 2)">
+                                  <option value="Lớp 6">Lớp 6</option>
+                                  <option value="Lớp 7">Lớp 7</option>
+                                  <option value="Lớp 8">Lớp 8</option>
+                                  <option value="Lớp 9">Lớp 9</option>
+                              </optgroup>
+                              <optgroup label="Tiểu học (Cấp 1)">
+                                  <option value="Lớp 1">Lớp 1</option>
+                                  <option value="Lớp 2">Lớp 2</option>
+                                  <option value="Lớp 3">Lớp 3</option>
+                                  <option value="Lớp 4">Lớp 4</option>
+                                  <option value="Lớp 5">Lớp 5</option>
+                              </optgroup>
+                          </select>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* CHIẾN LƯỢC TRÍCH XUẤT */}
+                <div className="space-y-1.5 pt-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Chiến lược trích xuất</label>
+                    <div className="relative group">
+                      <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={pedagogy} onChange={(e) => setPedagogy(e.target.value)}>
+                          {Object.entries(PEDAGOGY_MODELS).map(([key, value]) => (
+                              <option key={key} value={key}>{value.name}</option>
+                          ))}
+                      </select>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                    </div>
+                    <p className="text-[10px] text-slate-400 italic pl-1 flex items-center gap-1.5 mt-1">
+                      <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> {PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.desc}
+                    </p>
+                </div>
+            </div>
+
+            {/* TÀI LIỆU ĐẦU VÀO (TẢI LÊN GIÁO ÁN VÀ PPCT) */}
+            <div className="col-span-1 md:col-span-2 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
+                            * File Giáo án (.docx) {fileCount > 1 && <span className="text-indigo-600 font-extrabold">(Đã chọn {fileCount} file)</span>}
+                        </label>
+                        <label className={`relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-4 group ${
+                          fileCount > 0 
+                          ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
+                          : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
+                        }`}>
+                            <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
+                                {fileCount > 0 ? (
+                                    <div className="flex items-center gap-2 w-full px-2">
+                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+                                            {fileCount > 1 ? <Files className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                                        </div>
+                                        <div className="min-w-0 flex-1 text-left">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
+                                                    {fileCount > 1 ? `Đã nạp ${fileCount} file` : 'Đã nạp 1 file'}
+                                                </span>
+                                            </div>
+                                            <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
+                                                {fileCount > 1 ? state.files.map(f => f.name).join(', ') : state.file?.name}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 cursor-pointer">
+                                                <RefreshCw className="w-3 h-3" /> Đổi
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setState(prev => ({ ...prev, file: null, files: [], result: null, generatedContent: null }));
+                                                }}
+                                                className="text-[10px] text-red-600 font-bold hover:bg-red-50 flex items-center gap-0.5 bg-white px-2 py-1 rounded-lg border border-red-200 cursor-pointer transition"
+                                                title="Xóa file giáo án"
+                                            >
+                                                ✕ Xóa
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                            <FileUp className="w-4 h-4" />
+                                        </div>
+                                        <p className="font-bold text-slate-700 text-xs">Tải lên Giáo án (.docx)</p>
+                                        <span className="text-[10px] text-slate-400 mt-0.5">Chọn 1 hoặc giữ Ctrl chọn nhiều file cùng lúc</span>
+                                    </>
+                                )}
+                            </div>
+                            <input type="file" accept=".docx" multiple className="hidden" onChange={handleFileChange} />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
+                            File Phân phối chương trình (Tùy chọn)
+                        </label>
+                        <label className={`relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-4 group ${
+                          selectedPpctName 
+                          ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
+                          : 'border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
+                        }`}>
+                            <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
+                                {selectedPpctName ? (
+                                    <div className="flex items-center gap-2 w-full px-2">
+                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+                                            <CheckCircle2 className="w-5 h-5" />
+                                        </div>
+                                        <div className="min-w-0 flex-1 text-left">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
+                                                    Đã nạp PPCT
+                                                </span>
+                                            </div>
+                                            <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
+                                                {selectedPpctName}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 cursor-pointer">
+                                                <RefreshCw className="w-3 h-3" /> Đổi
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedPpctName('');
+                                                    setPpctLessons([]);
+                                                    setSelectedLessonManual('');
+                                                    if (handlePpctFileChange) {
+                                                        handlePpctFileChange(null);
+                                                    }
+                                                }}
+                                                className="text-[10px] text-red-600 font-bold hover:bg-red-50 flex items-center gap-0.5 bg-white px-2 py-1 rounded-lg border border-red-200 cursor-pointer transition"
+                                                title="Xóa file PPCT"
+                                            >
+                                                ✕ Xóa
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="w-9 h-9 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                            <FileUp className="w-4 h-4" />
+                                        </div>
+                                        <p className="font-bold text-slate-700 text-xs">Tải lên PPCT</p>
+                                        <span className="text-[10px] text-slate-400 mt-0.5">Hỗ trợ định dạng .docx</span>
+                                    </>
+                                )}
+                            </div>
+                            <input 
+                              type="file" 
+                              accept=".docx" 
+                              className="hidden" 
+                              onChange={async (e) => {
+                                const ppctFile = e.target.files?.[0] || null;
+                                if (ppctFile) {
+                                  setSelectedPpctName(ppctFile.name);
+                                  if (handlePpctFileChange) {
+                                    handlePpctFileChange(ppctFile);
+                                  }
+                                  try {
+                                    const lessons = await getUniqueLessonsFromPPCT(ppctFile);
+                                    setPpctLessons(lessons);
+                                    if (lessons.length > 0) {
+                                        setSelectedLessonManual(lessons[0]);
+                                        setState(prev => ({ ...prev, selectedLessonManual: lessons[0] }));
+                                    }
+                                  } catch (err) {
+                                    console.warn("Không thể bóc tách danh sách bài học:", err);
+                                  }
+                                }
+                              }} 
+                            />
+                        </label>
+                    </div>
+                </div>
+
+                {/* KHUNG CHỌN THỦ CÔNG BÀI HỌC TỪ PPCT */}
+                {hasPpct && ppctLessons.length > 0 && (
+                    <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-200 space-y-2 animate-fade-in-up">
+                        <label className="text-[11px] font-extrabold text-indigo-900 uppercase flex items-center gap-1.5">
+                            <Target className="w-3.5 h-3.5 text-indigo-600" /> Chọn chính xác bài học từ PPCT:
+                        </label>
+                        <select
+                            value={state.selectedLessonManual || selectedLessonManual}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSelectedLessonManual(val);
+                                setState(prev => ({ ...prev, selectedLessonManual: val }));
+                            }}
+                            className="w-full p-2.5 rounded-xl border border-indigo-300 bg-white text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                        >
+                            {ppctLessons.map((lessonName, idx) => (
+                                <option key={idx} value={lessonName}>
+                                    {idx + 1}. {lessonName}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] text-indigo-700 italic">
+                          💡 Hệ thống sẽ tự động ghép giáo án hiện tại với bài học được chọn, tính đúng tổng số tiết và tuần trong PPCT.
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* CHẾ ĐỘ TÍCH HỢP NĂNG LỰC */}
             <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-all space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
@@ -301,345 +623,16 @@ export default function ControlCenter({
 
             </div>
 
-            {/* Card 2: Thông tin chuyên môn */}
-            <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 hover:shadow-md transition-all space-y-4">
-                <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-                    <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                      <BookOpen className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide block">Thông tin Giáo án</span>
-                      <p className="text-[11px] text-slate-400">Cấu hình môn học, phân loại bài dạy và chiến lược trích xuất</p>
-                    </div>
-                </div>
-                
-                {/* PHÂN LOẠI BÀI DẠY (CHÍNH KHÓA / CHUYÊN ĐỀ HỌC TẬP) */}
-                <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
-                      <Layers className="w-3 h-3 text-indigo-500" /> Phân loại bài dạy theo PPCT
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setState(prev => ({ ...prev, lessonCategory: 'MAIN' as LessonCategory }))}
-                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition cursor-pointer flex items-center justify-center gap-2 ${
-                            (state.lessonCategory || 'MAIN') === 'MAIN'
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                              : 'bg-slate-50/80 text-slate-700 border-slate-200 hover:bg-white'
-                          }`}
-                        >
-                          📚 Chương trình chính khóa
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setState(prev => ({ ...prev, lessonCategory: 'CHUYEN_DE' as LessonCategory }))}
-                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition cursor-pointer flex items-center justify-center gap-2 ${
-                            state.lessonCategory === 'CHUYEN_DE'
-                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                              : 'bg-slate-50/80 text-slate-700 border-slate-200 hover:bg-white'
-                          }`}
-                        >
-                          🔬 Chuyên đề học tập (35 tiết)
-                        </button>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
-                          <Layers className="w-3 h-3 text-indigo-500" /> Môn học
-                        </label>
-                        <div className="relative group">
-                          <select 
-                            className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" 
-                            value={state.subject} 
-                            onChange={(e) => {
-                              const newSub = e.target.value as SubjectType;
-                              setState(prev => ({
-                                ...prev, 
-                                subject: newSub,
-                                grade: '' as GradeType
-                              }));
-                            }}
-                          >
-                              <option value="">-- Chọn môn --</option>
-                              
-                              <optgroup label="Cấp THCS & THPT - Môn Bắt buộc">
-                                  <option value="Toán">Toán học</option>
-                                  <option value="Ngữ Văn">Ngữ Văn</option>
-                                  <option value="Tiếng Anh">Tiếng Anh</option>
-                                  <option value="Lịch Sử">Lịch Sử</option>
-                                  <option value="Khoa học tự nhiên">Khoa học tự nhiên (THCS)</option>
-                                  <option value="Lịch sử và Địa lí">Lịch sử và Địa lí (THCS)</option>
-                                  <option value="Giáo dục thể chất">GD Thể chất</option>
-                                  <option value="Giáo dục quốc phòng và an ninh">GDQP & AN</option>
-                                  <option value="Hoạt động trải nghiệm, hướng nghiệp">HĐ Trải nghiệm, hướng nghiệp</option>
-                              </optgroup>
-
-                              <optgroup label="Cấp THCS & THPT - Môn Lựa chọn">
-                                  <option value="Vật Lí">Vật Lí</option>
-                                  <option value="Hóa Học">Hóa Học</option>
-                                  <option value="Sinh Học">Sinh Học</option>
-                                  <option value="Địa Lí">Địa Lí</option>
-                                  <option value="Giáo dục công dân">Giáo dục công dân (THCS)</option>
-                                  <option value="Giáo dục kinh tế và pháp luật">GDKT & PL (THPT)</option>
-                                  <option value="Tin Học">Tin Học</option>
-                                  <option value="Công nghệ (Công nghiệp)">Công nghệ (Công nghiệp)</option>
-                                  <option value="Công nghệ (Nông nghiệp)">Công nghệ (Nông nghiệp)</option>
-                                  <option value="Âm Nhạc">Âm Nhạc</option>
-                                  <option value="Mỹ Thuật">Mỹ Thuật</option>
-                              </optgroup>
-
-                              <optgroup label="Cấp Tiểu học (Cấp 1)">
-                                  <option value="Toán (Tiểu học)">Toán (Tiểu học)</option>
-                                  <option value="Tiếng Việt">Tiếng Việt</option>
-                                  <option value="Tiếng Anh (Tiểu học)">Tiếng Anh (Tiểu học)</option>
-                                  <option value="Tự nhiên và Xã hội">Tự nhiên và Xã hội (Lớp 1, 2, 3)</option>
-                                  <option value="Khoa học">Khoa học (Lớp 4, 5)</option>
-                                  <option value="Lịch sử và Địa lí (Tiểu học)">Lịch sử và Địa lí (Lớp 4, 5)</option>
-                                  <option value="Tin học và Công nghệ">Tin học và Công nghệ (Lớp 3, 4, 5)</option>
-                                  <option value="Đạo đức">Đạo đức</option>
-                                  <option value="Âm Nhạc (Tiểu học)">Âm Nhạc (Tiểu học)</option>
-                                  <option value="Mỹ Thuật (Tiểu học)">Mĩ Thuật (Tiểu học)</option>
-                                  <option value="Giáo dục thể chất (Tiểu học)">Giáo dục thể chất (Tiểu học)</option>
-                                  <option value="Hoạt động trải nghiệm">Hoạt động trải nghiệm (Tiểu học)</option>
-                              </optgroup>
-                          </select>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
-                        </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
-                          <Target className="w-3 h-3 text-indigo-500" /> Khối lớp
-                        </label>
-                        <div className="relative group">
-                          <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={state.grade} onChange={(e) => setState(prev => ({...prev, grade: e.target.value as GradeType}))}>
-                              <option value="">-- Chọn khối --</option>
-                              <optgroup label="Trung học Phổ thông (Cấp 3)">
-                                  <option value="Lớp 10">Lớp 10</option>
-                                  <option value="Lớp 11">Lớp 11</option>
-                                  <option value="Lớp 12">Lớp 12</option>
-                              </optgroup>
-                              <optgroup label="Trung học Cơ sở (Cấp 2)">
-                                  <option value="Lớp 6">Lớp 6</option>
-                                  <option value="Lớp 7">Lớp 7</option>
-                                  <option value="Lớp 8">Lớp 8</option>
-                                  <option value="Lớp 9">Lớp 9</option>
-                              </optgroup>
-                              <optgroup label="Tiểu học (Cấp 1)">
-                                  <option value="Lớp 1">Lớp 1</option>
-                                  <option value="Lớp 2">Lớp 2</option>
-                                  <option value="Lớp 3">Lớp 3</option>
-                                  <option value="Lớp 4">Lớp 4</option>
-                                  <option value="Lớp 5">Lớp 5</option>
-                              </optgroup>
-                          </select>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
-                        </div>
-                    </div>
-                </div>
-
-                {/* CHIẾN LƯỢC TRÍCH XUẤT */}
-                <div className="space-y-1.5 pt-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Chiến lược trích xuất</label>
-                    <div className="relative group">
-                      <select className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer hover:bg-white" value={pedagogy} onChange={(e) => setPedagogy(e.target.value)}>
-                          {Object.entries(PEDAGOGY_MODELS).map(([key, value]) => (
-                              <option key={key} value={key}>{value.name}</option>
-                          ))}
-                      </select>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
-                    </div>
-                    <p className="text-[10px] text-slate-400 italic pl-1 flex items-center gap-1.5 mt-1">
-                      <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> {PEDAGOGY_MODELS[pedagogy as keyof typeof PEDAGOGY_MODELS]?.desc}
-                    </p>
-                </div>
-            </div>
-
-            {/* Card 3: Tài liệu đầu vào */}
-            <div className="col-span-1 md:col-span-2 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
-                            * File Giáo án (.docx) {fileCount > 1 && <span className="text-indigo-600 font-extrabold">(Đã chọn {fileCount} file)</span>}
-                        </label>
-                        <label className={`relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-4 group ${
-                          fileCount > 0 
-                          ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
-                          : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
-                        }`}>
-                            <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
-                                {fileCount > 0 ? (
-                                    <div className="flex items-center gap-2 w-full px-2">
-                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-                                            {fileCount > 1 ? <Files className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-                                        </div>
-                                        <div className="min-w-0 flex-1 text-left">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
-                                                    {fileCount > 1 ? `Đã nạp ${fileCount} file` : 'Đã nạp 1 file'}
-                                                </span>
-                                            </div>
-                                            <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
-                                                {fileCount > 1 ? state.files.map(f => f.name).join(', ') : state.file?.name}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 cursor-pointer">
-                                                <RefreshCw className="w-3 h-3" /> Đổi
-                                            </span>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setState(prev => ({ ...prev, file: null, files: [], result: null, generatedContent: null }));
-                                                }}
-                                                className="text-[10px] text-red-600 font-bold hover:bg-red-50 flex items-center gap-0.5 bg-white px-2 py-1 rounded-lg border border-red-200 cursor-pointer transition"
-                                                title="Xóa file giáo án"
-                                            >
-                                                ✕ Xóa
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                            <FileUp className="w-4 h-4" />
-                                        </div>
-                                        <p className="font-bold text-slate-700 text-xs">Tải lên Giáo án (.docx)</p>
-                                        <span className="text-[10px] text-slate-400 mt-0.5">Chọn 1 hoặc giữ Ctrl chọn nhiều file cùng lúc</span>
-                                    </>
-                                )}
-                            </div>
-                            <input type="file" accept=".docx" multiple className="hidden" onChange={handleFileChange} />
-                        </label>
-                    </div>
-
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 block mb-1.5">
-                            File Phân phối chương trình (Tùy chọn)
-                        </label>
-                        <label className={`relative flex flex-col items-center justify-center w-full h-28 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-4 group ${
-                          selectedPpctName 
-                          ? 'border-emerald-500/80 bg-emerald-50/20 shadow-xs' 
-                          : 'border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/20 shadow-xs'
-                        }`}>
-                            <div className="flex flex-col items-center justify-center text-center z-10 w-full transition-transform duration-300 group-hover:scale-[1.02]">
-                                {selectedPpctName ? (
-                                    <div className="flex items-center gap-2 w-full px-2">
-                                        <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-                                            <CheckCircle2 className="w-5 h-5" />
-                                        </div>
-                                        <div className="min-w-0 flex-1 text-left">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[9px] font-extrabold rounded-md uppercase">
-                                                    Đã nạp PPCT
-                                                </span>
-                                            </div>
-                                            <p className="font-bold text-slate-800 text-xs truncate mt-0.5">
-                                                {selectedPpctName}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            <span className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 cursor-pointer">
-                                                <RefreshCw className="w-3 h-3" /> Đổi
-                                            </span>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedPpctName('');
-                                                    setPpctLessons([]);
-                                                    setSelectedLessonManual('');
-                                                    if (handlePpctFileChange) {
-                                                        handlePpctFileChange(null);
-                                                    }
-                                                }}
-                                                className="text-[10px] text-red-600 font-bold hover:bg-red-50 flex items-center gap-0.5 bg-white px-2 py-1 rounded-lg border border-red-200 cursor-pointer transition"
-                                                title="Xóa file PPCT"
-                                            >
-                                                ✕ Xóa
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="w-9 h-9 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mb-1.5 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                            <FileUp className="w-4 h-4" />
-                                        </div>
-                                        <p className="font-bold text-slate-700 text-xs">Tải lên PPCT</p>
-                                        <span className="text-[10px] text-slate-400 mt-0.5">Hỗ trợ định dạng .docx</span>
-                                    </>
-                                )}
-                            </div>
-                            <input 
-                              type="file" 
-                              accept=".docx" 
-                              className="hidden" 
-                              onChange={async (e) => {
-                                const ppctFile = e.target.files?.[0] || null;
-                                if (ppctFile) {
-                                  setSelectedPpctName(ppctFile.name);
-                                  if (handlePpctFileChange) {
-                                    handlePpctFileChange(ppctFile);
-                                  }
-                                  // Tự động bóc tách danh sách bài học để chọn thủ công
-                                  try {
-                                    const lessons = await getUniqueLessonsFromPPCT(ppctFile);
-                                    setPpctLessons(lessons);
-                                    if (lessons.length > 0) {
-                                        setSelectedLessonManual(lessons[0]);
-                                        setState(prev => ({ ...prev, selectedLessonManual: lessons[0] }));
-                                    }
-                                  } catch (err) {
-                                    console.warn("Không thể bóc tách danh sách bài học:", err);
-                                  }
-                                }
-                              }} 
-                            />
-                        </label>
-                    </div>
-                </div>
-
-                {/* KHUNG CHỌN THỦ CÔNG BÀI HỌC TỪ PPCT (HIỆN KHI ĐÃ NẠP PPCT) */}
-                {hasPpct && ppctLessons.length > 0 && (
-                    <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-200 space-y-2 animate-fade-in-up">
-                        <label className="text-[11px] font-extrabold text-indigo-900 uppercase flex items-center gap-1.5">
-                            <Target className="w-3.5 h-3.5 text-indigo-600" /> Chọn chính xác bài học từ PPCT:
-                        </label>
-                        <select
-                            value={state.selectedLessonManual || selectedLessonManual}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setSelectedLessonManual(val);
-                                setState(prev => ({ ...prev, selectedLessonManual: val }));
-                            }}
-                            className="w-full p-2.5 rounded-xl border border-indigo-300 bg-white text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
-                        >
-                            {ppctLessons.map((lessonName, idx) => (
-                                <option key={idx} value={lessonName}>
-                                    {idx + 1}. {lessonName}
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-[10px] text-indigo-700 italic">
-                          💡 Hệ thống sẽ tự động ghép giáo án hiện tại với bài học được chọn, tính đúng tổng số tiết và tuần trong PPCT.
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* Nút Kích hoạt AI Thương mại hiện đại thông minh */}
+            {/* NÚT KÍCH HOẠT AI THƯƠNG MẠI HIỆN ĐẠI THÔNG MINH */}
             {!state.isProcessing && (
               <div className="col-span-1 md:col-span-2 mt-2 animate-fade-in-up">
                   <button 
                     disabled={fileCount === 0} 
                     onClick={handleAnalyze} 
                     className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer active:scale-[0.99] ${
-                          fileCount === 0 
-                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                          : hasPpct
+                        fileCount === 0 
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                        : hasPpct
                             ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-purple-500/30 hover:shadow-purple-500/50 hover:-translate-y-0.5'
                             : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-600 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5'
                       }`}
