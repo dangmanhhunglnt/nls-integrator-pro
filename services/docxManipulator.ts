@@ -87,7 +87,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (TỰ ĐỘNG PHÂN RÃ SỐ TIẾT CHUẨN XÁC)
+ * 4. HÀM XUẤT HOẶC CHÈN NỘI DUNG VÀO FILE WORD (PHÂN RÃ TIẾT CHUẨN XÁC THEO PPCT)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -116,15 +116,15 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // Tự động bóc tách số tiết thực tế từ file Word (ví dụ: 3 tiết, 4 tiết, hoặc danh sách tiết PPCT)
-        let tietPhanRaInfo = "";
+        // Bóc tách danh sách tiết theo PPCT (ví dụ: "3, 6, 9, 12" hoặc "1, 2, 4") trực tiếp từ văn bản gốc
+        let tietList: string[] = [];
         try {
-          const matchTiet = docXml.match(/(?:Tiết|tiết)\s*([\d,\s]+(?:\s*theo PPCT[^)]*)?)/i) || docXml.match(/Thời gian thực hiện:\s*([\d\s]+)\s*tiết/i);
-          if (matchTiet) {
-            tietPhanRaInfo = `[Phân rã theo PPCT: ${matchTiet[0].trim()}]`;
+          const matchPPCT = docXml.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s]+)/i) || docXml.match(/Tiết\s*([\d,\s]+)/i);
+          if (matchPPCT && matchPPCT[1]) {
+            tietList = matchPPCT[1].split(',').map(s => s.trim()).filter(Boolean);
           }
         } catch(err) {
-          console.warn(err);
+          console.warn("Không bóc tách được danh sách tiết:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition));
@@ -178,7 +178,9 @@ export const injectContentIntoDocx = async (
             rPrBody += style.fontTag;
           }
 
-          const headerTitle = customPrefix || `👉 ${label} ${tietPhanRaInfo}:`;
+          // Hiển thị rõ ràng các tiết theo đúng PPCT (ví dụ: Tiết 3, Tiết 6,...) vào phần tích hợp AI
+          const tietStr = tietList.length > 0 ? ` (Phân rã theo PPCT - Tiết ${tietList.join(', ')})` : "";
+          const headerTitle = customPrefix || `👉 ${label}${tietStr}:`;
 
           let xmlBlock = `<w:p>
                             <w:pPr><w:ind w:left="360"/></w:pPr>
