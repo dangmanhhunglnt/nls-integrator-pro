@@ -143,25 +143,35 @@ export const injectContentIntoDocx = async (
                 tietList = ["1"];
               }
 
-              // Lấy trực tiếp nội dung chi tiết từng tiết từ cột "Nội dung" (noiDung) trong file PPCT của thầy
+              // Bóc tách và phân bổ nội dung bám sát đề mục SGK cho từng tiết học
               let sgkSections: string[] = [];
               
               if (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
                 sgkSections = content.summary_table.map((item: any) => item.content || item.topic || '').filter(Boolean);
               }
 
-              // Nếu bảng tóm tắt chưa có, tự động tách nội dung từ chuỗi dòng PPCT tương ứng
-              if (sgkSections.length === 0 && content && typeof content === 'object' && 'raw_content' in content) {
-                sgkSections = String(content.raw_content).split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+              // Nếu chưa có bảng tóm tắt, tự động quét raw_content và làm sạch các đề mục SGK (1., 2., a, b,...)
+              if (sgkSections.length === 0 && content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
+                const rawText = String(content.raw_content);
+                // Tách theo các dòng hoặc theo các dấu định danh đề mục SGK (như 1., 2., 3.,...)
+                sgkSections = rawText
+                  .split(/(?=\d+\.|\bphần\b|\bmục\b)/i)
+                  .map(s => s.trim())
+                  .filter(Boolean);
+                  
+                if (sgkSections.length === 0) {
+                  sgkSections = rawText.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                }
               }
 
-              // Fallback an toàn nếu trống
+              // Fallback chuẩn SGK nếu trống
               if (sgkSections.length === 0) {
                 sgkSections = [
-                  "Nội dung trọng tâm và lý thuyết cơ bản theo chuẩn chương trình",
-                  "Hệ thống bài tập luyện tập và vận dụng"
+                  "Nội dung trọng tâm và lý thuyết cơ bản theo sách giáo khoa",
+                  "Hệ thống bài tập luyện tập, vận dụng và củng cố"
                 ];
               }
+            
 
               let phanDinhXml = "";
               tietList.forEach((tNum, idx) => {
