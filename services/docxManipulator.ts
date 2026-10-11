@@ -173,17 +173,40 @@ export const injectContentIntoDocx = async (
                 ];
               }
 
+              
+              // XỬ LÝ TỔNG QUÁT CHO MỌI MÔN HỌC & MỌI TIẾT TỪ DỮ LIỆU PPCT
+              // ==========================================
+              let periodContents: { tiet: string; noiDung: string }[] = [];
+
+              if (content && typeof content === 'object') {
+                if ('summary_table' in content && Array.isArray(content.summary_table)) {
+                  periodContents = content.summary_table.map((item: any) => ({
+                    tiet: String(item.tiet || ''),
+                    noiDung: String(item.content || item.topic || '')
+                  })).filter(item => item.noiDung);
+                }
+              }
+
               let phanDinhXml = "";
               tietList.forEach((tNum, idx) => {
-                // Lấy đúng phần tử theo thứ tự tiết (idx 0 lấy dòng 0, idx 1 lấy dòng 1)
-                // Nếu mảng chỉ có 1 dòng mà có nhiều tiết, ta dùng dòng đó hoặc phân rã thêm
-                let sectionContent = sgkSections[idx] || sgkSections[0] || `Luyện tập chuyên đề tiết ${tNum}`;
-                
-                // Làm sạch tiền tố rác nếu có
-                sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
-                if (!sectionContent) {
-                  sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
+                let sectionContent = "";
+
+                // Tìm xem trong dữ liệu PPCT có dòng nào khớp chính xác với số tiết tNum này không
+                const matchedRow = periodContents.find(p => p.tiet === String(tNum) || p.tiet.split(/[\,\-\s]+/).includes(String(tNum)));
+
+                if (matchedRow) {
+                  sectionContent = matchedRow.noiDung;
+                } else if (periodContents[idx] && periodContents[idx].noiDung) {
+                  sectionContent = periodContents[idx].noiDung;
+                } else if (content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
+                  const lines = String(content.raw_content).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                  sectionContent = lines[idx] || lines[0] || `Nội dung trọng tâm tiết ${tNum}`;
+                } else {
+                  sectionContent = `Nội dung trọng tâm và luyện tập theo chuẩn PPCT`;
                 }
+
+                // Làm sạch định dạng rác nếu có
+                sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
 
                 phanDinhXml += `
                   <w:p>
