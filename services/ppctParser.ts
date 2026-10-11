@@ -360,15 +360,14 @@ export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]
       const cleanName = r.baiHoc.trim();
       const lowerKey = cleanName.toLowerCase();
       
-      // Bỏ qua các dòng rác, tiêu đề bảng
+      // Bỏ qua các dòng rác, tiêu đề bảng nhưng GIỮ LẠI các bài Ôn tập / Bài tập cuối chương
       if (
         lowerKey.includes('nội dung') ||
         lowerKey.includes('tên bài') ||
-        lowerKey.includes('chương') ||
         lowerKey.includes('ghi chú') ||
         lowerKey.includes('tiết số') ||
         lowerKey.startsWith('câu ') ||
-        lowerKey.startsWith('bài học')
+        (lowerKey.startsWith('chương') && !lowerKey.includes('ôn tập') && !lowerKey.includes('cuối chương'))
       ) {
         continue;
       }
