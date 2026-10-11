@@ -175,28 +175,26 @@ export const injectContentIntoDocx = async (
 
               let phanDinhXml = "";
               tietList.forEach((tNum, idx) => {
-                // Dò tìm chính xác dòng nội dung trong PPCT có chứa số tiết hiện tại (VD: chứa "16")
-                let matchedSection = sgkSections.find(s => s.includes(tNum) || s.toLowerCase().includes(`tiết ${tNum}`));
+                // Lấy đúng phần tử theo thứ tự tiết (idx 0 lấy dòng 0, idx 1 lấy dòng 1)
+                // Nếu mảng chỉ có 1 dòng mà có nhiều tiết, ta dùng dòng đó hoặc phân rã thêm
+                let sectionContent = sgkSections[idx] || sgkSections[0] || `Luyện tập chuyên đề tiết ${tNum}`;
                 
-                // Nếu không tìm thấy, lấy theo thứ tự dòng tương ứng (idx) hoặc dòng đầu tiên
-                let sectionContent = matchedSection || sgkSections[idx] || sgkSections[0] || `Luyện tập chuyên đề tiết ${tNum}`;
-                
-                // Làm sạch tiền tố số tiết nếu lặp lại
-                sectionContent = sectionContent.replace(new RegExp(`^(tiết|tiet)\\s*${tNum}\\s*[:\\-]?\\s*`, 'i'), '').trim();
+                // Làm sạch tiền tố rác nếu có
+                sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
                 if (!sectionContent) {
                   sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
                 }
 
-        phanDinhXml += `
-          <w:p>
-            <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
-            <w:r>
-              <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr>
-              <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
-            </w:r>
-          </w:p>
-        `;
-      });
+                phanDinhXml += `
+                  <w:p>
+                    <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
+                    <w:r>
+                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
+                    </w:r>
+                  </w:p>
+                `;
+              });
 
               docXml = docXml.substring(0, insertTargetPos) + phanDinhXml + docXml.substring(insertTargetPos);
             }
