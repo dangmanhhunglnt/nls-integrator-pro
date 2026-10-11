@@ -217,11 +217,11 @@ export async function generateCompetencyIntegration(
     const periodInstruction = `\n\n⚠️ QUY TẮC BẮT BUỘC VỀ PHÂN RÃ TIẾT (VI PHẠM SẼ BỊ LỖI HỒ SƠ):\n- Dù file gốc ghi thời gian là bao nhiêu tiết, hễ thấy trong phân phối chương trình có liệt kê các tiết (Ví dụ: "Tiết 1, 2 theo PPCT: 1, 2, 4" hoặc nhiều tiết), AI BẮT BUỘC PHẢI TÁCH VÀ VIẾT ĐỦ các dòng sau đây ở đầu các phần tương ứng trong mục Tiến trình dạy học:\n- Tiết 1: [Nội dung trọng tâm phần đầu]\n- Tiết 2: [Nội dung trọng tâm phần giữa]\n- Tiết 4: [Nội dung trọng tâm phần cuối]\nTUYỆT ĐỐI KHÔNG ĐƯỢC BỎ SÓT BẤT KỲ TIẾT NÀO trong danh sách PPCT đã nêu!`;
 
     const fullPrompt = `${systemPrompt}${periodInstruction}\n\nFILE GIÁO ÁN GỐC MÔN ${subject.toUpperCase()} KHỐI ${grade.toUpperCase()}:\n${fileContent}${hasStem ? `\n\nCHỦ ĐỀ GIÁO DỤC STEM TÍCH HỢP: "${cleanStem}".` : ''}`;
-    // Bổ sung quy tắc ép buộc AI chèn bài toán thực tế từ ghi chú vào fullPrompt:
+    // Thêm quy tắc này vào chuỗi prompt gửi cho AI trong geminiService.ts:
     const practicalInstruction = `
-      🔥 YÊU CẦU BẮT BUỘC VỀ TÍCH HỢP THỰC TIỄN (ATGT, PCCC, NLS...):
-      - Dựa vào nội dung tên bài và ghi chú tích hợp được truyền vào, AI PHẢI TỰ ĐỘNG SÁNG TÁC và đan cài chi tiết một bài toán thực tế hoặc tình huống thực tiễn cụ thể (ví dụ: bài toán tính khoảng cách phãm phanh/giao lộ đối với ATGT, hoặc bài toán tính toán bình cứu hỏa/diện tích dập lửa đối với PCCC) vào mục "Hoạt động Khởi động" hoặc "Hoạt động Vận dụng".
-      - Không được viết chung chung, phải có nội dung đề bài cụ thể để giáo viên trực tiếp sử dụng được ngay trong lớp.
+      🔥 YÊU CẦU BẮT BUỘC VỀ BÀI TOÁN THỰC TẾ & BÔI ĐỎ:
+      - Dựa vào yêu cầu tích hợp từ cột ghi chú (ATGT, PCCC, thực tế...), BẮT BUỘC AI phải sáng tác và viết hẳn một bài toán thực tế chi tiết (VD: bài toán tính khoảng cách phãm phanh an toàn giao thông, hoặc bài toán tính số lượng bình chữa cháy...) đưa vào phần "Hoạt động Khởi động" hoặc "Hoạt động Vận dụng".
+      - Phải bao bọc nội dung bài toán thực tế đó trong cặp thẻ định dạng [RED] và [/RED] (Ví dụ: [RED]Bài toán thực tế ATGT: ... [/RED]) để hệ thống nhận diện và tự động chuyển thành màu đỏ trong file Word.
     `;
     
     // Ghép thêm vào chuỗi fullPrompt gửi lên API
