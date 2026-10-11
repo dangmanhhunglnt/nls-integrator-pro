@@ -187,26 +187,46 @@ export const injectContentIntoDocx = async (
                 }
               }
 
+              // ==========================================
+              // XỬ LÝ TỔNG QUÁT CHO MỌI MÔN HỌC & MỌI TIẾT TỪ DỮ LIỆU SUMMARY_TABLE
+              // ==========================================
               let phanDinhXml = "";
+
+              // Lấy bảng tóm tắt chi tiết từng tiết từ nội dung truyền vào
+              const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
+                ? content.summary_table
+                : [];
+
               tietList.forEach((tNum, idx) => {
                 let sectionContent = "";
 
-                // Tìm xem trong dữ liệu PPCT có dòng nào khớp chính xác với số tiết tNum này không
-                const matchedRow = periodContents.find(p => p.tiet === String(tNum) || p.tiet.split(/[\,\-\s]+/).includes(String(tNum)));
+                // 1. Ưu tiên tìm chính xác dòng trong summary_table có số tiết khớp với tNum (VD: "14", "16")
+                const matchedItem: any = summaryList.find((item: any) => {
+                  const tStr = String(item.tiet || '').trim();
+                  return tStr === String(tNum) || tStr.split(/[\,\-\s]+/).includes(String(tNum));
+                });
 
-                if (matchedRow) {
-                  sectionContent = matchedRow.noiDung;
-                } else if (periodContents[idx] && periodContents[idx].noiDung) {
-                  sectionContent = periodContents[idx].noiDung;
-                } else if (content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
+                if (matchedItem && matchedItem.content) {
+                  sectionContent = matchedItem.content;
+                } 
+                // 2. Nếu không khớp chính xác, lấy theo thứ tự dòng tương ứng trong summaryList (idx)
+                else if (summaryList[idx] && (summaryList[idx] as any).content) {
+                  sectionContent = (summaryList[idx] as any).content;
+                } 
+                // 3. Fallback lấy từ raw_content nếu có
+                else if (content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
                   const lines = String(content.raw_content).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
                   sectionContent = lines[idx] || lines[0] || `Nội dung trọng tâm tiết ${tNum}`;
-                } else {
+                } 
+                else {
                   sectionContent = `Nội dung trọng tâm và luyện tập theo chuẩn PPCT`;
                 }
 
-                // Làm sạch định dạng rác nếu có
+                // Làm sạch định dạng rác nếu lặp lại từ khóa tiết
                 sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
+                if (!sectionContent) {
+                  sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
+                }
 
                 phanDinhXml += `
                   <w:p>
