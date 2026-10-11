@@ -229,7 +229,7 @@ export async function processSingleLessonFromPPCT(
     .replace(/^(bài|chương)\s*\d+[\.,\s*]*/gi, '')
     .trim();
 
-  // LỌC CHÍNH XÁC TUYỆT ĐỐI TÊN BÀI HỌC TRONG BẢNG PPCT
+  // LỌC CHÍNH XÁC TUYỆT ĐỐI TÊN BÀI HỌC (TRÁNH BỊ GỌM NHẦM CÁC BÀI CÓ CHỪA TỪ KHÓA CON NHƯ "DÃY SỐ" TRONG "GIỚI HẠN DÃY SỐ")
   const matchingRows = ppctRows.filter(r => {
     const cleanRowName = (r.baiHoc || '')
       .toLowerCase()
@@ -238,7 +238,10 @@ export async function processSingleLessonFromPPCT(
       .replace(/^(bài|chương)\s*\d+[\.,\s*]*/gi, '')
       .trim();
     
-    return cleanRowName === cleanTarget || (cleanTarget.length > 3 && cleanRowName.includes(cleanTarget)) || (cleanRowName.length > 3 && cleanTarget.includes(cleanRowName));
+    if (!cleanRowName) return false;
+
+    // So sánh khớp chính xác tên bài, hoặc tên bài trong PPCT bắt đầu bằng đúng tên mục tiêu nhưng không bị dính chùm bài khác
+    return cleanRowName === cleanTarget || cleanRowName === `bài ${cleanTarget}` || (cleanRowName.startsWith(cleanTarget) && cleanRowName.length - cleanTarget.length < 5);
   });
 
   if (matchingRows.length === 0) {
