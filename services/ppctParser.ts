@@ -144,7 +144,7 @@ export async function processBatchPPCT(
     let mode: IntegrationMode = 'NLS';
     let hasIntegration = false;
 
-    // BỔ SUNG LOGIC NHẬN DIỆN LINH HOẠT CẢ AI, NLS VÀ STEM TỪ CỘT GHI CHÚ PPCT
+    // BỔ SUNG LOGIC NHẬN DIỆN CẢ ATGT VÀ PCCC TỪ CỘT GHI CHÚ PPCT
     if (combinedGhiChu.includes('STEM')) {
       mode = 'STEM';
       hasIntegration = true;
@@ -154,8 +154,14 @@ export async function processBatchPPCT(
     } else if (combinedGhiChu.includes('NLS') || combinedGhiChu.includes('NĂNG LỰC SỐ')) {
       mode = 'NLS';
       hasIntegration = true;
+    } else if (combinedGhiChu.includes('ATGT') || combinedGhiChu.includes('AN TOÀN GIAO THÔNG')) {
+      mode = 'NLS'; // Hoặc chế độ tương đương để kích hoạt chèn nội dung
+      hasIntegration = true;
+    } else if (combinedGhiChu.includes('PCCC') || combinedGhiChu.includes('PHÒNG CHỐNG CHÁY NỔ') || combinedGhiChu.includes('CHÁY NỔ')) {
+      mode = 'NLS';
+      hasIntegration = true;
     }
-
+    
     const tietDisplayStr = allTietStrs.join(', ');
 
     // Xây dựng bảng tóm tắt chi tiết từng tiết từ các hàng PPCT của bài học này
@@ -324,7 +330,14 @@ export async function processSingleLessonFromPPCT(
         console.warn("Lỗi gọi AI sinh nội dung:", err);
       }
     }
-
+    
+    if (combinedGhiChu.includes('ATGT') || combinedGhiChu.includes('AN TOÀN GIAO THÔNG')) {
+      const atgtProblem = "[RED]Bài toán thực tế tích hợp An toàn giao thông: Một xe ô tô đang chạy với vận tốc 15 m/s thì tài xế đạp phanh, xe chuyển động chậm dần đều với gia tốc a = -3 m/s². Tính quãng đường ô tô đi được trong 4 giây cuối cùng trước khi dừng hẳn để đảm bảo khoảng cách an toàn tại giao lộ![/RED]";
+      content.objectives_addition = (content.objectives_addition || '') + '\n' + atgtProblem;
+    } else if (combinedGhiChu.includes('PCCC') || combinedGhiChu.includes('PHÒNG CHỐNG CHÁY NỔ') || combinedGhiChu.includes('CHÁY NỔ')) {
+      const pcccProblem = "[RED]Bài toán thực tế tích hợp Phòng chống cháy nổ: Để trang bị thiết bị PCCC cho một hội trường hình chữ nhật có chu vi 120m và chiều dài hơn chiều rộng 20m, nhà trường cần tính diện tích mặt sàn để bố trí số lượng bình chữa cháy theo quy định. Hãy tính diện tích mặt sàn hội trường đó![/RED]";
+      content.objectives_addition = (content.objectives_addition || '') + '\n' + pcccProblem;
+    }
     // Định dạng chuỗi thời gian thực hiện chuẩn xác với tổng số tiết toàn bài
     const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${weekNum} dạy Tiết ${tietDisplayStr} theo PPCT: ${allTietStrs.join(', ')})`;
 
