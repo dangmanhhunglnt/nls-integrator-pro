@@ -188,7 +188,7 @@ export const injectContentIntoDocx = async (
               }
 
               // ==========================================
-              // XỬ LÝ TỔNG QUÁT & PHÂN RÃ THÔNG MINH CHO TỪNG TIẾT KÈM GHI CHÚ THỰC TIỄN (ATGT, PCCC, NLS,...)
+              // XỬ LÝ TỔNG QUÁT & PHÂN RÃ GỌN GÀNG CHO TIÊU ĐỀ TỪNG TIẾT
               // ==========================================
               let phanDinhXml = "";
 
@@ -198,9 +198,7 @@ export const injectContentIntoDocx = async (
 
               tietList.forEach((tNum, idx) => {
                 let sectionContent = "";
-                let extraNote = "";
 
-                // Tìm dòng tương ứng trong summaryList
                 const matchedItem: any = summaryList.find((item: any) => {
                   const tStr = String(item.tiet || '').trim();
                   return tStr === String(tNum) || tStr.split(/[\,\-\s]+/).includes(String(tNum));
@@ -208,10 +206,8 @@ export const injectContentIntoDocx = async (
 
                 if (matchedItem) {
                   sectionContent = matchedItem.content || '';
-                  extraNote = matchedItem.requirementNote || matchedItem.ghiChu || '';
                 } else if (summaryList[idx]) {
                   sectionContent = (summaryList[idx] as any).content || '';
-                  extraNote = (summaryList[idx] as any).requirementNote || (summaryList[idx] as any).ghiChu || '';
                 } else if (content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
                   const lines = String(content.raw_content).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
                   sectionContent = lines[idx] || lines[0] || `Nội dung trọng tâm tiết ${tNum}`;
@@ -219,7 +215,7 @@ export const injectContentIntoDocx = async (
                   sectionContent = `Nội dung trọng tâm và luyện tập theo chuẩn PPCT`;
                 }
 
-                // Nếu nội dung bị gộp chung cho cả tiết kép (VD: Tiết 22-23 có chung một đoạn dài), ta tự động phân rã vế
+                // Phân rã thông minh nếu tiết kép (VD: Tiết 22-23)
                 if (tietList.length > 1 && sectionContent.length > 30 && !sectionContent.includes(`Tiết ${tNum}`)) {
                   const parts = sectionContent.split(/[\,\.\;]/).map(s => s.trim()).filter(Boolean);
                   if (parts.length >= 2) {
@@ -237,18 +233,12 @@ export const injectContentIntoDocx = async (
                   sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
                 }
 
-                // Ghép thêm nội dung cột ghi chú nếu có (ATGT, PCCC, NLS, STEM,...)
-                let fullDisplayText = `Tiết ${tNum}: ${sectionContent}`;
-                if (extraNote) {
-                  fullDisplayText += ` (${extraNote})`;
-                }
-
                 phanDinhXml += `
                   <w:p>
                     <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
                     <w:r>
                       <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr>
-                      <w:t xml:space="preserve">${fullDisplayText}</w:t>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
                     </w:r>
                   </w:p>
                 `;
