@@ -158,12 +158,18 @@ export async function processBatchPPCT(
 
     const tietDisplayStr = allTietStrs.join(', ');
 
+    // Xây dựng bảng tóm tắt chi tiết từng tiết từ các hàng PPCT của bài học này
+    const summary_table = rowsGroup.map((r: any) => ({
+      tiet: String(r.tiet || '').trim(),
+      content: String(r.noiDung || '').trim()
+    })).filter(item => item.tiet && item.content);
+
     let content: GeneratedNLSContent & { raw_content?: string } = {
       objectives_addition: '',
       materials_addition: '',
       activities_enhancement: [],
-      summary_table: [],
-      raw_content: rowsGroup.map((r: any) => r.noiDung).join('\n')
+      summary_table: summary_table as any,
+      raw_content: rowsGroup.map((r: any) => `Tiết ${r.tiet}: ${r.noiDung}`).join('\n')
     };
 
     if (hasIntegration) {
@@ -288,12 +294,18 @@ export async function processSingleLessonFromPPCT(
 
     const tietDisplayStr = allTietStrs.join(', ');
 
+    // Xây dựng bảng tóm tắt chi tiết từng tiết theo tuần từ các hàng PPCT
+    const summary_table = weekRows.map((r: any) => ({
+      tiet: String(r.tiet || '').trim(),
+      content: String(r.noiDung || '').trim()
+    })).filter(item => item.tiet && item.content);
+
     let content: GeneratedNLSContent & { raw_content?: string } = {
       objectives_addition: '',
       materials_addition: '',
       activities_enhancement: [],
-      summary_table: [],
-      raw_content: weekRows.map((r: any) => r.noiDung).join('\n')
+      summary_table: summary_table as any,
+      raw_content: weekRows.map((r: any) => `Tiết ${r.tiet}: ${r.noiDung}`).join('\n')
     };
 
     if (hasIntegration) {
