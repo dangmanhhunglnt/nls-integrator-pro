@@ -267,7 +267,8 @@ export async function processSingleLessonFromPPCT(
   // Xây dựng bảng tóm tắt chi tiết toàn bộ các tiết của bài học (dùng chung cho mọi tuần)
   const globalSummaryTable = matchingRows.map((r: any) => ({
     tiet: String(r.tiet || '').trim(),
-    content: String(r.noiDung || '').trim()
+    content: String(r.noiDung || '').trim(),
+    requirementNote: String(r.ghiChu || '').trim()
   })).filter(item => item.tiet && item.content);
 
   // TÁCH NHÓM CÁC HÀNG THEO TUẦN ĐỂ XUẤT RA CÁC FILE RIÊNG BIỆT

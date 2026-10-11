@@ -188,44 +188,59 @@ export const injectContentIntoDocx = async (
               }
 
               // ==========================================
-              // XỬ LÝ TỔNG QUÁT CHO MỌI MÔN HỌC & MỌI TIẾT TỪ DỮ LIỆU SUMMARY_TABLE
+              // XỬ LÝ TỔNG QUÁT & PHÂN RÃ THÔNG MINH CHO TỪNG TIẾT KÈM GHI CHÚ THỰC TIỄN (ATGT, PCCC, NLS,...)
               // ==========================================
               let phanDinhXml = "";
 
-              // Lấy bảng tóm tắt chi tiết từng tiết từ nội dung truyền vào
               const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
                 ? content.summary_table
                 : [];
 
               tietList.forEach((tNum, idx) => {
                 let sectionContent = "";
+                let extraNote = "";
 
-                // 1. Ưu tiên tìm chính xác dòng trong summary_table có số tiết khớp với tNum (VD: "14", "16")
+                // Tìm dòng tương ứng trong summaryList
                 const matchedItem: any = summaryList.find((item: any) => {
                   const tStr = String(item.tiet || '').trim();
                   return tStr === String(tNum) || tStr.split(/[\,\-\s]+/).includes(String(tNum));
                 });
 
-                if (matchedItem && matchedItem.content) {
-                  sectionContent = matchedItem.content;
-                } 
-                // 2. Nếu không khớp chính xác, lấy theo thứ tự dòng tương ứng trong summaryList (idx)
-                else if (summaryList[idx] && (summaryList[idx] as any).content) {
-                  sectionContent = (summaryList[idx] as any).content;
-                } 
-                // 3. Fallback lấy từ raw_content nếu có
-                else if (content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
+                if (matchedItem) {
+                  sectionContent = matchedItem.content || '';
+                  extraNote = matchedItem.requirementNote || matchedItem.ghiChu || '';
+                } else if (summaryList[idx]) {
+                  sectionContent = (summaryList[idx] as any).content || '';
+                  extraNote = (summaryList[idx] as any).requirementNote || (summaryList[idx] as any).ghiChu || '';
+                } else if (content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
                   const lines = String(content.raw_content).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
                   sectionContent = lines[idx] || lines[0] || `Nội dung trọng tâm tiết ${tNum}`;
-                } 
-                else {
+                } else {
                   sectionContent = `Nội dung trọng tâm và luyện tập theo chuẩn PPCT`;
                 }
 
-                // Làm sạch định dạng rác nếu lặp lại từ khóa tiết
+                // Nếu nội dung bị gộp chung cho cả tiết kép (VD: Tiết 22-23 có chung một đoạn dài), ta tự động phân rã vế
+                if (tietList.length > 1 && sectionContent.length > 30 && !sectionContent.includes(`Tiết ${tNum}`)) {
+                  const parts = sectionContent.split(/[\,\.\;]/).map(s => s.trim()).filter(Boolean);
+                  if (parts.length >= 2) {
+                    if (idx === 0) {
+                      sectionContent = parts.slice(0, Math.ceil(parts.length / 2)).join(', ');
+                    } else {
+                      sectionContent = parts.slice(Math.ceil(parts.length / 2)).join(', ');
+                    }
+                  }
+                }
+
+                // Làm sạch định dạng rác
                 sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
                 if (!sectionContent) {
                   sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
+                }
+
+                // Ghép thêm nội dung cột ghi chú nếu có (ATGT, PCCC, NLS, STEM,...)
+                let fullDisplayText = `Tiết ${tNum}: ${sectionContent}`;
+                if (extraNote) {
+                  fullDisplayText += ` (${extraNote})`;
                 }
 
                 phanDinhXml += `
@@ -233,7 +248,7 @@ export const injectContentIntoDocx = async (
                     <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
                     <w:r>
                       <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
+                      <w:t xml:space="preserve">${fullDisplayText}</w:t>
                     </w:r>
                   </w:p>
                 `;
