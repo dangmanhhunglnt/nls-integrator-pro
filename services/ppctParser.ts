@@ -294,8 +294,8 @@ export async function processSingleLessonFromPPCT(
 
     const tietDisplayStr = allTietStrs.join(', ');
 
-    // Xây dựng bảng tóm tắt chi tiết từng tiết theo tuần từ các hàng PPCT
-    const summary_table = weekRows.map((r: any) => ({
+    // Xây dựng bảng tóm tắt chi tiết toàn bộ các tiết của bài học (lấy từ matchingRows để đủ tất cả các tiết 14, 16...)
+    const summary_table = matchingRows.map((r: any) => ({
       tiet: String(r.tiet || '').trim(),
       content: String(r.noiDung || '').trim()
     })).filter(item => item.tiet && item.content);
