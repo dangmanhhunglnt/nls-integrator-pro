@@ -221,7 +221,7 @@ export async function processSingleLessonFromPPCT(
   colorHex: HighlightColor,
   generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
 ): Promise<{ name: string; blob: Blob }[]> {
-  // Chuẩn hóa tên bài học mục tiêu thật sạch sẽ (loại bỏ chữ "Bài X:", khoảng trắng và dấu)
+  // Chuẩn hóa tên bài học mục tiêu thật sạch sẽ
   const cleanTarget = targetLessonName
     .toLowerCase()
     .normalize("NFD")
@@ -229,7 +229,7 @@ export async function processSingleLessonFromPPCT(
     .replace(/^(bài|chương)\s*\d+[\.,\s*]*/gi, '')
     .trim();
 
-  // LỌC CHÍNH XÁC TUYỆT ĐỐI TÊN BÀI HỌC TRONG BẢNG PPCT (TRÁNH GỌM NHẦM BÀI KHÁC)
+  // LỌC CHÍNH XÁC TUYỆT ĐỐI TÊN BÀI HỌC TRONG BẢNG PPCT
   const matchingRows = ppctRows.filter(r => {
     const cleanRowName = (r.baiHoc || '')
       .toLowerCase()
@@ -238,13 +238,34 @@ export async function processSingleLessonFromPPCT(
       .replace(/^(bài|chương)\s*\d+[\.,\s*]*/gi, '')
       .trim();
     
-    // So sánh khớp chính xác tên bài học hoặc chuỗi chứa trọn vẹn tên bài
     return cleanRowName === cleanTarget || (cleanTarget.length > 3 && cleanRowName.includes(cleanTarget)) || (cleanRowName.length > 3 && cleanTarget.includes(cleanRowName));
   });
 
   if (matchingRows.length === 0) {
     throw new Error(`Không tìm thấy bài học tương ứng với "${targetLessonName}" trong dữ liệu PPCT.`);
   }
+
+  // TÍNH TOÁN TỔNG SỐ TIẾT TOÀN BỘ BÀI HỌC TỪ matchingRows MỘT LẦN DUY NHẤT
+  let totalTietCount = 0;
+  const allTietStrs: string[] = [];
+  for (const r of matchingRows) {
+    if (r.tiet) {
+      allTietStrs.push(r.tiet);
+      const parts = r.tiet.replace(/[^0-9-]/g, '').split('-');
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        totalTietCount += Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
+      } else if (parts.length === 1 && parts[0]) {
+        totalTietCount += 1;
+      }
+    }
+  }
+  if (totalTietCount === 0) totalTietCount = 1;
+
+  // Xây dựng bảng tóm tắt chi tiết toàn bộ các tiết của bài học (dùng chung cho mọi tuần)
+  const globalSummaryTable = matchingRows.map((r: any) => ({
+    tiet: String(r.tiet || '').trim(),
+    content: String(r.noiDung || '').trim()
+  })).filter(item => item.tiet && item.content);
 
   // TÁCH NHÓM CÁC HÀNG THEO TUẦN ĐỂ XUẤT RA CÁC FILE RIÊNG BIỆT
   const weekMap = new Map<string, PPCTRow[]>();
@@ -260,22 +281,9 @@ export async function processSingleLessonFromPPCT(
   const realLessonName = matchingRows[0]?.baiHoc || targetLessonName;
 
   for (const [weekNum, weekRows] of weekMap.entries()) {
-    let totalTietCount = 0;
-    const allTietStrs: string[] = [];
-    for (const r of weekRows) {
-      if (r.tiet) {
-        allTietStrs.push(r.tiet);
-        const parts = r.tiet.replace(/[^0-9-]/g, '').split('-');
-        if (parts.length >= 2 && parts[0] && parts[1]) {
-          totalTietCount += Math.abs(parseInt(parts[1]) - parseInt(parts[0])) + 1;
-        } else if (parts.length === 1 && parts[0]) {
-          totalTietCount += 1;
-        }
-      }
-    }
-    if (totalTietCount === 0) totalTietCount = 1;
+    const tietDisplayStr = weekRows.map(r => r.tiet).join(', ');
 
-    // QUÉT CỘT GHI CHÚ: NẾU CÓ NLS/AI/STEM THÌ CHÈN, NẾU TRỐNG THÌ XÓA SẠCH ĐƯA VỀ CHUẨN 5512
+    // QUÉT CỘT GHI CHÚ
     const combinedGhiChu = weekRows.map(r => r.ghiChu || '').join(' ').toUpperCase();
     
     let mode: IntegrationMode = 'NLS';
@@ -292,54 +300,28 @@ export async function processSingleLessonFromPPCT(
       hasIntegration = true;
     }
 
-    const tietDisplayStr = allTietStrs.join(', ');
-
-    // Xây dựng bảng tóm tắt chi tiết toàn bộ các tiết của bài học (lấy từ matchingRows để đủ tất cả các tiết 14, 16...)
-    const summary_table = matchingRows.map((r: any) => ({
-      tiet: String(r.tiet || '').trim(),
-      content: String(r.noiDung || '').trim()
-    })).filter(item => item.tiet && item.content);
-
     let content: GeneratedNLSContent & { raw_content?: string } = {
       objectives_addition: '',
       materials_addition: '',
       activities_enhancement: [],
-      summary_table: summary_table as any,
-      raw_content: weekRows.map((r: any) => `Tiết ${r.tiet}: ${r.noiDung}`).join('\n')
+      summary_table: globalSummaryTable as any,
+      raw_content: matchingRows.map((r: any) => `Tiết ${r.tiet}: ${r.noiDung}`).join('\n')
     };
 
     if (hasIntegration) {
       try {
         const lessonContextName = `${realLessonName} (Thời lượng: ${totalTietCount} tiết, Tiết theo PPCT: ${tietDisplayStr})`;
         content = await generateAIContentCallback(lessonContextName, mode);
+        if (!content.summary_table || (content.summary_table as any).length === 0) {
+          content.summary_table = globalSummaryTable as any;
+        }
       } catch (err) {
         console.warn("Lỗi gọi AI sinh nội dung:", err);
       }
     }
-    
-    // Lấy tổng hợp tất cả các tiết trong toàn bài từ matchingRows để đưa vào phần ngoặc đúng chuẩn
-    const allGlobalTietNumbers: string[] = [];
-    matchingRows.forEach(r => {
-      if (r.tiet) {
-        const cleaned = r.tiet.replace(/\s+/g, '');
-        if (cleaned.includes('-')) {
-          const parts = cleaned.split('-');
-          const start = parseInt(parts[0]);
-          const end = parseInt(parts[1]);
-          if (!isNaN(start) && !isNaN(end)) {
-            for (let i = start; i <= end; i++) {
-              allGlobalTietNumbers.push(i.toString());
-            }
-          }
-        } else {
-          allGlobalTietNumbers.push(cleaned);
-        }
-      }
-    });
-    const globalUniqueTietStr = Array.from(new Set(allGlobalTietNumbers)).join(', ');
 
-    // Định dạng chuỗi thời gian thực hiện chuẩn xác đúng form thầy yêu cầu
-    const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${weekNum} dạy Tiết ${tietDisplayStr} theo PPCT: ${globalUniqueTietStr})`;
+    // Định dạng chuỗi thời gian thực hiện chuẩn xác với tổng số tiết toàn bài
+    const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${weekNum} dạy Tiết ${tietDisplayStr} theo PPCT: ${allTietStrs.join(', ')})`;
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
