@@ -314,7 +314,8 @@ export async function processSingleLessonFromPPCT(
 
     if (hasIntegration) {
       try {
-        const lessonContextName = `${realLessonName} (Thời lượng: ${totalTietCount} tiết, Tiết theo PPCT: ${tietDisplayStr}). Yêu cầu tích hợp chuyên môn thực tiễn: ${combinedGhiChu || 'Chuẩn 5512'}`;
+        // Đưa trực tiếp combinedGhiChu vào đây để AI đọc được yêu cầu tích hợp thực tế
+        const lessonContextName = `${realLessonName} (Thời lượng: ${totalTietCount} tiết, Tiết theo PPCT: ${tietDisplayStr}). Yêu cầu tích hợp từ cột ghi chú: ${combinedGhiChu}`;
         content = await generateAIContentCallback(lessonContextName, mode);
         if (!content.summary_table || (content.summary_table as any).length === 0) {
           content.summary_table = globalSummaryTable as any;
