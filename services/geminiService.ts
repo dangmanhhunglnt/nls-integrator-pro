@@ -149,8 +149,10 @@ ${isStemOnly ? `   - CHỈ NÊU MỤC TIÊU NĂNG LỰC STEM: Vận dụng kiế
      + Bản vẽ/Phương án thiết kế sản phẩm.
      + Các bước hướng dẫn học sinh gia công, chế tạo, đo đạc thử nghiệm mô hình thực tế.
      + Tiêu chí đánh giá sản phẩm STEM (Bảng Rubric chấm điểm nhóm).` : ''}
-
-3. BẢNG TỔNG HỢP TRONG BÀI HỌC (Mảng summary_table):
+3. Tích hợp chuyên môn thực tiễn (ATGT, PCCC, NLS, AI...):
+    - Nếu trong tên bài hoặc ngữ cảnh có yêu cầu tích hợp thực tế (như ATGT, An toàn giao thông, Phòng chống cháy nổ, PCCC...), BẮT BUỘC phải thiết kế tình huống, bài toán hoặc hoạt động thực tiễn gắn liền với chủ đề đó đan cài trực tiếp vào "Hoạt động Khởi động" (mở đầu) hoặc "Hoạt động Vận dụng".
+    - Viết rõ ràng nội dung tình huống hoặc bài toán thực tế cụ thể, tuyệt đối không viết chung chung.
+4. BẢNG TỔNG HỢP TRONG BÀI HỌC (Mảng summary_table):
    - Sinh đầy đủ mảng "summary_table" bao gồm đúng 5 trường (stt, code, component, expression, activity) tương ứng các hoạt động đã được tích hợp để tự động tạo bảng ở cuối file Word.
 ${isStemOnly ? `   - Với chế độ STEM thuần túy: Điền code: "STEM", component: "Giáo dục STEM", expression: "Vận dụng kiến thức bài học hoàn thiện sản phẩm ${cleanStem}", activity: Tên hoạt động vận dụng thực tế.` : `   - Nếu có tích hợp STEM, thêm 1 dòng vào bảng với mã: "STEM-EDU", thành phần: "Giáo dục STEM", biểu hiện: "Vận dụng kiến thức thực hiện chủ đề ${cleanStem}", ghi rõ tên hoạt động vận dụng STEM.`}
 
