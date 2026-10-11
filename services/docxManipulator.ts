@@ -143,17 +143,18 @@ export const injectContentIntoDocx = async (
                 tietList = ["1"];
               }
 
-              // Bóc tách và phân bổ nội dung bám sát đề mục SGK cho từng tiết học
+              // ==========================================
+              // BÓC TÁCH VÀ PHÂN BỔ NỘI DUNG SGK THEO TỪNG TIẾT (ĐẢM BẢO MỌI MÔN ĐỀU ĐỌC ĐƯỢC)
+              // ==========================================
               let sgkSections: string[] = [];
               
               if (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
                 sgkSections = content.summary_table.map((item: any) => item.content || item.topic || '').filter(Boolean);
               }
 
-              // Nếu chưa có bảng tóm tắt, tự động quét raw_content và làm sạch các đề mục SGK (1., 2., a, b,...)
+              // Nếu chưa có bảng tóm tắt, tự động quét raw_content và phân tách theo các đề mục SGK / dòng
               if (sgkSections.length === 0 && content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
                 const rawText = String(content.raw_content);
-                // Tách theo các dòng hoặc theo các dấu định danh đề mục SGK (như 1., 2., 3.,...)
                 sgkSections = rawText
                   .split(/(?=\d+\.|\bphần\b|\bmục\b)/i)
                   .map(s => s.trim())
@@ -164,29 +165,38 @@ export const injectContentIntoDocx = async (
                 }
               }
 
-              // Fallback chuẩn SGK nếu trống
+              // Fallback chuẩn nếu trống
               if (sgkSections.length === 0) {
                 sgkSections = [
-                  "Nội dung trọng tâm và lý thuyết cơ bản theo sách giáo khoa",
+                  "Nội dung trọng tâm và lý thuyết cơ bản theo chuẩn sách giáo khoa",
                   "Hệ thống bài tập luyện tập, vận dụng và củng cố"
                 ];
               }
-            
 
               let phanDinhXml = "";
               tietList.forEach((tNum, idx) => {
-                let sectionContent = sgkSections[idx] || `Luyện tập chuyên đề tiết ${tNum}`;
+                // Dò tìm chính xác dòng nội dung trong PPCT có chứa số tiết hiện tại (VD: chứa "16")
+                let matchedSection = sgkSections.find(s => s.includes(tNum) || s.toLowerCase().includes(`tiết ${tNum}`));
+                
+                // Nếu không tìm thấy, lấy theo thứ tự dòng tương ứng (idx) hoặc dòng đầu tiên
+                let sectionContent = matchedSection || sgkSections[idx] || sgkSections[0] || `Luyện tập chuyên đề tiết ${tNum}`;
+                
+                // Làm sạch tiền tố số tiết nếu lặp lại
+                sectionContent = sectionContent.replace(new RegExp(`^(tiết|tiet)\\s*${tNum}\\s*[:\\-]?\\s*`, 'i'), '').trim();
+                if (!sectionContent) {
+                  sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
+                }
 
-                phanDinhXml += `
-                  <w:p>
-                    <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
-                    <w:r>
-                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
-                    </w:r>
-                  </w:p>
-                `;
-              });
+        phanDinhXml += `
+          <w:p>
+            <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
+            <w:r>
+              <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr>
+              <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
+            </w:r>
+          </w:p>
+        `;
+      });
 
               docXml = docXml.substring(0, insertTargetPos) + phanDinhXml + docXml.substring(insertTargetPos);
             }
