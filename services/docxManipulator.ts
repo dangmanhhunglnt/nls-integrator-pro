@@ -44,12 +44,17 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   // Tạo đoạn văn bản XML căn giữa, in nghiêng
   const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // Quét sạch các dòng cũ liên quan đến thời gian thực hiện/tiết PPCT để tránh trùng lặp
+  // Quét sạch các dòng cũ liên quan đến thời gian thực hiện để tránh trùng lặp
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  // Chèn ngay vào vị trí trước mục "I. MỤC TIÊU" (an toàn tuyệt đối không làm gãy XML)
+  // Tìm kiếm linh hoạt các từ khóa để chèn ngay phía trên mục tiêu bài học
   if (result.includes("I. MỤC TIÊU")) {
     result = result.replace("I. MỤC TIÊU", `${centerParagraphXml}\nI. MỤC TIÊU`);
+  } else if (result.includes("MỤC TIÊU")) {
+    result = result.replace("MỤC TIÊU", `${centerParagraphXml}\nMỤC TIÊU`);
+  } else {
+    // Nếu không tìm thấy, chèn ngay vào trước thẻ đóng body cuối cùng của tài liệu
+    result = result.replace("</w:body>", `${centerParagraphXml}\n</w:body>`);
   }
 
   return result;
