@@ -33,7 +33,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CẬP NHẬT THỜI GIAN THỰC HIỆN
+ * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -41,21 +41,54 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Tạo đoạn văn bản XML căn giữa, in nghiêng cho dòng thời gian thực hiện
   const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // Quét sạch các dòng cũ nếu có để tránh bị lặp
-  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
+  const tblRegex = /<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
+  let replacedTable = false;
 
-  if (result.includes("<w:body>")) {
-    result = result.replace("<w:body>", `<w:body>\n${centerParagraphXml}`);
+  result = result.replace(tblRegex, (tblXml) => {
+    if (!replacedTable && (tblXml.includes("Thời gian thực hiện") || tblXml.includes("Số tiết dạy") || tblXml.includes("Tiết theo PPCT"))) {
+      replacedTable = true;
+      return centerParagraphXml;
+    }
+    return tblXml;
+  });
+
+  if (replacedTable) {
+    result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
+    return result;
   }
 
+  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
+  const match = result.match(pRegex);
+
+  if (match) {
+    let pXml = match[0];
+    if (pXml.includes('<w:pPr>')) {
+      if (pXml.includes('<w:jc')) {
+        pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
+      } else {
+        pXml = pXml.replace('<w:pPr>', '<w:pPr><w:jc w:val="center"/>');
+      }
+    } else if (pXml.includes('<w:pPr/>')) {
+      pXml = pXml.replace('<w:pPr/>', '<w:pPr><w:jc w:val="center"/></w:pPr>');
+    } else {
+      pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
+    }
+
+    pXml = pXml.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/gi, '');
+    const newRun = `<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
+    pXml = pXml.replace(/<\/w:p>$/i, `${newRun}</w:p>`);
+
+    result = result.replace(match[0], pXml);
+  }
+
+  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
   return result;
 }
 
 /**
- * 4. HÀM CHÈN THỜI GIAN VÀ MỐC TIẾT BÔI VÀNG NGAY DƯỚI TÊN BÀI HỌC (CHÍNH XÁC TUYỆT ĐỐI)
+ * 4. HÀM CHÈN MỐC TIẾT BÔI VÀNG NGAY DƯỚI DÒNG THỜI GIAN THỰC HIỆN (CỰC KỲ GỌN GÀNG VÀ CHUẨN XÁC)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -78,70 +111,82 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. Quét sạch các mốc cũ và dòng thời gian cũ để tránh bị lặp
+        // 1. Quét sạch các mốc cũ nếu có để tránh bị lặp
         docXml = cleanExistingNLSContent(docXml);
-        docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH (Thời gian + Các tiết chi tiết)
+        if (customHeaderPPCT) {
+          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
+        }
+        
+        // 2. PHÂN ĐỊNH TIẾT BÁM SÁT PPCT VÀ NỘI DUNG SGK (LOẠI BỎ HOÀN TOÀN MỤC TIÊU GIÁO ÁN)
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
-          let tietList: string[] = [];
-
           if (timeIdx !== -1) {
-            const snippet = docXml.substring(timeIdx, timeIdx + 600);
-            const matchPpct = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i);
-            if (matchPpct && matchPpct[1]) {
-              tietList = matchPpct[1].split(/[,-\s]+/).filter(Boolean);
+            const pEndIdx = docXml.indexOf("</w:p>", timeIdx);
+            if (pEndIdx !== -1) {
+              const insertTargetPos = pEndIdx + "</w:p>".length;
+
+              const snippet = docXml.substring(timeIdx, timeIdx + 600);
+              
+              let tietList: string[] = [];
+              const matchPpct = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i);
+              if (matchPpct && matchPpct[1]) {
+                tietList = matchPpct[1].split(/[,-\s]+/).filter(Boolean);
+              }
+              if (tietList.length === 0) {
+                const matchTiet = snippet.match(/Tiết\s*([\d,\s-]+)/i);
+                if (matchTiet && matchTiet[1]) {
+                  tietList = matchTiet[1].split(/[,-\s]+/).filter(Boolean);
+                }
+              }
+              if (tietList.length === 0) {
+                tietList = ["1"];
+              }
+
+              // Nhận diện tên bài học từ tiêu đề giáo án để đưa ra nội dung chuẩn SGK
+              const docTitleLower = docXml.toLowerCase();
+              let sgkSections: string[] = [];
+
+              if (docTitleLower.includes("hàm số lượng giác")) {
+                sgkSections = [
+                  "Định nghĩa hàm số lượng giác (Sin, Cos, Tan, Cot)",
+                  "Tính chẵn, lẻ và tính tuần hoàn của hàm số lượng giác",
+                  "Đồ thị và các đặc trưng hình học của hàm số lượng giác"
+                ];
+              } else if (docTitleLower.includes("cấp số cộng")) {
+                sgkSections = [
+                  "Định nghĩa và số hạng tổng quát của cấp số cộng",
+                  "Tính chất các số hạng và tổng n số hạng đầu tiên"
+                ];
+              } else if (docTitleLower.includes("đường thẳng và mặt phẳng")) {
+                sgkSections = [
+                  "Các khái niệm mở đầu và tính chất thừa nhận",
+                  "Cách xác định một mặt phẳng, hình chóp và tứ diện"
+                ];
+              } else {
+                sgkSections = [
+                  "Nội dung trọng tâm và lý thuyết cơ bản",
+                  "Hệ thống bài tập luyện tập và vận dụng"
+                ];
+              }
+
+              let phanDinhXml = "";
+              tietList.forEach((tNum, idx) => {
+                let sectionContent = sgkSections[idx] || `Luyện tập chuyên đề tiết ${tNum}`;
+
+                phanDinhXml += `
+                  <w:p>
+                    <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
+                    <w:r>
+                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
+                    </w:r>
+                  </w:p>
+                `;
+              });
+
+              docXml = docXml.substring(0, insertTargetPos) + phanDinhXml + docXml.substring(insertTargetPos);
             }
-          }
-          if (tietList.length === 0) {
-            tietList = ["1"];
-          }
-
-          // Tạo dòng thời gian thực hiện chuẩn XML căn giữa, in nghiêng
-          const headerText = customHeaderPPCT || `Thời gian thực hiện: ${tietList.length} tiết`;
-          const safeTimeText = escapeXml(headerText);
-          const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
-
-          // Tạo danh sách các tiết chi tiết bôi đậm, chuẩn từng thẻ <w:p> riêng biệt
-          let tietParagraphsXml = "";
-          const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
-            ? content.summary_table
-            : [];
-
-          tietList.forEach((tNum, idx) => {
-            let sectionContent = "";
-            const matchedItem: any = summaryList.find((item: any) => {
-              const tStr = String(item.tiet || '').trim();
-              return tStr === String(tNum) || tStr.split(/[\,\-\s]+/).includes(String(tNum));
-            });
-
-            if (matchedItem) {
-              sectionContent = matchedItem.content || '';
-            } else if (summaryList[idx]) {
-              sectionContent = (summaryList[idx] as any).content || '';
-            } else {
-              sectionContent = idx > 0 ? `Mục trọng tâm (tiếp theo)` : `Mục trọng tâm bài học`;
-            }
-
-            sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
-            const safeSectionContent = escapeXml(sectionContent);
-
-            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
-          });
-
-          // Gom chung thành 1 khối hoàn chỉnh: Thời gian ở trên, danh sách tiết ở dưới
-          const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
-
-          // Chèn chuẩn xác ngay phía dưới đoạn văn chứa tiêu đề bài học (có chứa chữ "BÀI")
-          const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
-          if (baiMatch && baiMatch.index !== undefined) {
-            const targetEndPos = baiMatch.index + baiMatch[0].length;
-            docXml = docXml.substring(0, targetEndPos) + `\n${completeInjectionBlock}` + docXml.substring(targetEndPos);
-          } else if (docXml.includes("I. MỤC TIÊU")) {
-            docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\nI. MỤC TIÊU`);
-          } else if (docXml.includes("<w:body>")) {
-            docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
           }
         } catch (err) {
           console.warn("Lỗi phân định tiết theo SGK:", err);
