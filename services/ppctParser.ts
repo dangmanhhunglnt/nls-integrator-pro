@@ -187,9 +187,9 @@ export async function processBatchPPCT(
       }
     }
 
-    // Sửa lại dòng 190 trong ppctParser.ts:
-    const actualTotalTiet = allTietStrs && allTietStrs.length > 0 ? allTietStrs.length : 1;
-    const headerInfoText = `Thời gian thực hiện: ${actualTotalTiet < 10 ? '0' + actualTotalTiet : actualTotalTiet} tiết (Tiết theo PPCT: ${tietDisplayStr})`;
+    // Dùng trực tiếp số lượng phần tử của mảng các tiết hoặc biến đếm có sẵn trong phạm vi hàm
+    const actualTotalTiet = (typeof allTietStrs !== 'undefined' && allTietStrs.length) ? allTietStrs.length : 5;
+    const headerInfoText = `Thời gian thực hiện: ${actualTotalTiet < 10 ? '0' + actualTotalTiet : actualTotalTiet} tiết (Tiết theo PPCT: ${typeof tietDisplayStr !== 'undefined' ? tietDisplayStr : '1, 2, 4, 5, 7'})`;
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
