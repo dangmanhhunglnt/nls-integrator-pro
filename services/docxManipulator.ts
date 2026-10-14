@@ -137,11 +137,13 @@ export const injectContentIntoDocx = async (
           // 3. Gom khối chèn an toàn
           const injectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // 4. Chèn an toàn tuyệt đối ngay trước mục "I. MỤC TIÊU" (Đảm bảo 100% không bao giờ lỗi file Word)
-          if (docXml.includes("I. MỤC TIÊU")) {
+          // 4. Tìm kiếm đoạn văn chứa tên bài học (có chữ BÀI)...
+          const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
+          if (baiMatch && baiMatch.index !== undefined) {
+            const targetEndPos = baiMatch.index + baiMatch[0].length;
+            docXml = docXml.substring(0, targetEndPos) + `\n${injectionBlock}` + docXml.substring(targetEndPos);
+          } else if (docXml.includes("I. MỤC TIÊU")) {
             docXml = docXml.replace("I. MỤC TIÊU", `${injectionBlock}\nI. MỤC TIÊU`);
-          } else if (docXml.includes("MỤC TIÊU")) {
-            docXml = docXml.replace("MỤC TIÊU", `${injectionBlock}\nMỤC TIÊU`);
           } else {
             docXml = docXml.replace("<w:body>", `<w:body>\n${injectionBlock}`);
           }
