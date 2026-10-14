@@ -146,21 +146,7 @@ export const injectContentIntoDocx = async (
                   "Hệ thống bài tập luyện tập, vận dụng và củng cố"
                 ];
               }
-
-              
-              // XỬ LÝ TỔNG QUÁT CHO MỌI MÔN HỌC & MỌI TIẾT TỪ DỮ LIỆU PPCT
-              // ==========================================
-              let periodContents: { tiet: string; noiDung: string }[] = [];
-
-              if (content && typeof content === 'object') {
-                if ('summary_table' in content && Array.isArray(content.summary_table)) {
-                  periodContents = content.summary_table.map((item: any) => ({
-                    tiet: String(item.tiet || ''),
-                    noiDung: String(item.content || item.topic || '')
-                  })).filter(item => item.noiDung);
-                }
-              }
-
+                       
               // ==========================================
               // XỬ LÝ TỔNG QUÁT & PHÂN RÃ GỌN GÀNG CHO TIÊU ĐỀ TỪNG TIẾT
               // ==========================================
@@ -186,22 +172,9 @@ export const injectContentIntoDocx = async (
                   const lines = String(content.raw_content).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
                   sectionContent = lines[idx] || lines[0] || `Nội dung trọng tâm tiết ${tNum}`;
                 } else {
-                  sectionContent = `Nội dung trọng tâm và luyện tập theo chuẩn PPCT`;
+                  sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
                 }
 
-                // Phân rã thông minh nếu tiết kép (VD: Tiết 22-23)
-                if (tietList.length > 1 && sectionContent.length > 30 && !sectionContent.includes(`Tiết ${tNum}`)) {
-                  const parts = sectionContent.split(/[\,\.\;]/).map(s => s.trim()).filter(Boolean);
-                  if (parts.length >= 2) {
-                    if (idx === 0) {
-                      sectionContent = parts.slice(0, Math.ceil(parts.length / 2)).join(', ');
-                    } else {
-                      sectionContent = parts.slice(Math.ceil(parts.length / 2)).join(', ');
-                    }
-                  }
-                }
-
-                // Làm sạch định dạng rác
                 sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
                 if (!sectionContent) {
                   sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
@@ -217,6 +190,9 @@ export const injectContentIntoDocx = async (
                   </w:p>
                 `;
               });
+
+              // Quét sạch các dòng chữ rác "Tiết theo PPCT" cũ xung quanh để file Word sạch bóng
+              docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
 
               docXml = docXml.substring(0, insertTargetPos) + phanDinhXml + docXml.substring(insertTargetPos);
             }
