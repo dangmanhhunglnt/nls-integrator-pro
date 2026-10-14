@@ -103,7 +103,7 @@ export const injectContentIntoDocx = async (
             tietList = ["1"];
           }
 
-          // Tạo danh sách các tiết bôi vàng chuẩn từng thẻ <w:p> riêng biệt, an toàn 100%
+          // Tạo danh sách các tiết bôi vàng chuẩn từng thẻ <w:p> riêng biệt
           let tietParagraphsXml = "";
           const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
             ? content.summary_table
@@ -130,12 +130,16 @@ export const injectContentIntoDocx = async (
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
-          // Chèn an toàn ngay trước mục "I. MỤC TIÊU"
-          if (docXml.includes("I. MỤC TIÊU")) {
-            docXml = docXml.replace("I. MỤC TIÊU", `${tietParagraphsXml}\nI. MỤC TIÊU`);
-          } else if (docXml.includes("MỤC TIÊU")) {
-            docXml = docXml.replace("MỤC TIÊU", `${tietParagraphsXml}\nMỤC TIÊU`);
-          } else {
+          // Chèn an toàn tuyệt đối: Tìm chính xác vị trí thẻ đóng </w:p> của đoạn văn đầu tiên chứa chữ "MỤC TIÊU" để chèn lên trên, tuyệt đối không làm gãy thẻ XML
+          const mucTieuIdx = docXml.indexOf("MỤC TIÊU");
+          if (mucTieuIdx !== -1) {
+            const pStartIdx = docXml.lastIndexOf("<w:p", mucTieuIdx);
+            if (pStartIdx !== -1) {
+              docXml = docXml.substring(0, pStartIdx) + tietParagraphsXml + "\n" + docXml.substring(pStartIdx);
+            } else {
+              docXml = docXml.replace("<w:body>", `<w:body>\n${tietParagraphsXml}`);
+            }
+          } else if (docXml.includes("<w:body>")) {
             docXml = docXml.replace("<w:body>", `<w:body>\n${tietParagraphsXml}`);
           }
 
