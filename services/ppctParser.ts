@@ -338,8 +338,10 @@ export async function processSingleLessonFromPPCT(
       const pcccProblem = "[RED]Bài toán thực tế tích hợp Phòng chống cháy nổ: Để trang bị thiết bị PCCC cho một hội trường hình chữ nhật có chu vi 120m và chiều dài hơn chiều rộng 20m, nhà trường cần tính diện tích mặt sàn để bố trí số lượng bình chữa cháy theo quy định. Hãy tính diện tích mặt sàn hội trường đó![/RED]";
       content.objectives_addition = (content.objectives_addition || '') + '\n' + pcccProblem;
     }
-    // Định dạng chuỗi thời gian thực hiện chuẩn xác với tổng số tiết toàn bài
-    const headerInfoText = `Thời gian thực hiện: ${totalTietCount < 10 ? '0' + totalTietCount : totalTietCount} tiết (Tuần ${weekNum} dạy Tiết ${tietDisplayStr} theo PPCT: ${allTietStrs.join(', ')})`;
+    // Tính chính xác tổng số tiết từ danh sách các tiết bóc tách được
+    const actualTotalTiet = allTietStrs && allTietStrs.length > 0 ? allTietStrs.length : 1;
+    // Sử dụng trực tiếp danh sách tiết đã gom để hiển thị, không cần gọi biến tuanNum nếu scope không có
+    const headerInfoText = `Thời gian thực hiện: ${actualTotalTiet < 10 ? '0' + actualTotalTiet : actualTotalTiet} tiết (Tiết theo PPCT: ${tietDisplayStr})`;
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
