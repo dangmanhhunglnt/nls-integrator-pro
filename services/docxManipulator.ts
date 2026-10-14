@@ -102,7 +102,7 @@ export const injectContentIntoDocx = async (
             tietList = ["1"];
           }
 
-          // Tạo danh sách các tiết bôi vàng chuẩn từng thẻ <w:p> riêng biệt
+          // Tạo danh sách các tiết bôi vàng chuẩn từng thẻ <w:p> riêng biệt (đã sửa w:val="solid" để không lỗi Word)
           let tietParagraphsXml = "";
           const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
             ? content.summary_table
@@ -126,7 +126,7 @@ export const injectContentIntoDocx = async (
             sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
             const safeSectionContent = escapeXml(sectionContent);
 
-            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
+            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="solid" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
           // Chèn an toàn tuyệt đối ngay phía trên mục "I. MỤC TIÊU" thông qua cấu trúc XML nguyên vẹn
