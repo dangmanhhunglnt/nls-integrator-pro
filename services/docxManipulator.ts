@@ -87,7 +87,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT VÀ CHÈN AN TOÀN NGAY DƯỚI TÊN BÀI HỌC
+        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN CHÈN HOÀN CHỈNH
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           let tietList: string[] = [];
@@ -103,7 +103,7 @@ export const injectContentIntoDocx = async (
             tietList = ["1"];
           }
 
-          // 1. Tạo đoạn thời gian thực hiện chuẩn XML
+          // 1. Tạo dòng thời gian thực hiện chuẩn XML căn giữa, in nghiêng
           const safeTimeText = escapeXml(customHeaderPPCT || `Thời gian thực hiện: ${tietList.length} tiết`);
           const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
 
@@ -134,16 +134,14 @@ export const injectContentIntoDocx = async (
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
-          // 3. Gom khối chèn an toàn
+          // 3. Gom toàn bộ thành một khối chèn thống nhất
           const injectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // 4. Tìm kiếm đoạn văn chứa tên bài học (có chữ BÀI)...
-          const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
-          if (baiMatch && baiMatch.index !== undefined) {
-            const targetEndPos = baiMatch.index + baiMatch[0].length;
-            docXml = docXml.substring(0, targetEndPos) + `\n${injectionBlock}` + docXml.substring(targetEndPos);
-          } else if (docXml.includes("I. MỤC TIÊU")) {
+          // 4. Chèn an toàn ngay trước mục "I. MỤC TIÊU"
+          if (docXml.includes("I. MỤC TIÊU")) {
             docXml = docXml.replace("I. MỤC TIÊU", `${injectionBlock}\nI. MỤC TIÊU`);
+          } else if (docXml.includes("MỤC TIÊU")) {
+            docXml = docXml.replace("MỤC TIÊU", `${injectionBlock}\nMỤC TIÊU`);
           } else {
             docXml = docXml.replace("<w:body>", `<w:body>\n${injectionBlock}`);
           }
