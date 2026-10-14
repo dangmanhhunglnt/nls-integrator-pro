@@ -44,10 +44,10 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   // Tạo đoạn văn bản XML căn giữa, in nghiêng
   const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // Quét sạch các dòng cũ nếu có để tránh bị lặp
+  // Quét sạch các dòng cũ liên quan đến thời gian thực hiện/tiết PPCT để tránh trùng lặp
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  // Chèn an toàn ngay vào trước mục "I. MỤC TIÊU" (nằm sát ngay dưới tên bài học)
+  // Chèn ngay vào vị trí trước mục "I. MỤC TIÊU" (an toàn tuyệt đối không làm gãy XML)
   if (result.includes("I. MỤC TIÊU")) {
     result = result.replace("I. MỤC TIÊU", `${centerParagraphXml}\nI. MỤC TIÊU`);
   }
@@ -92,8 +92,7 @@ export const injectContentIntoDocx = async (
           if (timeIdx !== -1) {
             const pEndIdx = docXml.indexOf("</w:p>", timeIdx);
             if (pEndIdx !== -1) {
-              const insertTargetPos = pEndIdx + "</w:p>".length;
-
+              
               const snippet = docXml.substring(timeIdx, timeIdx + 600);
               
               let tietList: string[] = [];
@@ -105,7 +104,7 @@ export const injectContentIntoDocx = async (
                 tietList = ["1"];
               }
 
-              // Tạo danh sách các tiết bôi vàng theo đúng định dạng chuẩn
+              // Tạo danh sách các tiết bôi vàng chuẩn chỉnh
               let phanDinhXml = "";
               const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
                 ? content.summary_table
@@ -139,11 +138,14 @@ export const injectContentIntoDocx = async (
                 `;
               });
 
+              // Sử dụng Regex thay thế cực kỳ an toàn để chèn danh sách tiết ngay sau dòng thời gian thực hiện
+              const targetRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Thời gian thực hiện[\s\S]*?<\/w:p>)/i;
+              if (targetRegex.test(docXml)) {
+                docXml = docXml.replace(targetRegex, `$1\n${phanDinhXml}`);
+              }
+
               // Quét sạch các dòng rác "Tiết theo PPCT" cũ nếu có
               docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
-
-              // Chèn trực tiếp ngay dưới dòng "Thời gian thực hiện" một cách an toàn tuyệt đối
-              docXml = docXml.substring(0, insertTargetPos) + phanDinhXml + docXml.substring(insertTargetPos);
             }
           }
         } catch (err) {
