@@ -41,26 +41,18 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Tạo đoạn XML paragraph chuẩn mực, căn giữa, in nghiêng
+  // Tạo đoạn văn bản XML chuẩn, căn giữa, in nghiêng
   const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // Tìm kiếm dòng "Thời gian thực hiện" hoặc "Số tiết dạy" dưới dạng đoạn văn bản (<w:p>) để thay thế an toàn
-  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
-  const match = result.match(pRegex);
+  // Quét sạch toàn bộ các dòng "Thời gian thực hiện", "Số tiết dạy" hoặc "Tiết theo PPCT" cũ để không bị xung đột XML
+  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  if (match) {
-    result = result.replace(match[0], centerParagraphXml);
-  } else {
-    // Nếu chưa có sẵn, chèn ngay vào trước mục "I. MỤC TIÊU"
-    if (result.includes("I. MỤC TIÊU")) {
-      result = result.replace("I. MỤC TIÊU", `${centerParagraphXml}\nI. MỤC TIÊU`);
-    } else if (result.includes("BÀI")) {
-      result = result.replace(/<\/w:p>/, `</w:p>\n${centerParagraphXml}`);
-    }
+  // Chèn dòng thông tin mới vào ngay trước mục "I. MỤC TIÊU"
+  if (result.includes("I. MỤC TIÊU")) {
+    result = result.replace("I. MỤC TIÊU", `${centerParagraphXml}\nI. MỤC TIÊU`);
+  } else if (result.includes("BÀI")) {
+    result = result.replace(/<\/w:p>/, `</w:p>\n${centerParagraphXml}`);
   }
-
-  // Quét sạch các dòng rác "Tiết theo PPCT" thừa thãi nếu có
-  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
 
   return result;
 }
