@@ -41,17 +41,21 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Tạo đoạn văn bản XML chuẩn, căn giữa, in nghiêng
+  // Tạo đoạn văn bản XML căn giữa, in nghiêng
   const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // Quét sạch toàn bộ các dòng "Thời gian thực hiện", "Số tiết dạy" hoặc "Tiết theo PPCT" cũ để không bị xung đột XML
+  // Quét sạch các dòng cũ nếu có để tránh bị lặp
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  // Chèn dòng thông tin mới vào ngay trước mục "I. MỤC TIÊU"
-  if (result.includes("I. MỤC TIÊU")) {
+  // Tìm vị trí tiêu đề bài học (có chữ BÀI) để chèn ngay xuống phía dưới tên bài
+  const baiRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI\s*\d+[\s\S]*?<\/w:p>/i;
+  const match = result.match(baiRegex);
+
+  if (match) {
+    const insertPos = result.indexOf(match[0]) + match[0].length;
+    result = result.substring(0, insertPos) + `\n${centerParagraphXml}` + result.substring(insertPos);
+  } else if (result.includes("I. MỤC TIÊU")) {
     result = result.replace("I. MỤC TIÊU", `${centerParagraphXml}\nI. MỤC TIÊU`);
-  } else if (result.includes("BÀI")) {
-    result = result.replace(/<\/w:p>/, `</w:p>\n${centerParagraphXml}`);
   }
 
   return result;

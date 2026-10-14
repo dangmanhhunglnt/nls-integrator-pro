@@ -341,12 +341,12 @@ export async function processSingleLessonFromPPCT(
       content.objectives_addition = (content.objectives_addition || '') + '\n' + pcccProblem;
     }
     // Lấy tổng số tiết toàn bài (totalTietCount) và gom toàn bộ tất cả các tiết của bài học từ matchingRows
-    const totalTietOfLesson = totalTietCount; 
-    const allTietOfLesson = matchingRows.map(r => r.tiet).join(', ');
+    // Tính chính xác tổng số tiết thực tế từ danh sách các tiết của bài học
+    const totalTietOfLesson = allTietStrs ? allTietStrs.length : 5; 
+    const allTietOfLesson = allTietStrs.join(', ');
     const currentWeekNum = weekNum || '1';
     const currentWeekTiet = weekRows.map(r => r.tiet).join(', ');
 
-    // Định dạng lại chuỗi hiển thị đúng yêu cầu của thầy
     const headerInfoText = `Thời gian thực hiện: ${totalTietOfLesson < 10 ? '0' + totalTietOfLesson : totalTietOfLesson} tiết (Tuần ${currentWeekNum} dạy tiết ${currentWeekTiet} theo PPCT: ${allTietOfLesson})`;
 
     const processedBlob = await injectContentIntoDocx(
