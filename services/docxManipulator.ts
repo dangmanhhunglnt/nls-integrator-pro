@@ -126,7 +126,7 @@ export const injectContentIntoDocx = async (
             sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
             const safeSectionContent = escapeXml(sectionContent);
 
-            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="solid" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
+            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
           // Chèn an toàn tuyệt đối ngay đầu body để không bao giờ lỗi file Word
