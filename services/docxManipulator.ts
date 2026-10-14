@@ -43,50 +43,23 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 
   const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  const tblRegex = /<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
-  let replacedTable = false;
-
-  result = result.replace(tblRegex, (tblXml) => {
-    if (!replacedTable && (tblXml.includes("Thời gian thực hiện") || tblXml.includes("Số tiết dạy") || tblXml.includes("Tiết theo PPCT"))) {
-      replacedTable = true;
-      return centerParagraphXml;
+  if (result.includes("Thời gian thực hiện") || result.includes("Số tiết dạy")) {
+    const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
+    const match = result.match(pRegex);
+    if (match) {
+      result = result.replace(match[0], centerParagraphXml);
+      return result;
     }
-    return tblXml;
-  });
-
-  if (replacedTable) {
-    result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
-    return result;
   }
 
-  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
-  const match = result.match(pRegex);
-
-  if (match) {
-    let pXml = match[0];
-    if (pXml.includes('<w:pPr>')) {
-      if (pXml.includes('<w:jc')) {
-        pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
-      } else {
-        pXml = pXml.replace('<w:pPr>', '<w:pPr><w:jc w:val="center"/>');
-      }
-    } else if (pXml.includes('<w:pPr/>')) {
-      pXml = pXml.replace('<w:pPr/>', '<w:pPr><w:jc w:val="center"/></w:pPr>');
-    } else {
-      pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
-    }
-
-    pXml = pXml.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/gi, '');
-    const newRun = `<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
-    pXml = pXml.replace(/<\/w:p>$/i, `${newRun}</w:p>`);
-
-    result = result.replace(match[0], pXml);
+  if (result.includes("I. MỤC TIÊU")) {
+    result = result.replace("I. MỤC TIÊU", `${centerParagraphXml}\nI. MỤC TIÊU`);
+  } else if (result.includes("BÀI")) {
+    result = result.replace(/<\/w:p>/, `</w:p>\n${centerParagraphXml}`);
   }
 
-  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
   return result;
 }
-
 /**
  * 4. HÀM CHÈN MỐC TIẾT BÔI VÀNG NGAY DƯỚI DÒNG THỜI GIAN THỰC HIỆN (CỰC KỲ GỌN GÀNG VÀ CHUẨN XÁC)
  */
