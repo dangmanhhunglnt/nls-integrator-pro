@@ -164,31 +164,41 @@ export const injectContentIntoDocx = async (
                   tietList = ["1"];
               }
 
-              // Nhận diện tên bài học từ tiêu đề giáo án để đưa ra nội dung chuẩn SGK
-              const docTitleLower = docXml.toLowerCase();
+              // Tự động phân rã tiêu đề hoàn toàn động cho mọi bài học dựa trên nội dung quét được từ file
               let sgkSections: string[] = [];
+              
+              // 1. Quét tìm các tiêu đề hoạt động hoặc đề mục có trong file XML giáo án gốc
+              const extractedHeadings: string[] = [];
+              const headingRegex = /(?:Hoạt động|Mục|Phần)\s*\d+[:\s]+([^\n<]+)/gi;
+              let match;
+              while ((match = headingRegex.exec(docXml)) !== null) {
+                if (match[1] && match[1].trim().length > 3) {
+                  extractedHeadings.push(match[1].trim());
+                }
+              }
 
-              if (docTitleLower.includes("hàm số lượng giác")) {
-                sgkSections = [
-                  "Định nghĩa hàm số lượng giác (Sin, Cos, Tan, Cot)",
-                  "Tính chẵn, lẻ và tính tuần hoàn của hàm số lượng giác",
-                  "Đồ thị và các đặc trưng hình học của hàm số lượng giác"
-                ];
-              } else if (docTitleLower.includes("cấp số cộng")) {
-                sgkSections = [
-                  "Định nghĩa và số hạng tổng quát của cấp số cộng",
-                  "Tính chất các số hạng và tổng n số hạng đầu tiên"
-                ];
-              } else if (docTitleLower.includes("đường thẳng và mặt phẳng")) {
-                sgkSections = [
-                  "Các khái niệm mở đầu và tính chất thừa nhận",
-                  "Cách xác định một mặt phẳng, hình chóp và tứ diện"
-                ];
-              } else {
-                sgkSections = [
-                  "Nội dung trọng tâm và lý thuyết cơ bản",
-                  "Hệ thống bài tập luyện tập và vận dụng"
-                ];
+              // 2. Nếu quét được các đề mục từ nội dung, dùng chúng làm tên tiết
+              if (extractedHeadings.length > 0) {
+                sgkSections = tietList.map((tNum, idx) => {
+                  const headingName = extractedHeadings[idx] || extractedHeadings[extractedHeadings.length - 1];
+                  return `Tiết ${tNum}: ${headingName}`;
+                });
+              }
+
+              // 3. Nếu file không có sẵn đề mục, hệ thống tự sinh tên tiết linh hoạt theo tổng số tiết của bài
+              if (sgkSections.length === 0) {
+                sgkSections = tietList.map((tNum, idx) => {
+                  if (tietList.length === 1) {
+                    return `Tiết ${tNum}: Nghiên cứu trọng tâm và luyện tập bài học`;
+                  }
+                  if (idx === 0) {
+                    return `Tiết ${tNum}: Khám phá kiến thức mới và hình thành khái niệm`;
+                  } else if (idx === tietList.length - 1) {
+                    return `Tiết ${tNum}: Luyện tập chung, củng cố và vận dụng thực tế`;
+                  } else {
+                    return `Tiết ${tNum}: Hệ thống các dạng bài tập chuyên đề và chiều sâu`;
+                  }
+                });
               }
 
               let phanDinhXml = "";
