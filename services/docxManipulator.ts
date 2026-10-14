@@ -114,6 +114,7 @@ export const injectContentIntoDocx = async (
         // 1. Quét sạch các mốc cũ nếu có để tránh bị lặp
         docXml = cleanExistingNLSContent(docXml);
 
+        // Bổ sung gọi hàm cập nhật thời gian thực hiện vào đây:
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
