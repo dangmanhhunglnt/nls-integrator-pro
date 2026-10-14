@@ -86,7 +86,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT BÁM SÁT PPCT VÀ NỘI DUNG SGK (LOẠI BỎ HOÀN TOÀN MỤC TIÊU GIÁO ÁN)
+        // 2. PHÂN ĐỊNH TIẾT VÀ CẬP NHẬT THỜI GIAN THỰC HIỆN BÁM SÁT PPCT
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           if (timeIdx !== -1) {
@@ -102,57 +102,17 @@ export const injectContentIntoDocx = async (
                 tietList = matchPpct[1].split(/[,-\s]+/).filter(Boolean);
               }
               if (tietList.length === 0) {
-                const matchTiet = snippet.match(/Tiết\s*([\d,\s-]+)/i);
-                if (matchTiet && matchTiet[1]) {
-                  tietList = matchTiet[1].split(/[,-\s]+/).filter(Boolean);
-                }
-              }
-              if (tietList.length === 0) {
                 tietList = ["1"];
               }
 
-              // ==========================================
-              // BÓC TÁCH VÀ PHÂN BỔ NỘI DUNG SGK THEO TỪNG TIẾT (ĐẢM BẢO MỌI MÔN ĐỀU ĐỌC ĐƯỢC)
-              // ==========================================
-              let sgkSections: string[] = [];
-              
-              if (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table) && content.summary_table.length > 0) {
-                sgkSections = content.summary_table.map((item: any) => item.content || item.topic || '').filter(Boolean);
-              }
-
-              // Nếu chưa có bảng tóm tắt, tự động quét raw_content và phân tách theo các đề mục SGK / dòng
-              if (sgkSections.length === 0 && content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
-                const rawText = String(content.raw_content);
-                sgkSections = rawText
-                  .split(/(?=\d+\.|\bphần\b|\bmục\b)/i)
-                  .map(s => s.trim())
-                  .filter(Boolean);
-                  
-                if (sgkSections.length === 0) {
-                  sgkSections = rawText.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-                }
-              }
-
-              // Fallback chuẩn nếu trống
-              if (sgkSections.length === 0) {
-                sgkSections = [
-                  "Nội dung trọng tâm và lý thuyết cơ bản theo chuẩn sách giáo khoa",
-                  "Hệ thống bài tập luyện tập, vận dụng và củng cố"
-                ];
-              }
-                       
-              // ==========================================
-              // XỬ LÝ TỔNG QUÁT & PHÂN RÃ GỌN GÀNG CHO TIÊU ĐỀ TỪNG TIẾT
-              // ==========================================
+              // Tạo danh sách các tiết bôi vàng theo đúng định dạng chuẩn
               let phanDinhXml = "";
-
               const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
                 ? content.summary_table
                 : [];
 
               tietList.forEach((tNum, idx) => {
                 let sectionContent = "";
-
                 const matchedItem: any = summaryList.find((item: any) => {
                   const tStr = String(item.tiet || '').trim();
                   return tStr === String(tNum) || tStr.split(/[\,\-\s]+/).includes(String(tNum));
@@ -163,15 +123,9 @@ export const injectContentIntoDocx = async (
                 } else if (summaryList[idx]) {
                   sectionContent = (summaryList[idx] as any).content || '';
                 } else {
-                  // Phân rã thông minh: Nếu tiết sau lặp lại mục của tiết trước, tự động thêm chữ (tiếp theo)
-                  if (idx > 0) {
-                    sectionContent = `Mục trọng tâm (tiếp theo)`;
-                  } else {
-                    sectionContent = `Mục trọng tâm bài học`;
-                  }
+                  sectionContent = idx > 0 ? `Mục trọng tâm (tiếp theo)` : `Mục trọng tâm bài học`;
                 }
 
-                // Làm sạch các định dạng rác nếu có
                 sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
 
                 phanDinhXml += `
@@ -185,9 +139,10 @@ export const injectContentIntoDocx = async (
                 `;
               });
 
-              // Quét sạch các dòng chữ rác "Tiết theo PPCT" cũ xung quanh để file Word sạch bóng
+              // Quét sạch các dòng rác "Tiết theo PPCT" cũ nếu có
               docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
 
+              // Chèn trực tiếp ngay dưới dòng "Thời gian thực hiện" một cách an toàn tuyệt đối
               docXml = docXml.substring(0, insertTargetPos) + phanDinhXml + docXml.substring(insertTargetPos);
             }
           }
