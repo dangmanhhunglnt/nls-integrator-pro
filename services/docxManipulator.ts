@@ -129,18 +129,39 @@ export const injectContentIntoDocx = async (
               const snippet = docXml.substring(timeIdx, timeIdx + 600);
               
               let tietList: string[] = [];
-              const matchPpct = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i);
+              const matchPpct = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([(\d,\s-]+)/i);
               if (matchPpct && matchPpct[1]) {
-                tietList = matchPpct[1].split(/[,-\s]+/).filter(Boolean);
+                  const rawStr = matchPpct[1];
+                  let expandedNums: number[] = [];
+                  rawStr.split(',').forEach(part => {
+                      part = part.trim();
+                      if (part.includes('-')) {
+                          const range = part.split('-').map(s => parseInt(s.trim(), 10));
+                          if (range.length === 2 && !isNaN(range[0]) && !isNaN(range[1])) {
+                              for (let i = range[0]; i <= range[1]; i++) {
+                                  expandedNums.push(i);
+                              }
+                          }
+                      } else {
+                          const num = parseInt(part, 10);
+                          if (!isNaN(num)) {
+                              expandedNums.push(num);
+                          }
+                      }
+                  });
+                  expandedNums = [...new Set(expandedNums)];
+                  tietList = expandedNums.map(n => n.toString());
               }
+
               if (tietList.length === 0) {
-                const matchTiet = snippet.match(/Tiết\s*([\d,\s-]+)/i);
-                if (matchTiet && matchTiet[1]) {
-                  tietList = matchTiet[1].split(/[,-\s]+/).filter(Boolean);
-                }
+                  const matchTiet = snippet.match(/Tiết\s*([\d,\s-]+)/i);
+                  if (matchTiet && matchTiet[1]) {
+                      tietList = matchTiet[1].split(/[,-\s]+/).filter(Boolean);
+                  }
               }
+
               if (tietList.length === 0) {
-                tietList = ["1"];
+                  tietList = ["1"];
               }
 
               // Nhận diện tên bài học từ tiêu đề giáo án để đưa ra nội dung chuẩn SGK
