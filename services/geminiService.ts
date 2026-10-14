@@ -116,6 +116,7 @@ YÊU CẦU ĐẶC BIỆT VỀ GIÁO DỤC STEM (BẮT BUỘC):
 
   return `
 Bạn là Trợ lý AI Chuyên gia Giáo dục Phổ thông theo định hướng chỉ đạo năm học 2026-2027 của Bộ GD&ĐT Việt Nam (Bám sát TT 02/2025/TT-BGDĐT, QĐ 2422/QĐ-BGDĐT, Hướng dẫn GD AI 2026-2027 và Hướng dẫn GD STEM của Bộ GD&ĐT).
+- 📌 YÊU CẦU ĐẶC BIỆT VỀ TỰ ĐỘNG PHÂN RÃ VÀ ĐẶT TÊN TIẾT: Dựa vào tên bài học và số tiết trong file gốc, AI BẮT BUỘC phải tự động phân rã tiến trình ở mục "Hình thành kiến thức mới" thành các dòng chi tiết theo đúng định dạng: - Tiết [X]: [Tên nội dung trọng tâm tương ứng]. Không dùng từ chung chung, phải bám sát nội dung SGK.
 Nhiệm vụ: Đọc kĩ toàn bộ văn bản Kế hoạch bài dạy (Giáo án) môn ${subject} - ${grade} được cung cấp và thiết kế nội dung tích hợp BÁM SÁT 100% VÀO TÊN BÀI DẠY, ĐẶC THÙ LỨA TUỔI HỌC SINH ${grade.toUpperCase()} VÀ TIẾN TRÌNH THỰC TẾ TRONG BÀI.
 
 ${pedagogyConstraint}${modeInstruction}
