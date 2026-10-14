@@ -33,7 +33,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG
+ * 3. HÀM CẬP NHẬT THỜI GIAN THỰC HIỆN
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -47,15 +47,16 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   // Quét sạch các dòng cũ nếu có để tránh bị lặp
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  // Chèn an toàn ngay vào phía trên cùng của nội dung body (ngay sau thẻ <w:body>)
+  // Đặt tạm vào đầu body để hàm inject chính bên dưới tự động bóc và đặt đúng vị trí ngay dưới tên bài học
   if (result.includes("<w:body>")) {
     result = result.replace("<w:body>", `<w:body>\n${centerParagraphXml}`);
   }
 
   return result;
 }
+
 /**
- * 4. HÀM CHÈN MỐC TIẾT BÔI VÀNG NGAY DƯỚI DÒNG THỜI GIAN THỰC HIỆN (CỰC KỲ GỌN GÀNG VÀ CHUẨN XÁC)
+ * 4. HÀM CHÈN THỜI GIAN VÀ MỐC TIẾT BÔI VÀNG NGAY DƯỚI TÊN BÀI HỌC (CHÍNH XÁC TUYỆT ĐỐI)
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -81,75 +82,92 @@ export const injectContentIntoDocx = async (
         // 1. Quét sạch các mốc cũ nếu có để tránh bị lặp
         docXml = cleanExistingNLSContent(docXml);
 
-        // Bổ sung: Ưu tiên cập nhật thông tin thời gian thực hiện/PPCT nếu có truyền vào
+        // Bổ sung: Cập nhật thông tin thời gian thực hiện/PPCT nếu có truyền vào
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT VÀ CẬP NHẬT THỜI GIAN THỰC HIỆN BÁM SÁT PPCT
+        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN CHÈN
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
+          let tietList: string[] = [];
+
           if (timeIdx !== -1) {
-            const pEndIdx = docXml.indexOf("</w:p>", timeIdx);
-            if (pEndIdx !== -1) {
-              
-              const snippet = docXml.substring(timeIdx, timeIdx + 600);
-              
-              let tietList: string[] = [];
-              const matchPpct = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i);
-              if (matchPpct && matchPpct[1]) {
-                tietList = matchPpct[1].split(/[,-\s]+/).filter(Boolean);
-              }
-              if (tietList.length === 0) {
-                tietList = ["1"];
-              }
-
-              // Tạo danh sách các tiết bôi vàng chuẩn chỉnh
-              let phanDinhXml = "";
-              const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
-                ? content.summary_table
-                : [];
-
-              tietList.forEach((tNum, idx) => {
-                let sectionContent = "";
-                const matchedItem: any = summaryList.find((item: any) => {
-                  const tStr = String(item.tiet || '').trim();
-                  return tStr === String(tNum) || tStr.split(/[\,\-\s]+/).includes(String(tNum));
-                });
-
-                if (matchedItem) {
-                  sectionContent = matchedItem.content || '';
-                } else if (summaryList[idx]) {
-                  sectionContent = (summaryList[idx] as any).content || '';
-                } else {
-                  sectionContent = idx > 0 ? `Mục trọng tâm (tiếp theo)` : `Mục trọng tâm bài học`;
-                }
-
-                sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
-
-                phanDinhXml += `
-                  <w:p>
-                    <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
-                    <w:r>
-                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
-                    </w:r>
-                  </w:p>
-                `;
-              });
-
-              // Sử dụng Regex thay thế cực kỳ an toàn ngay sau dòng thời gian thực hiện
-              const targetRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Thời gian thực hiện[\s\S]*?<\/w:p>)/i;
-              if (targetRegex.test(docXml)) {
-                docXml = docXml.replace(targetRegex, `$1\n${phanDinhXml}`);
-              } else if (docXml.includes("<w:body>")) {
-                docXml = docXml.replace("<w:body>", `<w:body>\n${phanDinhXml}`);
-              }
-
-              // Quét sạch các dòng rác "Tiết theo PPCT" cũ nếu có
-              docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
+            const snippet = docXml.substring(timeIdx, timeIdx + 600);
+            const matchPpct = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i);
+            if (matchPpct && matchPpct[1]) {
+              tietList = matchPpct[1].split(/[,-\s]+/).filter(Boolean);
             }
           }
+          if (tietList.length === 0) {
+            tietList = ["1"];
+          }
+
+          // Lấy trích xuất dòng thời gian hiện tại từ xml nếu đã được đưa vào qua updatePPCTHeaderInfo
+          let centerParagraphXml = "";
+          const timeMatch = docXml.match(/(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Thời gian thực hiện[\s\S]*?<\/w:p>)/i);
+          if (timeMatch) {
+            centerParagraphXml = timeMatch[1];
+            // Xóa tạm thời vị trí cũ để đưa về đúng vị trí chuẩn ngay dưới tên bài học
+            docXml = docXml.replace(timeMatch[1], '');
+          } else if (customHeaderPPCT) {
+            const safeNewText = escapeXml(customHeaderPPCT);
+            centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
+          }
+
+          // Tạo danh sách các tiết bôi vàng chuẩn chỉnh
+          let phanDinhXml = "";
+          const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
+            ? content.summary_table
+            : [];
+
+          tietList.forEach((tNum, idx) => {
+            let sectionContent = "";
+            const matchedItem: any = summaryList.find((item: any) => {
+              const tStr = String(item.tiet || '').trim();
+              return tStr === String(tNum) || tStr.split(/[\,\-\s]+/).includes(String(tNum));
+            });
+
+            if (matchedItem) {
+              sectionContent = matchedItem.content || '';
+            } else if (summaryList[idx]) {
+              sectionContent = (summaryList[idx] as any).content || '';
+            } else {
+              sectionContent = idx > 0 ? `Mục trọng tâm (tiếp theo)` : `Mục trọng tâm bài học`;
+            }
+
+            sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
+            const safeSectionContent = escapeXml(sectionContent);
+
+            phanDinhXml += `
+              <w:p>
+                <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
+                <w:r>
+                  <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr>
+                  <w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t>
+                </w:r>
+              </w:p>
+            `;
+          });
+
+          // Gom toàn bộ khối thông tin cần chèn (Thời gian thực hiện + Danh sách các tiết bôi vàng)
+          const finalInjectionBlock = `${centerParagraphXml}\n${phanDinhXml}`;
+
+          // Tìm vị trí đoạn văn chứa tên bài học (có chữ BÀI) để chèn ngay xuống phía dưới một cách an toàn tuyệt đối
+          const baiRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>)/i;
+          
+          if (baiRegex.test(docXml)) {
+            docXml = docXml.replace(baiRegex, `$1\n${finalInjectionBlock}`);
+          } else if (docXml.includes("I. MỤC TIÊU")) {
+            docXml = docXml.replace("I. MỤC TIÊU", `${finalInjectionBlock}\nI. MỤC TIÊU`);
+          } else {
+            docXml = docXml.replace("<w:body>", `<w:body>\n${finalInjectionBlock}`);
+          }
+
+          // Quét sạch các dòng rác cũ liên quan nếu còn sót lại ở chỗ khác
+          docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, (match, offset) => {
+            return offset > docXml.indexOf(finalInjectionBlock) ? match : '';
+          });
         } catch (err) {
           console.warn("Lỗi phân định tiết theo SGK:", err);
         }
