@@ -47,14 +47,8 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   // Quét sạch các dòng cũ nếu có để tránh bị lặp
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  // Tìm vị trí tiêu đề bài học (có chữ BÀI) để chèn ngay xuống phía dưới tên bài
-  const baiRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI\s*\d+[\s\S]*?<\/w:p>/i;
-  const match = result.match(baiRegex);
-
-  if (match) {
-    const insertPos = result.indexOf(match[0]) + match[0].length;
-    result = result.substring(0, insertPos) + `\n${centerParagraphXml}` + result.substring(insertPos);
-  } else if (result.includes("I. MỤC TIÊU")) {
+  // Chèn an toàn ngay vào trước mục "I. MỤC TIÊU" (nằm sát ngay dưới tên bài học)
+  if (result.includes("I. MỤC TIÊU")) {
     result = result.replace("I. MỤC TIÊU", `${centerParagraphXml}\nI. MỤC TIÊU`);
   }
 
