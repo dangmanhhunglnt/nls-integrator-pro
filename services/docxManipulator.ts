@@ -47,7 +47,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   // Quét sạch các dòng cũ nếu có để tránh bị lặp
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  // Đặt tạm vào đầu body để hàm inject chính bên dưới tự động bóc và đặt đúng vị trí ngay dưới tên bài học
   if (result.includes("<w:body>")) {
     result = result.replace("<w:body>", `<w:body>\n${centerParagraphXml}`);
   }
@@ -130,14 +129,14 @@ export const injectContentIntoDocx = async (
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
-          // Chèn an toàn tuyệt đối: Tìm chính xác vị trí thẻ đóng </w:p> của đoạn văn đầu tiên chứa chữ "MỤC TIÊU" để chèn lên trên, tuyệt đối không làm gãy thẻ XML
-          const mucTieuIdx = docXml.indexOf("MỤC TIÊU");
-          if (mucTieuIdx !== -1) {
-            const pStartIdx = docXml.lastIndexOf("<w:p", mucTieuIdx);
-            if (pStartIdx !== -1) {
-              docXml = docXml.substring(0, pStartIdx) + tietParagraphsXml + "\n" + docXml.substring(pStartIdx);
+          // Chèn an toàn tuyệt đối ngay phía trên mục "I. MỤC TIÊU" thông qua cấu trúc XML nguyên vẹn
+          if (docXml.includes("I. MỤC TIÊU")) {
+            const targetPos = docXml.indexOf("I. MỤC TIÊU");
+            const pStart = docXml.lastIndexOf("<w:p", targetPos);
+            if (pStart !== -1) {
+              docXml = docXml.substring(0, pStart) + tietParagraphsXml + "\n" + docXml.substring(pStart);
             } else {
-              docXml = docXml.replace("<w:body>", `<w:body>\n${tietParagraphsXml}`);
+              docXml = docXml.replace("I. MỤC TIÊU", `${tietParagraphsXml}\nI. MỤC TIÊU`);
             }
           } else if (docXml.includes("<w:body>")) {
             docXml = docXml.replace("<w:body>", `<w:body>\n${tietParagraphsXml}`);
