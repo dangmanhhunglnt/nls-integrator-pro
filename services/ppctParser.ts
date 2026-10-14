@@ -188,8 +188,8 @@ export async function processBatchPPCT(
     }
 
     // Dùng trực tiếp số lượng phần tử của mảng các tiết hoặc biến đếm có sẵn trong phạm vi hàm
-    const actualTotalTiet = (typeof allTietStrs !== 'undefined' && allTietStrs.length) ? allTietStrs.length : 5;
-    const headerInfoText = `Thời gian thực hiện: ${actualTotalTiet < 10 ? '0' + actualTotalTiet : actualTotalTiet} tiết (Tiết theo PPCT: ${typeof tietDisplayStr !== 'undefined' ? tietDisplayStr : '1, 2, 4, 5, 7'})`;
+    const actualTotalTiet = totalTietCount; // Lấy tổng số tiết thực tế của bài
+    const headerInfoText = `Thời gian thực hiện: ${actualTotalTiet < 10 ? '0' + actualTotalTiet : actualTotalTiet} tiết (Tiết theo PPCT: ${tietDisplayStr})`;
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
@@ -340,10 +340,10 @@ export async function processSingleLessonFromPPCT(
       const pcccProblem = "[RED]Bài toán thực tế tích hợp Phòng chống cháy nổ: Để trang bị thiết bị PCCC cho một hội trường hình chữ nhật có chu vi 120m và chiều dài hơn chiều rộng 20m, nhà trường cần tính diện tích mặt sàn để bố trí số lượng bình chữa cháy theo quy định. Hãy tính diện tích mặt sàn hội trường đó![/RED]";
       content.objectives_addition = (content.objectives_addition || '') + '\n' + pcccProblem;
     }
-    // Tính chính xác tổng số tiết từ danh sách các tiết bóc tách được
-    const actualTotalTiet = allTietStrs && allTietStrs.length > 0 ? allTietStrs.length : 1;
-    // Sử dụng trực tiếp danh sách tiết đã gom để hiển thị, không cần gọi biến tuanNum nếu scope không có
-    const headerInfoText = `Thời gian thực hiện: ${actualTotalTiet < 10 ? '0' + actualTotalTiet : actualTotalTiet} tiết (Tiết theo PPCT: ${tietDisplayStr})`;
+    // Sử dụng tổng số tiết toàn bài (totalTietCount) và toàn bộ danh sách tiết của bài học
+    const totalTietOfLesson = totalTietCount; 
+    const allTietOfLesson = weekRows.map(r => r.tiet).join(', ');
+    const headerInfoText = `Thời gian thực hiện: ${totalTietOfLesson < 10 ? '0' + totalTietOfLesson : totalTietOfLesson} tiết (Tiết theo PPCT: ${allTietOfLesson})`;
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
