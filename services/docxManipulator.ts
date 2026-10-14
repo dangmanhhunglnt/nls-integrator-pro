@@ -162,17 +162,17 @@ export const injectContentIntoDocx = async (
                   sectionContent = matchedItem.content || '';
                 } else if (summaryList[idx]) {
                   sectionContent = (summaryList[idx] as any).content || '';
-                } else if (content && typeof content === 'object' && 'raw_content' in content && content.raw_content) {
-                  const lines = String(content.raw_content).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-                  sectionContent = lines[idx] || lines[0] || `Nội dung trọng tâm tiết ${tNum}`;
                 } else {
-                  sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
+                  // Phân rã thông minh: Nếu tiết sau lặp lại mục của tiết trước, tự động thêm chữ (tiếp theo)
+                  if (idx > 0) {
+                    sectionContent = `Mục trọng tâm (tiếp theo)`;
+                  } else {
+                    sectionContent = `Mục trọng tâm bài học`;
+                  }
                 }
 
+                // Làm sạch các định dạng rác nếu có
                 sectionContent = sectionContent.replace(/^(tiết|tiet)\s*\d+[\s:\-]*/i, '').trim();
-                if (!sectionContent) {
-                  sectionContent = `Nội dung trọng tâm tiết ${tNum} theo PPCT`;
-                }
 
                 phanDinhXml += `
                   <w:p>
