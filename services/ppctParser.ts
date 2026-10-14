@@ -340,9 +340,29 @@ export async function processSingleLessonFromPPCT(
       const pcccProblem = "[RED]Bài toán thực tế tích hợp Phòng chống cháy nổ: Để trang bị thiết bị PCCC cho một hội trường hình chữ nhật có chu vi 120m và chiều dài hơn chiều rộng 20m, nhà trường cần tính diện tích mặt sàn để bố trí số lượng bình chữa cháy theo quy định. Hãy tính diện tích mặt sàn hội trường đó![/RED]";
       content.objectives_addition = (content.objectives_addition || '') + '\n' + pcccProblem;
     }
+    // Tách và làm phẳng tất cả các tiết từ PPCT (xử lý cả trường hợp dấu phẩy hoặc dấu gạch ngang)
+    let expandedTietList: any[] = [];
+    if (allTietStrs && Array.isArray(allTietStrs)) {
+        allTietStrs.forEach(str => {
+            if (!str) return;
+            if (str.includes('-')) {
+                const parts = str.split('-').map(s => parseInt(s.trim(), 10));
+                if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                    for (let i = parts[0]; i <= parts[1]; i++) {
+                        expandedTietList.push(i);
+                    }
+                }
+            } else {
+                const items = str.split(',').map(s => s.trim()).filter(Boolean);
+                items.forEach(item => expandedTietList.push(item));
+            }
+        });
+    }
+    expandedTietList = [...new Set(expandedTietList)];
+
     // Tính toán chính xác tổng số tiết và danh sách các tiết của bài học
-    const totalTietOfLesson = totalTietCount || (allTietStrs ? allTietStrs.length : 1);
-    const allTietOfLesson = allTietStrs ? allTietStrs.join(', ') : '1';
+    const totalTietOfLesson = totalTietCount || (expandedTietList.length > 0 ? expandedTietList.length : 1);
+    const allTietOfLesson = expandedTietList.length > 0 ? expandedTietList.join(', ') : '1';
     const currentWeekNum = weekNum || '1';
     const currentWeekTiet = weekRows ? weekRows.map(r => r.tiet).join(', ') : '1';
 
