@@ -153,11 +153,16 @@ export const injectContentIntoDocx = async (
           // Gom toàn bộ khối thông tin cần chèn (Thời gian thực hiện + Danh sách các tiết bôi vàng)
           const finalInjectionBlock = `${centerParagraphXml}\n${phanDinhXml}`;
 
-          // Tìm vị trí đoạn văn chứa tên bài học (có chữ BÀI) để chèn ngay xuống phía dưới một cách an toàn tuyệt đối
-          const baiRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>)/i;
-          
-          if (baiRegex.test(docXml)) {
-            docXml = docXml.replace(baiRegex, `$1\n${finalInjectionBlock}`);
+          // Tìm vị trí chữ "BÀI" một cách an toàn đơn giản để chèn ngay xuống đoạn văn tiếp theo
+          const baiIdx = docXml.indexOf("BÀI");
+          if (baiIdx !== -1) {
+            const pEndIdx = docXml.indexOf("</w:p>", baiIdx);
+            if (pEndIdx !== -1) {
+              const insertPos = pEndIdx + "</w:p>".length;
+              docXml = docXml.substring(0, insertPos) + "\n" + finalInjectionBlock + docXml.substring(insertPos);
+            } else {
+              docXml = docXml.replace("<w:body>", `<w:body>\n${finalInjectionBlock}`);
+            }
           } else if (docXml.includes("I. MỤC TIÊU")) {
             docXml = docXml.replace("I. MỤC TIÊU", `${finalInjectionBlock}\nI. MỤC TIÊU`);
           } else {
