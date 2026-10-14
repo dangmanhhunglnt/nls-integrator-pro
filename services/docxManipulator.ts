@@ -78,15 +78,11 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. Quét sạch các mốc cũ nếu có để tránh bị lặp
+        // 1. Quét sạch các mốc cũ và dòng thời gian cũ để tránh bị lặp
         docXml = cleanExistingNLSContent(docXml);
+        docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-        // Bổ sung: Cập nhật thông tin thời gian thực hiện/PPCT nếu có truyền vào
-        if (customHeaderPPCT) {
-          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
-        }
-        
-        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO DANH SÁCH TIẾT BÔI VÀNG CHUẨN XÁC TUYỆT ĐỐI
+        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH (Thời gian + Các tiết chi tiết)
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           let tietList: string[] = [];
@@ -102,7 +98,12 @@ export const injectContentIntoDocx = async (
             tietList = ["1"];
           }
 
-          // Tạo danh sách các tiết bôi vàng chuẩn từng thẻ <w:p> riêng biệt (đã sửa w:val="solid" để không lỗi Word)
+          // Tạo dòng thời gian thực hiện chuẩn XML căn giữa, in nghiêng
+          const headerText = customHeaderPPCT || `Thời gian thực hiện: ${tietList.length} tiết`;
+          const safeTimeText = escapeXml(headerText);
+          const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
+
+          // Tạo danh sách các tiết chi tiết bôi đậm, chuẩn từng thẻ <w:p> riêng biệt
           let tietParagraphsXml = "";
           const summaryList = (content && typeof content === 'object' && 'summary_table' in content && Array.isArray(content.summary_table))
             ? content.summary_table
@@ -129,15 +130,19 @@ export const injectContentIntoDocx = async (
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="000000"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
-          // Chèn an toàn tuyệt đối ngay đầu body để không bao giờ lỗi file Word
-          if (docXml.includes("<w:body>")) {
-            docXml = docXml.replace("<w:body>", `<w:body>\n${tietParagraphsXml}`);
-          }
+          // Gom chung thành 1 khối hoàn chỉnh: Thời gian ở trên, danh sách tiết ở dưới
+          const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // Quét sạch các dòng rác cũ liên quan nếu còn sót lại ở chỗ khác
-          docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, (match, offset) => {
-            return offset > docXml.indexOf(tietParagraphsXml) ? match : '';
-          });
+          // Chèn chuẩn xác ngay phía dưới đoạn văn chứa tiêu đề bài học (có chứa chữ "BÀI")
+          const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
+          if (baiMatch && baiMatch.index !== undefined) {
+            const targetEndPos = baiMatch.index + baiMatch[0].length;
+            docXml = docXml.substring(0, targetEndPos) + `\n${completeInjectionBlock}` + docXml.substring(targetEndPos);
+          } else if (docXml.includes("I. MỤC TIÊU")) {
+            docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\nI. MỤC TIÊU`);
+          } else if (docXml.includes("<w:body>")) {
+            docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
+          }
         } catch (err) {
           console.warn("Lỗi phân định tiết theo SGK:", err);
         }
