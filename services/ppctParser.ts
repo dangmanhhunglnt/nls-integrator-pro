@@ -364,8 +364,8 @@ export async function processSingleLessonFromPPCT(
         });
     }
     expandedTietList = [...new Set(expandedTietList)];
-
-    const totalTietOfLesson = totalTietCount || (expandedTietList.length > 0 ? expandedTietList.length : 1);
+    
+    const totalTietOfLesson = expandedTietList.length > 0 ? expandedTietList.length : (totalTietCount || 1);
     const allTietOfLesson = expandedTietList.length > 0 ? expandedTietList.join(', ') : '1';
     const currentWeekNum = weekNum || '1';
     const currentWeekTiet = weekRows ? weekRows.map(r => r.tiet).join(', ') : '1';
