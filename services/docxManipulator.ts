@@ -41,20 +41,15 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Tạo đoạn văn bản XML căn giữa, in nghiêng
+  // Tạo đoạn văn bản XML căn giữa, in nghiêng cho dòng thời gian thực hiện
   const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // Quét sạch các dòng cũ liên quan đến thời gian thực hiện để tránh trùng lặp
+  // Quét sạch các dòng cũ nếu có để tránh bị lặp
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  // Tìm kiếm linh hoạt các từ khóa để chèn ngay phía trên mục tiêu bài học
-  if (result.includes("I. MỤC TIÊU")) {
-    result = result.replace("I. MỤC TIÊU", `${centerParagraphXml}\nI. MỤC TIÊU`);
-  } else if (result.includes("MỤC TIÊU")) {
-    result = result.replace("MỤC TIÊU", `${centerParagraphXml}\nMỤC TIÊU`);
-  } else {
-    // Nếu không tìm thấy, chèn ngay vào trước thẻ đóng body cuối cùng của tài liệu
-    result = result.replace("</w:body>", `${centerParagraphXml}\n</w:body>`);
+  // Chèn an toàn ngay vào phía trên cùng của nội dung body (ngay sau thẻ <w:body>)
+  if (result.includes("<w:body>")) {
+    result = result.replace("<w:body>", `<w:body>\n${centerParagraphXml}`);
   }
 
   return result;
@@ -143,10 +138,12 @@ export const injectContentIntoDocx = async (
                 `;
               });
 
-              // Sử dụng Regex thay thế cực kỳ an toàn để chèn danh sách tiết ngay sau dòng thời gian thực hiện
+              // Sử dụng Regex thay thế cực kỳ an toàn ngay sau dòng thời gian thực hiện
               const targetRegex = /(<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Thời gian thực hiện[\s\S]*?<\/w:p>)/i;
               if (targetRegex.test(docXml)) {
                 docXml = docXml.replace(targetRegex, `$1\n${phanDinhXml}`);
+              } else if (docXml.includes("<w:body>")) {
+                docXml = docXml.replace("<w:body>", `<w:body>\n${phanDinhXml}`);
               }
 
               // Quét sạch các dòng rác "Tiết theo PPCT" cũ nếu có
