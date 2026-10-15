@@ -173,7 +173,7 @@ export const injectContentIntoDocx = async (
             });
           }
 
-          // Tạo danh sách chi tiết cho TỪNG TIẾT, có bôi nền vàng nổi bật và nội dung riêng biệt
+          // Tạo danh sách chi tiết cho TỪNG TIẾT, dùng chữ đậm màu đỏ nổi bật (tuyệt đối không bị lỗi nền đen)
           let tietParagraphsXml = "";
           tietList.forEach((tNum, idx) => {
             let sectionContent = "";
@@ -186,7 +186,6 @@ export const injectContentIntoDocx = async (
             } else if (currentTotal === 3) {
               sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới (Phần 1)" : (idx === 1 ? "Hoàn thiện kiến thức trọng tâm và ví dụ minh họa (Phần 2)" : "Hệ thống bài tập luyện tập và vận dụng");
             } else {
-              // Phân bổ chi tiết cho bài dài (ví dụ 5 tiết: 1, 2, 4, 5, 7)
               if (idx === 0) {
                 sectionContent = "Khám phá và hình thành kiến thức mới (Phần 1)";
               } else if (idx === 1) {
@@ -199,8 +198,8 @@ export const injectContentIntoDocx = async (
             }
 
             const safeSectionContent = escapeXml(sectionContent);
-            // Dùng w:val="solid" và w:fill="FFFF00" để bôi vàng an toàn tuyệt đối không bị lỗi Word
-            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="solid" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
+            // Dùng chữ đậm, màu đỏ (FF0000) nổi bật, sạch sẽ, không dùng shading nền tránh lỗi đen kịt
+            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
           // Gom chung thành 1 khối hoàn chỉnh: Thời gian ở trên, danh sách đầy đủ các tiết ở dưới
