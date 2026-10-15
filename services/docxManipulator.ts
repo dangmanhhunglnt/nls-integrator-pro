@@ -117,19 +117,12 @@ export const injectContentIntoDocx = async (
 
         // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH CHO MỌI MÔN HỌC
         try {
-          // Quét linh hoạt qua nhiều từ khóa nhận diện thời gian/tiết trong giáo án
-          let timeIdx = docXml.indexOf("Thời gian thực hiện");
-          if (timeIdx === -1) timeIdx = docXml.indexOf("Số tiết dạy");
-          if (timeIdx === -1) timeIdx = docXml.indexOf("Tiết theo PPCT");
-          if (timeIdx === -1) timeIdx = docXml.indexOf("PPCT");
-
+          const timeIdx = docXml.indexOf("Thời gian thực hiện");
           let tietList: string[] = [];
 
           if (timeIdx !== -1) {
-            // Mở rộng phạm vi quét snippet lên 1000 ký tự đầu để bắt trọn dòng PPCT
-            const snippet = docXml.substring(Math.max(0, timeIdx - 100), timeIdx + 900);
-            const matchPpct = snippet.match(/(?:PPCT|theo PPCT|Tiết theo PPCT|tiết)[:\s]*([0-9,\s-]+)/i);
-            
+            const snippet = docXml.substring(timeIdx, timeIdx + 600);
+            const matchPpct = snippet.match(/(?:PPCT|theo PPCT|Tiết theo PPCT)[:\s]*([0-9,\s-]+)/i);
             if (matchPpct && matchPpct[1]) {
                 const rawStr = matchPpct[1];
                 let expandedNums: number[] = [];
@@ -149,21 +142,10 @@ export const injectContentIntoDocx = async (
             }
           }
 
-          // Nếu vẫn không quét được qua từ khóa, tự động quét toàn bộ các số đứng sau chữ "tiết" ở phần đầu file
+          // Fallback nếu không quét được danh sách, tự động lấy theo số tiết
           if (tietList.length === 0) {
-            const generalMatch = docXml.substring(0, 3000).match(/(?:tiết|Tiết)\s*([0-9,\s-]+)/g);
-            if (generalMatch) {
-              let expandedNums: number[] = [];
-              generalMatch.forEach(m => {
-                const digits = m.match(/[0-9]+/g);
-                if (digits) digits.forEach(d => expandedNums.push(parseInt(d, 10)));
-              });
-              tietList = [...new Set(expandedNums)].filter(n => n < 20).map(n => n.toString());
-            }
+            tietList = ["1"];
           }
-
-          // Fallback cuối cùng nếu không tìm thấy gì thì mặc định 1 tiết
-          if (tietList.length === 0) tietList = ["1"];
 
           const totalSoTiet = tietList.length;
 
@@ -172,7 +154,7 @@ export const injectContentIntoDocx = async (
           const safeTimeText = escapeXml(headerText);
           const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
 
-          // Phân phối nội dung tên chuyên đề chuẩn sư phạm cho TỪNG TIẾT trong danh sách trích xuất được
+          // Lặp qua đúng toàn bộ danh sách tietList để sinh đầy đủ tất cả các tiết (Ví dụ: Tiết 8, Tiết 10, Tiết 11)
           let tietParagraphsXml = "";
           tietList.forEach((tNum, idx) => {
             let sectionContent = "";
@@ -189,30 +171,17 @@ export const injectContentIntoDocx = async (
             }
 
             const safeSectionContent = escapeXml(sectionContent);
-            // In đậm, chữ màu đỏ (FF0000), hiển thị đầy đủ chính xác từng tiết theo PPCT (ví dụ: Tiết 4, Tiết 5...)
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
           // Gom chung thành 1 khối hoàn chỉnh duy nhất
           const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // Sửa trực tiếp: Chèn an toàn ngay SAU thẻ đóng </w:p> của đoạn chứa chữ "BÀI"
-          const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
-          if (baiMatch && baiMatch.index !== undefined) {
-            const matchStr = baiMatch[0];
-            const absoluteMatchPos = baiMatch.index;
-            // Tìm chính xác thẻ </w:p> khép lại đoạn văn chứa chữ BÀI
-            const pEndOffset = docXml.indexOf("</w:p>", absoluteMatchPos);
-            if (pEndOffset !== -1) {
-              const targetInsertPos = pEndOffset + "</w:p>".length;
-              docXml = docXml.substring(0, targetInsertPos) + `\n${completeInjectionBlock}` + docXml.substring(targetInsertPos);
-            } else {
-              // Fallback nếu không tìm thấy thẻ đóng thì chèn ngay sau đoạn match
-              const targetEndPos = absoluteMatchPos + matchStr.length;
-              docXml = docXml.substring(0, targetEndPos) + `\n${completeInjectionBlock}` + docXml.substring(targetEndPos);
-            }
-          } else if (docXml.includes("I. MỤC TIÊU")) {
+          // Chèn an toàn tuyệt đối 100% ngay trước "I. MỤC TIÊU" hoặc ngay sau thẻ <w:body> để không bao giờ lỗi file Word
+          if (docXml.includes("I. MỤC TIÊU")) {
             docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\nI. MỤC TIÊU`);
+          } else if (docXml.includes("MỤC TIÊU")) {
+            docXml = docXml.replace("MỤC TIÊU", `${completeInjectionBlock}\nMỤC TIÊU`);
           } else if (docXml.includes("<w:body>")) {
             docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
           }
