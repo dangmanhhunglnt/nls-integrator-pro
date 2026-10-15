@@ -173,24 +173,34 @@ export const injectContentIntoDocx = async (
             });
           }
 
-          // Tạo danh sách chi tiết cho TỪNG TIẾT trong danh sách PPCT (ví dụ: 1, 2, 4, 5, 7)
+          // Tạo danh sách chi tiết cho TỪNG TIẾT, có bôi nền vàng nổi bật và nội dung riêng biệt
           let tietParagraphsXml = "";
           tietList.forEach((tNum, idx) => {
             let sectionContent = "";
-            if (totalSoTiet === 1) {
+            const currentTotal = tietList.length;
+
+            if (currentTotal === 1) {
               sectionContent = "Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng";
-            } else if (totalSoTiet === 2) {
+            } else if (currentTotal === 2) {
               sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới" : "Luyện tập, thực hành và vận dụng";
-            } else if (totalSoTiet === 3) {
+            } else if (currentTotal === 3) {
               sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới (Phần 1)" : (idx === 1 ? "Hoàn thiện kiến thức trọng tâm và ví dụ minh họa (Phần 2)" : "Hệ thống bài tập luyện tập và vận dụng");
             } else {
-              if (idx === 0) sectionContent = "Khám phá và hình thành kiến thức mới (Phần 1)";
-              else if (idx === totalSoTiet - 1) sectionContent = "Vận dụng thực tiễn, củng cố và đánh giá";
-              else sectionContent = `Luyện tập chuyên đề và vận dụng (Tiết ${tNum})`;
+              // Phân bổ chi tiết cho bài dài (ví dụ 5 tiết: 1, 2, 4, 5, 7)
+              if (idx === 0) {
+                sectionContent = "Khám phá và hình thành kiến thức mới (Phần 1)";
+              } else if (idx === 1) {
+                sectionContent = "Khám phá và hình thành kiến thức mới (Phần 2)";
+              } else if (idx === currentTotal - 1) {
+                sectionContent = "Vận dụng thực tiễn, củng cố và đánh giá";
+              } else {
+                sectionContent = `Luyện tập chuyên đề và vận dụng (Tiết ${tNum})`;
+              }
             }
 
             const safeSectionContent = escapeXml(sectionContent);
-            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
+            // Dùng w:val="solid" và w:fill="FFFF00" để bôi vàng an toàn tuyệt đối không bị lỗi Word
+            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:shd w:val="solid" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
           // Gom chung thành 1 khối hoàn chỉnh: Thời gian ở trên, danh sách đầy đủ các tiết ở dưới
