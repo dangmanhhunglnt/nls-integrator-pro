@@ -196,11 +196,21 @@ export const injectContentIntoDocx = async (
           // Gom chung thành 1 khối hoàn chỉnh duy nhất
           const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // Chèn an toàn ngay dưới tên bài học (chứa chữ "BÀI")
+          // Sửa trực tiếp: Chèn an toàn ngay SAU thẻ đóng </w:p> của đoạn chứa chữ "BÀI"
           const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
           if (baiMatch && baiMatch.index !== undefined) {
-            const targetEndPos = baiMatch.index + baiMatch[0].length;
-            docXml = docXml.substring(0, targetEndPos) + `\n${completeInjectionBlock}` + docXml.substring(targetEndPos);
+            const matchStr = baiMatch[0];
+            const absoluteMatchPos = baiMatch.index;
+            // Tìm chính xác thẻ </w:p> khép lại đoạn văn chứa chữ BÀI
+            const pEndOffset = docXml.indexOf("</w:p>", absoluteMatchPos);
+            if (pEndOffset !== -1) {
+              const targetInsertPos = pEndOffset + "</w:p>".length;
+              docXml = docXml.substring(0, targetInsertPos) + `\n${completeInjectionBlock}` + docXml.substring(targetInsertPos);
+            } else {
+              // Fallback nếu không tìm thấy thẻ đóng thì chèn ngay sau đoạn match
+              const targetEndPos = absoluteMatchPos + matchStr.length;
+              docXml = docXml.substring(0, targetEndPos) + `\n${completeInjectionBlock}` + docXml.substring(targetEndPos);
+            }
           } else if (docXml.includes("I. MỤC TIÊU")) {
             docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\nI. MỤC TIÊU`);
           } else if (docXml.includes("<w:body>")) {
