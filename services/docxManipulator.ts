@@ -122,6 +122,7 @@ export const injectContentIntoDocx = async (
 
           if (timeIdx !== -1) {
             const snippet = docXml.substring(timeIdx, timeIdx + 600);
+            // Cải tiến Regex để bắt cực kỳ chính xác phần sau chữ "PPCT:" hoặc "theo PPCT:"
             const matchPpct = snippet.match(/(?:PPCT|theo PPCT|Tiết theo PPCT)[:\s]*([0-9,\s-]+)/i);
             if (matchPpct && matchPpct[1]) {
                 const rawStr = matchPpct[1];
@@ -141,7 +142,13 @@ export const injectContentIntoDocx = async (
                 tietList = [...new Set(expandedNums)].map(n => n.toString());
             }
           }
-          if (tietList.length === 0) tietList = ["1"];
+          
+          // Fallback nếu không quét được thì mặc định lấy 3 tiết hoặc 1 tiết dựa vào chữ "05 tiết" hoặc "03 tiết"
+          if (tietList.length === 0) {
+            const numMatch = docXml.substring(timeIdx, timeIdx + 200).match(/([0-9]+)\s*tiết/i);
+            const count = numMatch ? parseInt(numMatch[1], 10) : 1;
+            for (let i = 1; i <= count; i++) tietList.push(i.toString());
+          }
 
           const totalSoTiet = tietList.length;
 
@@ -150,47 +157,23 @@ export const injectContentIntoDocx = async (
           const safeTimeText = escapeXml(headerText);
           const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
 
-          // Tự động phân rã tiêu đề thông minh cho mọi môn học
-          let sgkSections: string[] = [];
-          if (totalSoTiet === 1) {
-            sgkSections = ["Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng"];
-          } else if (totalSoTiet === 2) {
-            sgkSections = [
-              "Khám phá và hình thành kiến thức mới",
-              "Luyện tập, thực hành và vận dụng"
-            ];
-          } else if (totalSoTiet === 3) {
-            sgkSections = [
-              "Khám phá và hình thành kiến thức mới (Phần 1)",
-              "Hoàn thiện kiến thức trọng tâm và ví dụ minh họa (Phần 2)",
-              "Hệ thống bài tập luyện tập và vận dụng"
-            ];
-          } else {
-            sgkSections = tietList.map((tNum, idx) => {
-              if (idx === 0) return "Khám phá và hình thành kiến thức mới (Phần 1)";
-              if (idx === totalSoTiet - 1) return "Vận dụng thực tiễn, củng cố và đánh giá";
-              return `Luyện tập chuyên đề và vận dụng (Tiết ${tNum})`;
-            });
-          }
-
-          // Tạo danh sách chi tiết cho TỪNG TIẾT, dùng chữ đậm màu đỏ nổi bật (tuyệt đối không bị lỗi nền đen)
+          // Lặp qua đúng toàn bộ danh sách tietList để sinh đầy đủ tất cả các tiết (ví dụ: Tiết 1, 2, 4, 5, 7)
           let tietParagraphsXml = "";
           tietList.forEach((tNum, idx) => {
             let sectionContent = "";
-            const currentTotal = tietList.length;
-
-            if (currentTotal === 1) {
+            if (totalSoTiet === 1) {
               sectionContent = "Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng";
-            } else if (currentTotal === 2) {
+            } else if (totalSoTiet === 2) {
               sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới" : "Luyện tập, thực hành và vận dụng";
-            } else if (currentTotal === 3) {
+            } else if (totalSoTiet === 3) {
               sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới (Phần 1)" : (idx === 1 ? "Hoàn thiện kiến thức trọng tâm và ví dụ minh họa (Phần 2)" : "Hệ thống bài tập luyện tập và vận dụng");
             } else {
+              // Phân bổ thông minh cho bài dài nhiều tiết (ví dụ 5 tiết: 1, 2, 4, 5, 7)
               if (idx === 0) {
                 sectionContent = "Khám phá và hình thành kiến thức mới (Phần 1)";
               } else if (idx === 1) {
                 sectionContent = "Khám phá và hình thành kiến thức mới (Phần 2)";
-              } else if (idx === currentTotal - 1) {
+              } else if (idx === totalSoTiet - 1) {
                 sectionContent = "Vận dụng thực tiễn, củng cố và đánh giá";
               } else {
                 sectionContent = `Luyện tập chuyên đề và vận dụng (Tiết ${tNum})`;
@@ -198,14 +181,14 @@ export const injectContentIntoDocx = async (
             }
 
             const safeSectionContent = escapeXml(sectionContent);
-            // Dùng chữ đậm, màu đỏ (FF0000) nổi bật, sạch sẽ, không dùng shading nền tránh lỗi đen kịt
+            // Dùng màu đỏ đậm (FF0000), chữ đậm, hiển thị rõ từng tiết theo đúng mảng tietList
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
-          // Gom chung thành 1 khối hoàn chỉnh: Thời gian ở trên, danh sách đầy đủ các tiết ở dưới
+          // Gom chung thành 1 khối hoàn chỉnh duy nhất
           const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // Chèn an toàn ngay phía dưới tên bài học (chứa chữ "BÀI") hoặc ngay trước "I. MỤC TIÊU"
+          // Chèn ngay dưới tên bài học (chứa chữ "BÀI")
           const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
           if (baiMatch && baiMatch.index !== undefined) {
             const targetEndPos = baiMatch.index + baiMatch[0].length;
