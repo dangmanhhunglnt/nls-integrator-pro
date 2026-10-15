@@ -121,8 +121,8 @@ export const injectContentIntoDocx = async (
           let tietList: string[] = [];
 
           if (timeIdx !== -1) {
-            const snippet = docXml.substring(timeIdx, timeIdx + 600);
-            // Cải tiến Regex để bắt cực kỳ chính xác phần sau chữ "PPCT:" hoặc "theo PPCT:"
+            const snippet = docXml.substring(timeIdx, timeIdx + 800);
+            // Bắt chính xác chuỗi số nằm sau chữ PPCT: (hỗ trợ cả dấu phẩy, dấu cách và dấu gạch ngang)
             const matchPpct = snippet.match(/(?:PPCT|theo PPCT|Tiết theo PPCT)[:\s]*([0-9,\s-]+)/i);
             if (matchPpct && matchPpct[1]) {
                 const rawStr = matchPpct[1];
@@ -142,10 +142,10 @@ export const injectContentIntoDocx = async (
                 tietList = [...new Set(expandedNums)].map(n => n.toString());
             }
           }
-          
-          // Fallback nếu không quét được thì mặc định lấy 3 tiết hoặc 1 tiết dựa vào chữ "05 tiết" hoặc "03 tiết"
+
+          // Fallback an toàn tuyệt đối nếu không bắt được mảng PPCT
           if (tietList.length === 0) {
-            const numMatch = docXml.substring(timeIdx, timeIdx + 200).match(/([0-9]+)\s*tiết/i);
+            const numMatch = docXml.substring(timeIdx, timeIdx + 300).match(/([0-9]+)\s*tiết/i);
             const count = numMatch ? parseInt(numMatch[1], 10) : 1;
             for (let i = 1; i <= count; i++) tietList.push(i.toString());
           }
@@ -157,38 +157,32 @@ export const injectContentIntoDocx = async (
           const safeTimeText = escapeXml(headerText);
           const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
 
-          // Lặp qua đúng toàn bộ danh sách tietList để sinh đầy đủ tất cả các tiết (ví dụ: Tiết 1, 2, 4, 5, 7)
+          // Phân phối nội dung tên chuyên đề chuẩn sư phạm, cụ thể cho từng tiết trong danh sách
           let tietParagraphsXml = "";
           tietList.forEach((tNum, idx) => {
             let sectionContent = "";
             if (totalSoTiet === 1) {
               sectionContent = "Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng";
-            } else if (totalSoTiet === 2) {
-              sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới" : "Luyện tập, thực hành và vận dụng";
-            } else if (totalSoTiet === 3) {
-              sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới (Phần 1)" : (idx === 1 ? "Hoàn thiện kiến thức trọng tâm và ví dụ minh họa (Phần 2)" : "Hệ thống bài tập luyện tập và vận dụng");
             } else {
-              // Phân bổ thông minh cho bài dài nhiều tiết (ví dụ 5 tiết: 1, 2, 4, 5, 7)
+              // Phân rã chi tiết theo đúng thứ tự tiết thực tế trong PPCT
               if (idx === 0) {
-                sectionContent = "Khám phá và hình thành kiến thức mới (Phần 1)";
-              } else if (idx === 1) {
-                sectionContent = "Khám phá và hình thành kiến thức mới (Phần 2)";
+                sectionContent = "Khám phá kiến thức mới và hình thành khái niệm trọng tâm";
               } else if (idx === totalSoTiet - 1) {
-                sectionContent = "Vận dụng thực tiễn, củng cố và đánh giá";
+                sectionContent = "Ôn tập hệ thống hóa kiến thức, kiểm tra và đánh giá cuối chủ đề";
               } else {
-                sectionContent = `Luyện tập chuyên đề và vận dụng (Tiết ${tNum})`;
+                sectionContent = `Luyện tập chuyên đề, giải hệ thống bài tập và vận dụng`;
               }
             }
 
             const safeSectionContent = escapeXml(sectionContent);
-            // Dùng màu đỏ đậm (FF0000), chữ đậm, hiển thị rõ từng tiết theo đúng mảng tietList
+            // In đậm, chữ màu đỏ (FF0000), hiển thị rõ ràng từng tiết
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
           // Gom chung thành 1 khối hoàn chỉnh duy nhất
           const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // Chèn ngay dưới tên bài học (chứa chữ "BÀI")
+          // Chèn an toàn ngay dưới tên bài học (chứa chữ "BÀI")
           const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
           if (baiMatch && baiMatch.index !== undefined) {
             const targetEndPos = baiMatch.index + baiMatch[0].length;
