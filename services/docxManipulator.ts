@@ -17,7 +17,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 }
 
 /**
- * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIÊU ĐỀ TIẾT CŨ
+ * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIẾT CŨ
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
@@ -88,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM CHÈN MỐC TIẾT BÔI VÀNG NGAY DƯỚI DÒNG THỜI GIAN THỰC HIỆN (CỰC KỲ GỌN GÀNG VÀ CHUẨN XÁC)
+ * 4. HÀM CHÈN THỜI GIAN VÀ MỐC TIẾT AN TOÀN TUYỆT ĐỐI CHO MỌI MÔN HỌC
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -111,14 +111,11 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. Quét sạch các mốc cũ nếu có để tránh bị lặp
+        // 1. Quét sạch các mốc cũ để tránh bị lặp
         docXml = cleanExistingNLSContent(docXml);
+        docXml = docXml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-        if (customHeaderPPCT) {
-          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
-        }
-        
-        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH AN TOÀN TUYỆT ĐỐI
+        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH CHO MỌI MÔN HỌC
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           let tietList: string[] = [];
@@ -148,7 +145,7 @@ export const injectContentIntoDocx = async (
 
           const totalSoTiet = tietList.length;
 
-          // Tạo dòng thời gian thực hiện chuẩn XML căn giữa, in nghiêng
+          // Tạo dòng thời gian thực hiện căn giữa, in nghiêng
           const headerText = customHeaderPPCT || `Thời gian thực hiện: ${totalSoTiet} tiết (theo PPCT: ${tietList.join(", ")})`;
           const safeTimeText = escapeXml(headerText);
           const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
@@ -187,12 +184,8 @@ export const injectContentIntoDocx = async (
           // Gom chung thành 1 khối hoàn chỉnh duy nhất
           const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // Chèn an toàn tuyệt đối ngay trước mục "I. MỤC TIÊU"
-          if (docXml.includes("I. MỤC TIÊU")) {
-            docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\nI. MỤC TIÊU`);
-          } else if (docXml.includes("MỤC TIÊU")) {
-            docXml = docXml.replace("MỤC TIÊU", `${completeInjectionBlock}\nMỤC TIÊU`);
-          } else if (docXml.includes("<w:body>")) {
+          // Chèn an toàn ngay đầu thân body (sau thẻ <w:body>) để không bao giờ bị lỗi đứt gãy XML
+          if (docXml.includes("<w:body>")) {
             docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
           }
         } catch (err) {
