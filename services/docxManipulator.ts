@@ -117,13 +117,19 @@ export const injectContentIntoDocx = async (
 
         // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH CHO MỌI MÔN HỌC
         try {
-          const timeIdx = docXml.indexOf("Thời gian thực hiện");
+          // Quét linh hoạt qua nhiều từ khóa nhận diện thời gian/tiết trong giáo án
+          let timeIdx = docXml.indexOf("Thời gian thực hiện");
+          if (timeIdx === -1) timeIdx = docXml.indexOf("Số tiết dạy");
+          if (timeIdx === -1) timeIdx = docXml.indexOf("Tiết theo PPCT");
+          if (timeIdx === -1) timeIdx = docXml.indexOf("PPCT");
+
           let tietList: string[] = [];
 
           if (timeIdx !== -1) {
-            const snippet = docXml.substring(timeIdx, timeIdx + 800);
-            // Bắt chính xác chuỗi số nằm sau chữ PPCT: (hỗ trợ cả dấu phẩy, dấu cách và dấu gạch ngang)
-            const matchPpct = snippet.match(/(?:PPCT|theo PPCT|Tiết theo PPCT)[:\s]*([0-9,\s-]+)/i);
+            // Mở rộng phạm vi quét snippet lên 1000 ký tự đầu để bắt trọn dòng PPCT
+            const snippet = docXml.substring(Math.max(0, timeIdx - 100), timeIdx + 900);
+            const matchPpct = snippet.match(/(?:PPCT|theo PPCT|Tiết theo PPCT|tiết)[:\s]*([0-9,\s-]+)/i);
+            
             if (matchPpct && matchPpct[1]) {
                 const rawStr = matchPpct[1];
                 let expandedNums: number[] = [];
@@ -143,12 +149,21 @@ export const injectContentIntoDocx = async (
             }
           }
 
-          // Fallback an toàn tuyệt đối nếu không bắt được mảng PPCT
+          // Nếu vẫn không quét được qua từ khóa, tự động quét toàn bộ các số đứng sau chữ "tiết" ở phần đầu file
           if (tietList.length === 0) {
-            const numMatch = docXml.substring(timeIdx, timeIdx + 300).match(/([0-9]+)\s*tiết/i);
-            const count = numMatch ? parseInt(numMatch[1], 10) : 1;
-            for (let i = 1; i <= count; i++) tietList.push(i.toString());
+            const generalMatch = docXml.substring(0, 3000).match(/(?:tiết|Tiết)\s*([0-9,\s-]+)/g);
+            if (generalMatch) {
+              let expandedNums: number[] = [];
+              generalMatch.forEach(m => {
+                const digits = m.match(/[0-9]+/g);
+                if (digits) digits.forEach(d => expandedNums.push(parseInt(d, 10)));
+              });
+              tietList = [...new Set(expandedNums)].filter(n => n < 20).map(n => n.toString());
+            }
           }
+
+          // Fallback cuối cùng nếu không tìm thấy gì thì mặc định 1 tiết
+          if (tietList.length === 0) tietList = ["1"];
 
           const totalSoTiet = tietList.length;
 
@@ -157,14 +172,13 @@ export const injectContentIntoDocx = async (
           const safeTimeText = escapeXml(headerText);
           const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
 
-          // Phân phối nội dung tên chuyên đề chuẩn sư phạm, cụ thể cho từng tiết trong danh sách
+          // Phân phối nội dung tên chuyên đề chuẩn sư phạm cho TỪNG TIẾT trong danh sách trích xuất được
           let tietParagraphsXml = "";
           tietList.forEach((tNum, idx) => {
             let sectionContent = "";
             if (totalSoTiet === 1) {
               sectionContent = "Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng";
             } else {
-              // Phân rã chi tiết theo đúng thứ tự tiết thực tế trong PPCT
               if (idx === 0) {
                 sectionContent = "Khám phá kiến thức mới và hình thành khái niệm trọng tâm";
               } else if (idx === totalSoTiet - 1) {
@@ -175,7 +189,7 @@ export const injectContentIntoDocx = async (
             }
 
             const safeSectionContent = escapeXml(sectionContent);
-            // In đậm, chữ màu đỏ (FF0000), hiển thị rõ ràng từng tiết
+            // In đậm, chữ màu đỏ (FF0000), hiển thị đầy đủ chính xác từng tiết theo PPCT (ví dụ: Tiết 4, Tiết 5...)
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
