@@ -185,7 +185,7 @@ export const injectContentIntoDocx = async (
                   <w:p>
                     <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
                     <w:r>
-                      <w:rPr><w:b/><w:shd w:val="solid" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
+                      <w:rPr><w:b/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
                       <w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t>
                     </w:r>
                   </w:p>
