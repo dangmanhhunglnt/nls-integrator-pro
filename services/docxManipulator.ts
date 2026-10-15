@@ -195,7 +195,7 @@ export const injectContentIntoDocx = async (
           } else if (docXml.includes("MỤC TIÊU")) {
             docXml = docXml.replace("MỤC TIÊU", `${completeInjectionBlock}\nMỤC TIÊU`);
           } else if (docXml.includes("<w:body>")) {
-            docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
+            docXml = docXml.replace("<w:body>", `<w:body>\n${timeParagraphXml}\n${tietParagraphsXml}`);
           }
         } catch (err) {
           console.warn("Lỗi phân định tiết theo SGK:", err);
