@@ -118,7 +118,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT BÁM SÁT PPCT VÀ NỘI DUNG SGK (LOẠI BỎ HOÀN TOÀN MỤC TIÊU GIÁO ÁN)
+        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH CHO MỌI MÔN HỌC
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           if (timeIdx !== -1) {
@@ -149,53 +149,44 @@ export const injectContentIntoDocx = async (
               }
               if (tietList.length === 0) tietList = ["1"];
 
-              // Tự động phân rã tiêu đề hoàn toàn động cho mọi bài học dựa trên nội dung quét được từ file
+              // Tự động phân rã tiêu đề thông minh cho mọi môn học dựa trên tổng số tiết
               let sgkSections: string[] = [];
-              
-              // 1. Quét tìm các tiêu đề hoạt động hoặc đề mục có trong file XML giáo án gốc
-              const extractedHeadings: string[] = [];
-              const headingRegex = /(?:Hoạt động|Mục|Phần)\s*\d+[:\s]+([^\n<]+)/gi;
-              let match;
-              while ((match = headingRegex.exec(docXml)) !== null) {
-                if (match[1] && match[1].trim().length > 3) {
-                  extractedHeadings.push(match[1].trim());
-                }
-              }
+              const totalTiet = tietList.length;
 
-              // 2. Nếu quét được các đề mục từ nội dung, dùng chúng làm tên tiết
-              if (extractedHeadings.length > 0) {
+              if (totalTiet === 1) {
+                sgkSections = [
+                  "Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng"
+                ];
+              } else if (totalTiet === 2) {
+                sgkSections = [
+                  "Khám phá và hình thành kiến thức mới",
+                  "Luyện tập, thực hành và vận dụng"
+                ];
+              } else if (totalTiet === 3) {
+                sgkSections = [
+                  "Khám phá và hình thành kiến thức mới (Phần 1)",
+                  "Hoàn thiện kiến thức trọng tâm và ví dụ minh họa (Phần 2)",
+                  "Hệ thống bài tập luyện tập và vận dụng"
+                ];
+              } else {
                 sgkSections = tietList.map((tNum, idx) => {
-                  const headingName = extractedHeadings[idx] || extractedHeadings[extractedHeadings.length - 1];
-                  return `Tiết ${tNum}: ${headingName}`;
-                });
-              }
-
-              // 3. Nếu file không có sẵn đề mục, hệ thống tự sinh tên tiết linh hoạt theo tổng số tiết của bài
-              if (sgkSections.length === 0) {
-                sgkSections = tietList.map((tNum, idx) => {
-                  if (tietList.length === 1) {
-                    return `Tiết ${tNum}: Nghiên cứu trọng tâm và luyện tập bài học`;
-                  }
-                  if (idx === 0) {
-                    return `Tiết ${tNum}: Khám phá kiến thức mới và hình thành khái niệm`;
-                  } else if (idx === tietList.length - 1) {
-                    return `Tiết ${tNum}: Luyện tập chung, củng cố và vận dụng thực tế`;
-                  } else {
-                    return `Tiết ${tNum}: Hệ thống các dạng bài tập chuyên đề và chiều sâu`;
-                  }
+                  if (idx === 0) return "Khám phá và hình thành kiến thức mới (Phần 1)";
+                  if (idx === totalTiet - 1) return "Vận dụng thực tiễn, củng cố và đánh giá";
+                  return `Luyện tập chuyên đề và vận dụng (Tiết ${tNum})`;
                 });
               }
 
               let phanDinhXml = "";
               tietList.forEach((tNum, idx) => {
-                let sectionContent = sgkSections[idx] || `Luyện tập chuyên đề tiết ${tNum}`;
+                let sectionContent = sgkSections[idx] || (idx === 0 ? "Nghiên cứu kiến thức trọng tâm bài học" : "Luyện tập chuyên đề và vận dụng");
+                const safeSectionContent = escapeXml(sectionContent);
 
                 phanDinhXml += `
                   <w:p>
                     <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
                     <w:r>
-                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
+                      <w:rPr><w:b/><w:shd w:val="solid" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
+                      <w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t>
                     </w:r>
                   </w:p>
                 `;
