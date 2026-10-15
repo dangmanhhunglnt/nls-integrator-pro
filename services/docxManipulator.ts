@@ -173,19 +173,37 @@ export const injectContentIntoDocx = async (
             });
           }
 
+          // Tạo danh sách chi tiết cho TỪNG TIẾT trong danh sách PPCT (ví dụ: 1, 2, 4, 5, 7)
           let tietParagraphsXml = "";
           tietList.forEach((tNum, idx) => {
-            let sectionContent = sgkSections[idx] || (idx === 0 ? "Nghiên cứu kiến thức trọng tâm bài học" : "Luyện tập chuyên đề và vận dụng");
-            const safeSectionContent = escapeXml(sectionContent);
+            let sectionContent = "";
+            if (totalSoTiet === 1) {
+              sectionContent = "Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng";
+            } else if (totalSoTiet === 2) {
+              sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới" : "Luyện tập, thực hành và vận dụng";
+            } else if (totalSoTiet === 3) {
+              sectionContent = idx === 0 ? "Khám phá và hình thành kiến thức mới (Phần 1)" : (idx === 1 ? "Hoàn thiện kiến thức trọng tâm và ví dụ minh họa (Phần 2)" : "Hệ thống bài tập luyện tập và vận dụng");
+            } else {
+              if (idx === 0) sectionContent = "Khám phá và hình thành kiến thức mới (Phần 1)";
+              else if (idx === totalSoTiet - 1) sectionContent = "Vận dụng thực tiễn, củng cố và đánh giá";
+              else sectionContent = `Luyện tập chuyên đề và vận dụng (Tiết ${tNum})`;
+            }
 
+            const safeSectionContent = escapeXml(sectionContent);
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
-          // Gom chung thành 1 khối hoàn chỉnh duy nhất
+          // Gom chung thành 1 khối hoàn chỉnh: Thời gian ở trên, danh sách đầy đủ các tiết ở dưới
           const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // Chèn an toàn ngay đầu thân body (sau thẻ <w:body>) để không bao giờ bị lỗi đứt gãy XML
-          if (docXml.includes("<w:body>")) {
+          // Chèn an toàn ngay phía dưới tên bài học (chứa chữ "BÀI") hoặc ngay trước "I. MỤC TIÊU"
+          const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
+          if (baiMatch && baiMatch.index !== undefined) {
+            const targetEndPos = baiMatch.index + baiMatch[0].length;
+            docXml = docXml.substring(0, targetEndPos) + `\n${completeInjectionBlock}` + docXml.substring(targetEndPos);
+          } else if (docXml.includes("I. MỤC TIÊU")) {
+            docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\nI. MỤC TIÊU`);
+          } else if (docXml.includes("<w:body>")) {
             docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
           }
         } catch (err) {
