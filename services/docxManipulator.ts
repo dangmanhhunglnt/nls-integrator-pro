@@ -118,7 +118,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH (Hiện đầy đủ tổng số tiết và danh sách chi tiết)
+        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH AN TOÀN TUYỆT ĐỐI
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           let tietList: string[] = [];
@@ -146,15 +146,14 @@ export const injectContentIntoDocx = async (
           }
           if (tietList.length === 0) tietList = ["1"];
 
-          // Tổng số tiết thực tế của bài học
           const totalSoTiet = tietList.length;
 
-          // Tạo dòng thời gian thực hiện căn giữa, in nghiêng
+          // Tạo dòng thời gian thực hiện chuẩn XML căn giữa, in nghiêng
           const headerText = customHeaderPPCT || `Thời gian thực hiện: ${totalSoTiet} tiết (theo PPCT: ${tietList.join(", ")})`;
           const safeTimeText = escapeXml(headerText);
           const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
 
-          // Tự động phân rã tiêu đề thông minh cho mọi môn học dựa trên tổng số tiết
+          // Tự động phân rã tiêu đề thông minh cho mọi môn học
           let sgkSections: string[] = [];
           if (totalSoTiet === 1) {
             sgkSections = ["Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng"];
@@ -182,11 +181,10 @@ export const injectContentIntoDocx = async (
             let sectionContent = sgkSections[idx] || (idx === 0 ? "Nghiên cứu kiến thức trọng tâm bài học" : "Luyện tập chuyên đề và vận dụng");
             const safeSectionContent = escapeXml(sectionContent);
 
-            // Dùng w:val="solid" để hoàn toàn không bị lỗi Word
             tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
           });
 
-          // Gom chung thành 1 khối hoàn chỉnh: Dòng tổng số tiết ở trên, danh sách các tiết chi tiết ở dưới
+          // Gom chung thành 1 khối hoàn chỉnh duy nhất
           const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
           // Chèn an toàn tuyệt đối ngay trước mục "I. MỤC TIÊU"
@@ -195,7 +193,7 @@ export const injectContentIntoDocx = async (
           } else if (docXml.includes("MỤC TIÊU")) {
             docXml = docXml.replace("MỤC TIÊU", `${completeInjectionBlock}\nMỤC TIÊU`);
           } else if (docXml.includes("<w:body>")) {
-            docXml = docXml.replace("<w:body>", `<w:body>\n${timeParagraphXml}\n${tietParagraphsXml}`);
+            docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
           }
         } catch (err) {
           console.warn("Lỗi phân định tiết theo SGK:", err);
