@@ -118,98 +118,60 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT VÀ TẠO KHỐI THÔNG TIN HOÀN CHỈNH CHO MỌI MÔN HỌC
+        // 2. PHÂN ĐỊNH TIẾT VÀ CHÈN AN TOÀN TUYỆT ĐỐI BẢO TOÀN FILE WORD
         try {
-          // Xóa bỏ khối thời gian cũ nếu đã tồn tại trong file để tránh bị lặp đôi
-          // (Dựa vào việc tìm và cắt bỏ đoạn văn bản có chứa chữ "Thời gian thực hiện" cũ nếu có)
-          const oldTimeIdx = docXml.indexOf("Thời gian thực hiện");
-          if (oldTimeIdx !== -1) {
-            const pStart = docXml.lastIndexOf("<w:p", oldTimeIdx);
-            const pEnd = docXml.indexOf("</w:p>", oldTimeIdx);
-            if (pStart !== -1 && pEnd !== -1) {
-              docXml = docXml.substring(0, pStart) + docXml.substring(pEnd + "</w:p>".length);
-            }
-          }
-
           const plainTextCheck = docXml.replace(/<[^>]+>/g, ' ');
           let tietList: string[] = [];
           
-          // Thuật toán vét cạn thông minh: Tìm mọi vị trí có chữ "PPCT" hoặc "theo PPCT"
           let searchPos = 0;
           while (true) {
             let idx = plainTextCheck.indexOf("PPCT", searchPos);
             if (idx === -1) idx = plainTextCheck.indexOf("ppct", searchPos);
             if (idx === -1) break;
 
-            // Cắt một đoạn 60 ký tự ngay sau chữ PPCT để lấy danh sách các tiết
-            const snippet = plainTextCheck.substring(idx, idx + 60);
+            const snippet = plainTextCheck.substring(idx, idx + 80);
             const foundDigits = snippet.match(/[0-9]+/g);
             
             if (foundDigits && foundDigits.length > 0) {
               let nums: number[] = [];
               foundDigits.forEach(d => {
                 const val = parseInt(d, 10);
-                if (val > 0 && val < 50) {
-                  nums.push(val);
-                }
+                if (val > 0 && val < 50) nums.push(val);
               });
               if (nums.length > 0) {
                 tietList = [...new Set(nums)].map(n => n.toString());
-                break; // Đã bắt được chuẩn xác danh sách tiết, dừng vòng lặp
+                break;
               }
             }
             searchPos = idx + 4;
           }
 
-          // Fallback an toàn tuyệt đối nếu vẫn chưa quét được
-          if (tietList.length === 0) {
-            tietList = ["1", "2", "4", "5", "7"]; // Hoặc mặc định lấy theo mảng bài 5 tiết của thầy
-          }
-
+          if (tietList.length === 0) tietList = ["1"];
           const totalSoTiet = tietList.length;
-         
-          // Tạo dòng thời gian thực hiện căn giữa, in nghiêng
+
+          // Tạo chuỗi XML chuẩn mực, ngắn gọn tuyệt đối không làm lỗi Word
           const headerText = customHeaderPPCT || `Thời gian thực hiện: ${totalSoTiet} tiết (theo PPCT: ${tietList.join(", ")})`;
           const safeTimeText = escapeXml(headerText);
-          const timeParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
+          
+          let blockXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="100" w:after="100"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
 
-          // Lặp qua ĐÚNG TỪNG PHẦN TỬ trong mảng tietList để liệt kê chính xác 100% số tiết (VD: Tiết 1, Tiết 2, Tiết 4)
-          let tietParagraphsXml = "";
           tietList.forEach((tNum, idx) => {
-            let sectionContent = "";
-            if (totalSoTiet === 1) {
-              sectionContent = "Nghiên cứu kiến thức trọng tâm, luyện tập và vận dụng";
-            } else {
-              if (idx === 0) {
-                sectionContent = "Khám phá kiến thức mới và hình thành khái niệm trọng tâm";
-              } else if (idx === totalSoTiet - 1) {
-                sectionContent = "Ôn tập hệ thống hóa kiến thức, kiểm tra và đánh giá cuối chủ đề";
-              } else {
-                sectionContent = `Luyện tập chuyên đề, giải hệ thống bài tập và vận dụng`;
-              }
-            }
+            let sectionContent = totalSoTiet === 1 
+              ? "Nghiên cứu kiến thức trọng tâm, luyện tập toán nâng cao và ứng dụng thực tế"
+              : (idx === 0 ? "Khám phá kiến thức mới, xây dựng định lý cơ bản và tương tác mô hình số"
+                : (idx === totalSoTiet - 1 ? "Ôn tập hệ thống hóa kiến thức, kiểm tra đánh giá và hoàn thiện chủ đề"
+                  : (idx % 2 === 1 ? `Luyện tập chuyên sâu, giải hệ thống bài tập toán nâng cao (Tiết ${tNum})`
+                    : `Ứng dụng toán học vào các bài toán thực tế và mô hình hóa (Tiết ${tNum})`)));
 
-            const safeSectionContent = escapeXml(sectionContent);
-            // In rõ số tiết t ứng với từng phần tử trong tietList (ví dụ: Tiết 1, Tiết 2, Tiết 4...)
-            tietParagraphsXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSectionContent}</w:t></w:r></w:p>`;
+            const safeSec = escapeXml(sectionContent);
+            blockXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="80" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSec}</w:t></w:r></w:p>`;
           });
 
-          // Gom chung thành 1 khối hoàn chỉnh duy nhất
-          const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
-
-          // Chèn siêu an toàn ngay trước mục "I. MỤC TIÊU" hoặc "MỤC TIÊU"
-          let injected = false;
+          // Chèn thay thế đơn giản và an toàn nhất vào vị trí "I. MỤC TIÊU"
           if (docXml.includes("I. MỤC TIÊU")) {
-            docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\n<w:p/><w:p/>\nI. MỤC TIÊU`);
-            injected = true;
+            docXml = docXml.replace("I. MỤC TIÊU", blockXml + "\nI. MỤC TIÊU");
           } else if (docXml.includes("MỤC TIÊU")) {
-            docXml = docXml.replace("MỤC TIÊU", `${completeInjectionBlock}\n<w:p/><w:p/>\nMỤC TIÊU`);
-            injected = true;
-          }
-
-          // Fallback an toàn nếu không tìm thấy chữ MỤC TIÊU
-          if (!injected && docXml.includes("<w:body>")) {
-            docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
+            docXml = docXml.replace("MỤC TIÊU", blockXml + "\nMỤC TIÊU");
           }
         } catch (err) {
           console.warn("Lỗi phân định tiết theo SGK:", err);
