@@ -149,23 +149,30 @@ export const injectContentIntoDocx = async (
           if (tietList.length === 0) tietList = ["1"];
           const totalSoTiet = tietList.length;
 
-          // Tạo chuỗi XML chuẩn mực, ngắn gọn tuyệt đối không làm lỗi Word
-          const headerText = customHeaderPPCT || `Thời gian thực hiện: ${totalSoTiet} tiết (theo PPCT: ${tietList.join(", ")})`;
-          const safeTimeText = escapeXml(headerText);
-          
-          let blockXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="100" w:after="100"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
+          // Tạo chuỗi XML chuẩn mực, an toàn tuyệt đối với xml:space="preserve"
+        const headerText = customHeaderPPCT || `Thời gian thực hiện: ${totalSoTiet} tiết (theo PPCT: ${tietList.join(", ")})`;
+        const safeTimeText = escapeXml(headerText);
+        
+        let blockXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="100" w:after="100"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
 
-          tietList.forEach((tNum, idx) => {
-            let sectionContent = totalSoTiet === 1 
-              ? "Nghiên cứu kiến thức trọng tâm, luyện tập toán nâng cao và ứng dụng thực tế"
-              : (idx === 0 ? "Khám phá kiến thức mới, xây dựng định lý cơ bản và tương tác mô hình số"
-                : (idx === totalSoTiet - 1 ? "Ôn tập hệ thống hóa kiến thức, kiểm tra đánh giá và hoàn thiện chủ đề"
-                  : (idx % 2 === 1 ? `Luyện tập chuyên sâu, giải hệ thống bài tập toán nâng cao (Tiết ${tNum})`
-                    : `Ứng dụng toán học vào các bài toán thực tế và mô hình hóa (Tiết ${tNum})`)));
+        tietList.forEach((tNum, idx) => {
+          let sectionContent = totalSoTiet === 1 
+            ? "Nghiên cứu kiến thức trọng tâm, luyện tập toán nâng cao và ứng dụng thực tế"
+            : (idx === 0 ? "Khám phá kiến thức mới, xây dựng định lý cơ bản và tương tác mô hình số"
+              : (idx === totalSoTiet - 1 ? "Ôn tập hệ thống hóa kiến thức, kiểm tra đánh giá và hoàn thiện chủ đề"
+                : (idx % 2 === 1 ? `Luyện tập chuyên sâu, giải hệ thống bài tập toán nâng cao (Tiết ${tNum})`
+                  : `Ứng dụng toán học vào các bài toán thực tế và mô hình hóa (Tiết ${tNum})`)));
 
-            const safeSec = escapeXml(sectionContent);
-            blockXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="80" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSec}</w:t></w:r></w:p>`;
-          });
+          const safeSec = escapeXml(sectionContent);
+          blockXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="80" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSec}</w:t></w:r></w:p>`;
+        });
+
+        // VIẾT LẠI: Chèn an toàn dựa trên cấu trúc thẻ đoạn văn <w:p> chứa "MỤC TIÊU" thay vì replace chuỗi thô
+        const targetMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?MỤC TIÊU[\s\S]*?<\/w:p>/i);
+        if (targetMatch && targetMatch.index !== undefined) {
+          const insertPos = targetMatch.index;
+          docXml = docXml.substring(0, insertPos) + blockXml + docXml.substring(insertPos);
+        }
 
           // Chèn thay thế đơn giản và an toàn nhất vào vị trí "I. MỤC TIÊU"
           if (docXml.includes("I. MỤC TIÊU")) {
