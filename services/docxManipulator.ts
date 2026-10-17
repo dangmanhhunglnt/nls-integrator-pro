@@ -197,30 +197,17 @@ export const injectContentIntoDocx = async (
           // Gom chung thành 1 khối hoàn chỉnh duy nhất
           const completeInjectionBlock = `${timeParagraphXml}\n${tietParagraphsXml}`;
 
-          // Chèn an toàn ngay SAU thẻ đóng </w:p> của đoạn chứa chữ "BÀI"
+          // Chèn siêu an toàn ngay trước mục "I. MỤC TIÊU" hoặc "MỤC TIÊU"
           let injected = false;
-          const baiMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?BÀI[\s\S]*?<\/w:p>/i);
-          
-          if (baiMatch && baiMatch.index !== undefined) {
-            const absoluteMatchPos = baiMatch.index;
-            const pEndOffset = docXml.indexOf("</w:p>", absoluteMatchPos);
-            if (pEndOffset !== -1) {
-              const targetInsertPos = pEndOffset + "</w:p>".length;
-              docXml = docXml.substring(0, targetInsertPos) + `\n${completeInjectionBlock}` + docXml.substring(targetInsertPos);
-              injected = true;
-            }
+          if (docXml.includes("I. MỤC TIÊU")) {
+            docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\n<w:p/><w:p/>\nI. MỤC TIÊU`);
+            injected = true;
+          } else if (docXml.includes("MỤC TIÊU")) {
+            docXml = docXml.replace("MỤC TIÊU", `${completeInjectionBlock}\n<w:p/><w:p/>\nMỤC TIÊU`);
+            injected = true;
           }
 
-          if (!injected) {
-            if (docXml.includes("I. MỤC TIÊU")) {
-              docXml = docXml.replace("I. MỤC TIÊU", `${completeInjectionBlock}\nI. MỤC TIÊU`);
-              injected = true;
-            } else if (docXml.includes("MỤC TIÊU")) {
-              docXml = docXml.replace("MỤC TIÊU", `${completeInjectionBlock}\nMỤC TIÊU`);
-              injected = true;
-            }
-          }
-
+          // Fallback an toàn nếu không tìm thấy chữ MỤC TIÊU
           if (!injected && docXml.includes("<w:body>")) {
             docXml = docXml.replace("<w:body>", `<w:body>\n${completeInjectionBlock}`);
           }
