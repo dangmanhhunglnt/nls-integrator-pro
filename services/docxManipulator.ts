@@ -134,29 +134,41 @@ export const injectContentIntoDocx = async (
           const plainTextCheck = docXml.replace(/<[^>]+>/g, ' ');
           let tietList: string[] = [];
           
-          const ppctMatch = plainTextCheck.match(/(?:PPCT|theo PPCT|Tiết theo PPCT|tiết)[:\s]*([0-9,\s-]+)/i);
-          if (ppctMatch && ppctMatch[1]) {
-            const rawStr = ppctMatch[1];
-            let expandedNums: number[] = [];
-            rawStr.split(',').forEach(part => {
-              part = part.trim();
-              if (part.includes('-')) {
-                const range = part.split('-').map(s => parseInt(s.trim(), 10));
-                if (range.length === 2 && !isNaN(range[0]) && !isNaN(range[1])) {
-                  for (let i = range[0]; i <= range[1]; i++) expandedNums.push(i);
+          // Ưu tiên quét chính xác từ khóa PPCT trước để không bị bắt nhầm chữ "tiết" ở đầu câu
+          const ppctIdx = plainTextCheck.indexOf("PPCT");
+          if (ppctIdx !== -1) {
+            const subStr = plainTextCheck.substring(ppctIdx, ppctIdx + 60);
+            const digits = subStr.match(/[0-9]+/g);
+            if (digits) {
+              let expandedNums: number[] = [];
+              digits.forEach(d => {
+                const num = parseInt(d, 10);
+                if (!isNaN(num) && num > 0 && num < 50) {
+                  expandedNums.push(num);
                 }
-              } else {
-                const num = parseInt(part, 10);
+              });
+              tietList = [...new Set(expandedNums)].map(n => n.toString());
+            }
+          }
+
+          // Fallback dự phòng nếu không tìm thấy qua từ khóa PPCT
+          if (tietList.length === 0) {
+            const ppctMatch = plainTextCheck.match(/(?:theo PPCT|Tiết theo PPCT)[:\s]*([0-9,\s-]+)/i);
+            if (ppctMatch && ppctMatch[1]) {
+              const rawStr = ppctMatch[1];
+              let expandedNums: number[] = [];
+              rawStr.split(',').forEach(part => {
+                const num = parseInt(part.trim(), 10);
                 if (!isNaN(num)) expandedNums.push(num);
-              }
-            });
-            tietList = [...new Set(expandedNums)].map(n => n.toString());
+              });
+              tietList = [...new Set(expandedNums)].map(n => n.toString());
+            }
           }
 
           if (tietList.length === 0) tietList = ["1"];
 
           const totalSoTiet = tietList.length;
-
+         
           // Tạo dòng thời gian thực hiện căn giữa, in nghiêng
           const headerText = customHeaderPPCT || `Thời gian thực hiện: ${totalSoTiet} tiết (theo PPCT: ${tietList.join(", ")})`;
           const safeTimeText = escapeXml(headerText);
