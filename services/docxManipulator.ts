@@ -234,7 +234,7 @@ export const injectContentIntoDocx = async (
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
                               <w:rPr>${rPrHeader}</w:rPr>
-                              <w:t>${escapeXml(headerTitle)}</w:t>
+                              <w:t xml:space="preserve">${escapeXml(headerTitle)}</w:t>
                             </w:r>
                           </w:p>`;
 
