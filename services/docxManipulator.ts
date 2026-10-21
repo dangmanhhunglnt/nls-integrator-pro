@@ -119,13 +119,13 @@ export const injectContentIntoDocx = async (
         }
         
         // 2. PHÂN ĐỊNH VÀ CHÈN TIẾT BÔI VÀNG AN TOÀN TUYỆT ĐỐI (DÙNG THẺ <w:shd w:fill="FFFF00"/> ĐÚNG CHUẨN WORD)
+        // PHÂN ĐỊNH TIẾT AN TOÀN TUYỆT ĐỐI (Không làm đứt gãy cấu trúc XML)
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           if (timeIdx !== -1) {
             const pEndIdx = docXml.indexOf("</w:p>", timeIdx);
             if (pEndIdx !== -1) {
               const insertTargetPos = pEndIdx + "</w:p>".length;
-
               const snippet = docXml.substring(timeIdx, timeIdx + 600);
               
               let tietList: string[] = [];
@@ -143,52 +143,17 @@ export const injectContentIntoDocx = async (
                 tietList = ["1"];
               }
 
-              const docTitleLower = docXml.toLowerCase();
-              let sgkSections: string[] = [];
-
-              if (docTitleLower.includes("hàm số lượng giác")) {
-                sgkSections = [
-                  "Định nghĩa hàm số lượng giác (Sin, Cos, Tan, Cot)",
-                  "Tính chẵn, lẻ và tính tuần hoàn của hàm số lượng giác",
-                  "Đồ thị và các đặc trưng hình học của hàm số lượng giác"
-                ];
-              } else if (docTitleLower.includes("cấp số cộng")) {
-                sgkSections = [
-                  "Định nghĩa và số hạng tổng quát của cấp số cộng",
-                  "Tính chất các số hạng và tổng n số hạng đầu tiên"
-                ];
-              } else if (docTitleLower.includes("đường thẳng và mặt phẳng")) {
-                sgkSections = [
-                  "Các khái niệm mở đầu và tính chất thừa nhận",
-                  "Cách xác định một mặt phẳng, hình chóp và tứ diện"
-                ];
-              } else {
-                sgkSections = [
-                  "Nội dung trọng tâm và lý thuyết cơ bản",
-                  "Hệ thống bài tập luyện tập và vận dụng"
-                ];
-              }
-
               let phanDinhXml = "";
-              tietList.forEach((tNum, idx) => {
-                let sectionContent = sgkSections[idx] || `Luyện tập chuyên đề tiết ${tNum}`;
-
-                phanDinhXml += `
-                  <w:p>
-                    <w:pPr><w:ind w:left="360"/><w:spacing w:before="120" w:after="120"/></w:pPr>
-                    <w:r>
-                      <w:rPr><w:b/><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:color w:val="000000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
-                      <w:t xml:space="preserve">Tiết ${tNum}: ${sectionContent}</w:t>
-                    </w:r>
-                  </w:p>
-                `;
+              tietList.forEach((tNum) => {
+                phanDinhXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="100" w:after="100"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: Nội dung trọng tâm, luyện tập và ứng dụng thực tế</w:t></w:r></w:p>`;
               });
 
-              docXml = docXml.substring(0, insertTargetPos) + phanDinhXml + docXml.substring(insertTargetPos);
+              // Chèn nối chuỗi an toàn ngay sau thẻ </w:p> của dòng Thời gian thực hiện
+              docXml = docXml.slice(0, insertTargetPos) + phanDinhXml + docXml.slice(insertTargetPos);
             }
           }
         } catch (err) {
-          console.warn("Lỗi phân định tiết theo SGK:", err);
+          console.warn("Lỗi phân định tiết:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
@@ -557,7 +522,7 @@ export const injectContentIntoDocx = async (
   });
 };
 
-/**
+/**`
  * 5. HÀM TẠO FILE PHỤ LỤC RIÊNG
  */
 export const createAppendixDocx = async (
