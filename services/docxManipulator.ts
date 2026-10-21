@@ -591,6 +591,12 @@ const escapeRegex = (string: string) => {
 
 const escapeXml = (unsafe: string): string => {
   if (!unsafe) return "";
-  const map: Record<string, string> = { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' };
+  const map: Record<string, string> = { 
+    '<': '&lt;', 
+    '>': '&gt;', 
+    '&': '&amp;', 
+    "'": '&apos;', 
+    '"': '&quot;' 
+  };
   return unsafe.replace(/[<>&'"]/g, (c) => map[c] || c);
 };
