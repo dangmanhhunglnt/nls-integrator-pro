@@ -118,44 +118,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH VÀ CHÈN TIẾT BÔI VÀNG AN TOÀN TUYỆT ĐỐI (DÙNG THẺ <w:shd w:fill="FFFF00"/> ĐÚNG CHUẨN WORD)
-        // PHÂN ĐỊNH TIẾT AN TOÀN TUYỆT ĐỐI (Không làm đứt gãy cấu trúc XML)
-        try {
-          const timeIdx = docXml.indexOf("Thời gian thực hiện");
-          if (timeIdx !== -1) {
-            const pEndIdx = docXml.indexOf("</w:p>", timeIdx);
-            if (pEndIdx !== -1) {
-              const insertTargetPos = pEndIdx + "</w:p>".length;
-              const snippet = docXml.substring(timeIdx, timeIdx + 600);
-              
-              let tietList: string[] = [];
-              const matchPpct = snippet.match(/(?:PPCT|theo PPCT)[:\s]*([\d,\s-]+)/i);
-              if (matchPpct && matchPpct[1]) {
-                tietList = matchPpct[1].split(/[,-\s]+/).filter(Boolean);
-              }
-              if (tietList.length === 0) {
-                const matchTiet = snippet.match(/Tiết\s*([\d,\s-]+)/i);
-                if (matchTiet && matchTiet[1]) {
-                  tietList = matchTiet[1].split(/[,-\s]+/).filter(Boolean);
-                }
-              }
-              if (tietList.length === 0) {
-                tietList = ["1"];
-              }
-
-              let phanDinhXml = "";
-              tietList.forEach((tNum) => {
-                phanDinhXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="100" w:after="100"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: Nội dung trọng tâm, luyện tập và ứng dụng thực tế</w:t></w:r></w:p>`;
-              });
-
-              // Chèn nối chuỗi an toàn ngay sau thẻ </w:p> của dòng Thời gian thực hiện
-              docXml = docXml.slice(0, insertTargetPos) + phanDinhXml + docXml.slice(insertTargetPos);
-            }
-          }
-        } catch (err) {
-          console.warn("Lỗi phân định tiết:", err);
-        }
-
+        
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         
         if (!hasNewContent) {
