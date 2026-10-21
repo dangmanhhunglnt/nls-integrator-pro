@@ -17,7 +17,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 }
 
 /**
- * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIÊU ĐỀ TIẾT CŨ
+ * 2. HÀM QUÉT SẠCH CHÍNH XÁC CÁC NỘI DUNG NLS / AI / STEM CŨ VÀ TIẾT CŨ
  */
 export function cleanExistingNLSContent(xmlContent: string): string {
   let cleaned = xmlContent;
@@ -88,7 +88,7 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
 }
 
 /**
- * 4. HÀM CHÈN MỐC TIẾT BÔI VÀNG NGAY DƯỚI DÒNG THỜI GIAN THỰC HIỆN (CỰC KỲ GỌN GÀNG VÀ CHUẨN XÁC)
+ * 4. HÀM CHÈN MỐC TIẾT BÔI VÀNG NGAY DƯỚI DÒNG THỜI GIAN THỰC HIỆN
  */
 export const injectContentIntoDocx = async (
   file: File,
@@ -117,7 +117,6 @@ export const injectContentIntoDocx = async (
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
-        
         
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
         
@@ -190,12 +189,12 @@ export const injectContentIntoDocx = async (
 
            if (cleanLine) {
              xmlBlock += `<w:p>
-                         <w:pPr><w:ind w:left="720"/></w:pPr>
-                         <w:r>
-                           <w:rPr>${rPrBody}</w:rPr>
-                           <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                         </w:r>
-                       </w:p>`;
+                           <w:pPr><w:ind w:left="720"/></w:pPr>
+                           <w:r>
+                             <w:rPr>${rPrBody}</w:rPr>
+                             <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                           </w:r>
+                         </w:p>`;
            }
           });
 
@@ -485,7 +484,7 @@ export const injectContentIntoDocx = async (
   });
 };
 
-/**`
+/**
  * 5. HÀM TẠO FILE PHỤ LỤC RIÊNG
  */
 export const createAppendixDocx = async (
