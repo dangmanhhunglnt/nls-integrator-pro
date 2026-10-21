@@ -87,9 +87,6 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   return result;
 }
 
-/**
- * 4. HÀM CHÈN MỐC TIẾT BÔI VÀNG NGAY DƯỚI DÒNG THỜI GIAN THỰC HIỆN (CỰC KỲ GỌN GÀNG VÀ CHUẨN XÁC)
- */
 export const injectContentIntoDocx = async (
   file: File,
   content: GeneratedNLSContent,
@@ -111,77 +108,12 @@ export const injectContentIntoDocx = async (
 
         let docXml = docFile.asText();
 
-        // 1. Quét sạch các mốc cũ nếu có để tránh bị lặp
+        // 1. Quét sạch các mốc cũ an toàn tuyệt đối
         docXml = cleanExistingNLSContent(docXml);
 
+        // 2. Cập nhật header PPCT nếu có
         if (customHeaderPPCT) {
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
-        }
-        
-        // 2. PHÂN ĐỊNH TIẾT VÀ CHÈN AN TOÀN TUYỆT ĐỐI BẢO TOÀN FILE WORD
-        try {
-          const plainTextCheck = docXml.replace(/<[^>]+>/g, ' ');
-          let tietList: string[] = [];
-          
-          let searchPos = 0;
-          while (true) {
-            let idx = plainTextCheck.indexOf("PPCT", searchPos);
-            if (idx === -1) idx = plainTextCheck.indexOf("ppct", searchPos);
-            if (idx === -1) break;
-
-            const snippet = plainTextCheck.substring(idx, idx + 80);
-            const foundDigits = snippet.match(/[0-9]+/g);
-            
-            if (foundDigits && foundDigits.length > 0) {
-              let nums: number[] = [];
-              foundDigits.forEach(d => {
-                const val = parseInt(d, 10);
-                if (val > 0 && val < 50) nums.push(val);
-              });
-              if (nums.length > 0) {
-                tietList = [...new Set(nums)].map(n => n.toString());
-                break;
-              }
-            }
-            searchPos = idx + 4;
-          }
-
-          if (tietList.length === 0) tietList = ["1"];
-          const totalSoTiet = tietList.length;
-
-          // Tạo chuỗi XML chuẩn mực, an toàn tuyệt đối với xml:space="preserve"
-        const headerText = customHeaderPPCT || `Thời gian thực hiện: ${totalSoTiet} tiết (theo PPCT: ${tietList.join(", ")})`;
-        const safeTimeText = escapeXml(headerText);
-        
-        let blockXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="100" w:after="100"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeTimeText}</w:t></w:r></w:p>`;
-
-        tietList.forEach((tNum, idx) => {
-          let sectionContent = totalSoTiet === 1 
-            ? "Nghiên cứu kiến thức trọng tâm, luyện tập toán nâng cao và ứng dụng thực tế"
-            : (idx === 0 ? "Khám phá kiến thức mới, xây dựng định lý cơ bản và tương tác mô hình số"
-              : (idx === totalSoTiet - 1 ? "Ôn tập hệ thống hóa kiến thức, kiểm tra đánh giá và hoàn thiện chủ đề"
-                : (idx % 2 === 1 ? `Luyện tập chuyên sâu, giải hệ thống bài tập toán nâng cao (Tiết ${tNum})`
-                  : `Ứng dụng toán học vào các bài toán thực tế và mô hình hóa (Tiết ${tNum})`)));
-
-          const safeSec = escapeXml(sectionContent);
-          blockXml += `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="80" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FF0000"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Tiết ${tNum}: ${safeSec}</w:t></w:r></w:p>`;
-        });
-
-        // VIẾT LẠI: Chèn an toàn dựa trên cấu trúc thẻ đoạn văn <w:p> chứa "MỤC TIÊU" thay vì replace chuỗi thô
-        const targetMatch = docXml.match(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?MỤC TIÊU[\s\S]*?<\/w:p>/i);
-        if (targetMatch && targetMatch.index !== undefined) {
-          const insertPos = targetMatch.index;
-          docXml = docXml.substring(0, insertPos) + blockXml + docXml.substring(insertPos);
-        }
-
-          // Chèn thay thế đơn giản và an toàn nhất vào vị trí "I. MỤC TIÊU"
-          if (docXml.includes("I. MỤC TIÊU")) {
-            docXml = docXml.replace("I. MỤC TIÊU", blockXml + "\nI. MỤC TIÊU");
-          } else if (docXml.includes("MỤC TIÊU")) {
-            docXml = docXml.replace("MỤC TIÊU", blockXml + "\nMỤC TIÊU");
-          }
-        } catch (err) {
-          console.warn("Lỗi phân định tiết theo SGK:", err);
         }
 
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
@@ -255,12 +187,12 @@ export const injectContentIntoDocx = async (
 
            if (cleanLine) {
              xmlBlock += `<w:p>
-                          <w:pPr><w:ind w:left="720"/></w:pPr>
-                          <w:r>
-                            <w:rPr>${rPrBody}</w:rPr>
-                            <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                          </w:r>
-                        </w:p>`;
+                         <w:pPr><w:ind w:left="720"/></w:pPr>
+                         <w:r>
+                           <w:rPr>${rPrBody}</w:rPr>
+                           <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                         </w:r>
+                       </w:p>`;
            }
           });
 
@@ -291,28 +223,28 @@ export const injectContentIntoDocx = async (
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
-              <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">STT</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">Mã NLS/AI</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">Thành phần năng lực</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
-                <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.stt || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>${escapeXml(String(item.code || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.component || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.expression || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.activity || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">${escapeXml(String(item.stt || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escapeXml(String(item.code || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/></w:tcPr><w:p><w:r><w:t xml:space="preserve">${escapeXml(String(item.component || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:t xml:space="preserve">${escapeXml(String(item.expression || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">${escapeXml(String(item.activity || ''))}</w:t></w:r></w:p></w:tc>
               </w:tr>`;
           });
 
           return `
             <w:p>
               <w:pPr><w:jc w:val="center"/><w:spacing w:before="300" w:after="150"/></w:pPr>
-              <w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t>BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC</w:t></w:r>
+              <w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC</w:t></w:r>
             </w:p>
             <w:tbl>
               <w:tblPr>
