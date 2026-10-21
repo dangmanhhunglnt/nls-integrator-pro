@@ -10,9 +10,6 @@ export interface PPCTRow {
   ghiChu: string;
 }
 
-/**
- * 1. HÀM BÓC TÁCH DỮ LIỆU TỪ BẢNG PPCT (.DOCX) - TỐI ƯU CHỐNG NHẢY TRANG / NGẮT TRANG
- */
 export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   const arrayBuffer = await ppctFile.arrayBuffer();
   const zip = new PizZip(arrayBuffer);
@@ -86,8 +83,20 @@ export async function parsePPCTDirectFromZip(file: File, _textContext?: any, _fi
   };
 }
 
-function getSafeSubjectStr(_subject: string): string {
-  return 'Toan';
+// Hàm tự động nhận diện tên môn học thông minh
+function getSafeSubjectStr(subjectInput: string, ppctFileName?: string): string {
+  const raw = `${subjectInput || ''} ${ppctFileName || ''}`.toLowerCase();
+  
+  if (raw.includes('toan') || raw.includes('đại số') || raw.includes('hình học')) return 'Toan';
+  if (raw.includes('ly') || raw.includes('vật lý') || raw.includes('vat ly')) return 'VatLy';
+  if (raw.includes('hoa') || raw.includes('hóa học')) return 'HoaHoc';
+  if (raw.includes('sinh') || raw.includes('sinh học')) return 'SinhHoc';
+  if (raw.includes('van') || raw.includes('ngữ văn') || raw.includes('văn')) return 'NguVan';
+  if (raw.includes('anh') || raw.includes('tiếng anh') || raw.includes('english')) return 'TiengAnh';
+  if (raw.includes('tin') || raw.includes('tin học')) return 'TinHoc';
+  
+  const clean = (subjectInput || 'Toan').replace(/[^a-zA-Z0-9]/g, '');
+  return clean ? clean : 'Toan';
 }
 
 /**
@@ -194,10 +203,12 @@ export async function processBatchPPCT(
     );
 
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
+    const subStr = getSafeSubjectStr(subject, ppctFile.name);
     const currentWeek = rowsGroup[0]?.tuan || '1';
+    const tietNums = rowsGroup.map(r => r.tiet.replace(/[^0-9]/g, '')).filter(Boolean);
+    const tietStrFormatted = tietNums.length > 0 ? tietNums.join('_') : '1';
     
-    // TÊN FILE SIÊU NGẮN AN TOÀN TUYỆT ĐỐI CHO WINDOWS
-    const fileName = `Toan${grdNum}_T${currentWeek}_Tiet.docx`;
+    const fileName = `${subStr}${grdNum}_T${currentWeek}_Tiet_${tietStrFormatted}.docx`;
 
     results.push({ name: fileName, blob: processedBlob });
   }
@@ -215,7 +226,8 @@ export async function processSingleLessonFromPPCT(
   subject: string,
   grade: string,
   colorHex: HighlightColor,
-  generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
+  generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>,
+  ppctFileName?: string
 ): Promise<{ name: string; blob: Blob }[]> {
   const cleanTarget = targetLessonName
     .toLowerCase()
@@ -359,9 +371,11 @@ export async function processSingleLessonFromPPCT(
     );
 
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
+    const subStr = getSafeSubjectStr(subject, ppctFileName);
+    const tietNums = weekRows ? weekRows.map(r => r.tiet.replace(/[^0-9]/g, '')).filter(Boolean) : [];
+    const tietStrFormatted = tietNums.length > 0 ? tietNums.join('_') : '1';
     
-    // TÊN FILE SIÊU NGẮN AN TOÀN TUYỆT ĐỐI CHO WINDOWS
-    const fileName = `Toan${grdNum}_T${weekNum}_Tiet.docx`;
+    const fileName = `${subStr}${grdNum}_T${currentWeekNum}_Tiet_${tietStrFormatted}.docx`;
 
     results.push({ name: fileName, blob: processedBlob });
   }
