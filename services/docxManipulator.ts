@@ -118,7 +118,7 @@ export const injectContentIntoDocx = async (
           docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
         }
         
-        // 2. PHÂN ĐỊNH TIẾT BÁM SÁT PPCT VÀ NỘI DUNG SGK (LOẠI BỎ HOÀN TOÀN MỤC TIÊU GIÁO ÁN)
+        // 2. PHÂN ĐỊNH VÀ CHÈN TIẾT BÔI VÀNG AN TOÀN TUYỆT ĐỐI (DÙNG THẺ <w:shd w:fill="FFFF00"/> ĐÚNG CHUẨN WORD)
         try {
           const timeIdx = docXml.indexOf("Thời gian thực hiện");
           if (timeIdx !== -1) {
@@ -143,7 +143,6 @@ export const injectContentIntoDocx = async (
                 tietList = ["1"];
               }
 
-              // Nhận diện tên bài học từ tiêu đề giáo án để đưa ra nội dung chuẩn SGK
               const docTitleLower = docXml.toLowerCase();
               let sgkSections: string[] = [];
 
@@ -249,7 +248,7 @@ export const injectContentIntoDocx = async (
                             <w:pPr><w:ind w:left="360"/></w:pPr>
                             <w:r>
                               <w:rPr>${rPrHeader}</w:rPr>
-                              <w:t>${escapeXml(headerTitle)}</w:t>
+                              <w:t xml:space="preserve">${escapeXml(headerTitle)}</w:t>
                             </w:r>
                           </w:p>`;
 
@@ -263,12 +262,12 @@ export const injectContentIntoDocx = async (
 
            if (cleanLine) {
              xmlBlock += `<w:p>
-                          <w:pPr><w:ind w:left="720"/></w:pPr>
-                          <w:r>
-                            <w:rPr>${rPrBody}</w:rPr>
-                            <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
-                          </w:r>
-                        </w:p>`;
+                         <w:pPr><w:ind w:left="720"/></w:pPr>
+                         <w:r>
+                           <w:rPr>${rPrBody}</w:rPr>
+                           <w:t xml:space="preserve">- ${escapeXml(cleanLine)}</w:t>
+                         </w:r>
+                       </w:p>`;
            }
           });
 
@@ -299,28 +298,28 @@ export const injectContentIntoDocx = async (
           rowsXml += `
             <w:tr>
               <w:trPr><w:tblHeader/></w:trPr>
-              <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>STT</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Mã NLS/AI</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Thành phần năng lực</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
-              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>Hoạt động</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">STT</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">Mã NLS/AI</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">Thành phần năng lực</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">Biểu hiện trong bài học</w:t></w:r></w:p></w:tc>
+              <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">Hoạt động</w:t></w:r></w:p></w:tc>
             </w:tr>`;
 
           tableData.forEach((item) => {
             rowsXml += `
               <w:tr>
-                <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.stt || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>${escapeXml(String(item.code || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.component || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${escapeXml(String(item.expression || ''))}</w:t></w:r></w:p></w:tc>
-                <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(String(item.activity || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="600" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">${escapeXml(String(item.stt || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="1500" w:type="dxa"/></w:tcPr><w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escapeXml(String(item.code || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/></w:tcPr><w:p><w:r><w:t xml:space="preserve">${escapeXml(String(item.component || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr><w:p><w:r><w:t xml:space="preserve">${escapeXml(String(item.expression || ''))}</w:t></w:r></w:p></w:tc>
+                <w:tc><w:tcPr><w:tcW w:w="1200" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t xml:space="preserve">${escapeXml(String(item.activity || ''))}</w:t></w:r></w:p></w:tc>
               </w:tr>`;
           });
 
           return `
             <w:p>
               <w:pPr><w:jc w:val="center"/><w:spacing w:before="300" w:after="150"/></w:pPr>
-              <w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t>BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC</w:t></w:r>
+              <w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">BẢNG TỔNG HỢP NĂNG LỰC SỐ VÀ AI TRONG BÀI HỌC</w:t></w:r>
             </w:p>
             <w:tbl>
               <w:tblPr>
