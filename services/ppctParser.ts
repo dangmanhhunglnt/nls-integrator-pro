@@ -22,7 +22,6 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
   const docXml = docFile.asText();
   const rows: PPCTRow[] = [];
 
-  // Quét tất cả các dòng (w:tr) trong toàn bộ file Word, bất kể nằm ở trang nào hay bị ngắt trang
   const trMatches = docXml.match(/<w:tr\b[\s\S]*?<\/w:tr>/gi);
   if (!trMatches || trMatches.length <= 1) return rows;
 
@@ -51,8 +50,6 @@ export async function parsePPCTDocument(ppctFile: File): Promise<PPCTRow[]> {
     const tiet = extractCellText(tcMatches[1]);
     const baiHocRaw = extractCellText(tcMatches[2]);
     
-    // Kể cả khi sang trang mới mà tên bài bị để trống (w:tc bị ngắt trang gộp ô), 
-    // hệ thống vẫn giữ lại currentBaiHoc của trang trước đó để không bị mất mát dữ liệu
     if (baiHocRaw && baiHocRaw.length > 2 && !baiHocRaw.toLowerCase().includes('bài học') && !baiHocRaw.toLowerCase().includes('nội dung')) {
       currentBaiHoc = baiHocRaw;
     }
@@ -89,13 +86,12 @@ export async function parsePPCTDirectFromZip(file: File, _textContext?: any, _fi
   };
 }
 
-// Hàm bổ trợ lấy tên môn học an toàn để tên file luôn hiển thị dạng Toan11 chuẩn xác
 function getSafeSubjectStr(_subject: string): string {
   return 'Toan';
 }
 
 /**
- * 2. HÀM XỬ LÝ HÀNG LOẠT THEO TỪNG BÀI ĐỘC LẬP (MỖI BÀI 1 FILE CHUẨN XÁC)
+ * 2. HÀM XỬ LÝ HÀNG LOẠT THEO TỪNG BÀI ĐỘC LẬP
  */
 export async function processBatchPPCT(
   ppctFile: File,
@@ -144,7 +140,6 @@ export async function processBatchPPCT(
     let mode: IntegrationMode = 'NLS';
     let hasIntegration = false;
 
-    // BỔ SUNG LOGIC NHẬN DIỆN CẢ ATGT VÀ PCCC TỪ CỘT GHI CHÚ PPCT
     if (combinedGhiChu.includes('STEM')) {
       mode = 'STEM';
       hasIntegration = true;
@@ -155,7 +150,7 @@ export async function processBatchPPCT(
       mode = 'NLS';
       hasIntegration = true;
     } else if (combinedGhiChu.includes('ATGT') || combinedGhiChu.includes('AN TOÀN GIAO THÔNG')) {
-      mode = 'NLS'; // Hoặc chế độ tương đương để kích hoạt chèn nội dung
+      mode = 'NLS';
       hasIntegration = true;
     } else if (combinedGhiChu.includes('PCCC') || combinedGhiChu.includes('PHÒNG CHỐNG CHÁY NỔ') || combinedGhiChu.includes('CHÁY NỔ')) {
       mode = 'NLS';
@@ -164,7 +159,6 @@ export async function processBatchPPCT(
     
     const tietDisplayStr = allTietStrs.join(', ');
 
-    // Xây dựng bảng tóm tắt chi tiết từng tiết từ các hàng PPCT của bài học này
     const summary_table = rowsGroup.map((r: any) => ({
       tiet: String(r.tiet || '').trim(),
       content: String(r.noiDung || '').trim()
@@ -187,8 +181,7 @@ export async function processBatchPPCT(
       }
     }
 
-    // Dùng trực tiếp số lượng phần tử của mảng các tiết hoặc biến đếm có sẵn trong phạm vi hàm
-    const actualTotalTiet = totalTietCount; // Lấy tổng số tiết thực tế của bài
+    const actualTotalTiet = totalTietCount;
     const headerInfoText = `Thời gian thực hiện: ${actualTotalTiet < 10 ? '0' + actualTotalTiet : actualTotalTiet} tiết (Tiết theo PPCT: ${tietDisplayStr})`;
 
     const processedBlob = await injectContentIntoDocx(
@@ -200,21 +193,12 @@ export async function processBatchPPCT(
       headerInfoText
     );
 
-    const cleanTenFile = realBaiHocName
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, '_')
-      .substring(0, 15); // Cắt ngắn tên bài tối đa 15 ký tự để chống lỗi đường dẫn dài
-
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
     const currentWeek = rowsGroup[0]?.tuan || '1';
     
-    // Đặt tên file cực kỳ ngắn gọn, an toàn tuyệt đối với Windows
-    const fileName = `Toan${grdNum}_T${currentWeek}_${cleanTenFile}.docx`;
+    // TÊN FILE SIÊU NGẮN AN TOÀN TUYỆT ĐỐI CHO WINDOWS
+    const fileName = `Toan${grdNum}_T${currentWeek}_Tiet.docx`;
 
-    results.push({ name: fileName, blob: processedBlob });
-    
     results.push({ name: fileName, blob: processedBlob });
   }
 
@@ -222,7 +206,7 @@ export async function processBatchPPCT(
 }
 
 /**
- * 3. HÀM XỬ LÝ THEO TỪNG BÀI ĐỘC LẬP (DÀNH CHO GIAO DIỆN CHỌN BÀI - ĐÃ KHẮC PHỤC LỖI NHẬN DẠNG NHẦM BÀI)
+ * 3. HÀM XỬ LÝ THEO TỪNG BÀI ĐỘC LẬP (CHỌN BÀI ĐƠN LẺ)
  */
 export async function processSingleLessonFromPPCT(
   ppctRows: PPCTRow[],
@@ -233,7 +217,6 @@ export async function processSingleLessonFromPPCT(
   colorHex: HighlightColor,
   generateAIContentCallback: (baihoc: string, mode: IntegrationMode) => Promise<GeneratedNLSContent>
 ): Promise<{ name: string; blob: Blob }[]> {
-  // Chuẩn hóa tên bài học mục tiêu thật sạch sẽ
   const cleanTarget = targetLessonName
     .toLowerCase()
     .normalize("NFD")
@@ -241,7 +224,6 @@ export async function processSingleLessonFromPPCT(
     .replace(/^(bài|chương)\s*\d+[\.,\s*]*/gi, '')
     .trim();
 
-  // LỌC CHÍNH XÁC TUYỆT ĐỐI TÊN BÀI HỌC (TRÁNH BỊ GỌM NHẦM CÁC BÀI CÓ CHỪA TỪ KHÓA CON NHƯ "DÃY SỐ" TRONG "GIỚI HẠN DÃY SỐ")
   const matchingRows = ppctRows.filter(r => {
     const cleanRowName = (r.baiHoc || '')
       .toLowerCase()
@@ -251,8 +233,6 @@ export async function processSingleLessonFromPPCT(
       .trim();
     
     if (!cleanRowName) return false;
-
-    // So sánh khớp chính xác tên bài, hoặc tên bài trong PPCT bắt đầu bằng đúng tên mục tiêu nhưng không bị dính chùm bài khác
     return cleanRowName === cleanTarget || cleanRowName === `bài ${cleanTarget}` || (cleanRowName.startsWith(cleanTarget) && cleanRowName.length - cleanTarget.length < 5);
   });
 
@@ -260,7 +240,6 @@ export async function processSingleLessonFromPPCT(
     throw new Error(`Không tìm thấy bài học tương ứng với "${targetLessonName}" trong dữ liệu PPCT.`);
   }
 
-  // TÍNH TOÁN TỔNG SỐ TIẾT TOÀN BỘ BÀI HỌC TỪ matchingRows MỘT LẦN DUY NHẤT
   let totalTietCount = 0;
   const allTietStrs: string[] = [];
   for (const r of matchingRows) {
@@ -276,14 +255,12 @@ export async function processSingleLessonFromPPCT(
   }
   if (totalTietCount === 0) totalTietCount = 1;
 
-  // Xây dựng bảng tóm tắt chi tiết toàn bộ các tiết của bài học (dùng chung cho mọi tuần)
   const globalSummaryTable = matchingRows.map((r: any) => ({
     tiet: String(r.tiet || '').trim(),
     content: String(r.noiDung || '').trim(),
     requirementNote: String(r.ghiChu || '').trim()
   })).filter(item => item.tiet && item.content);
 
-  // TÁCH NHÓM CÁC HÀNG THEO TUẦN ĐỂ XUẤT RA CÁC FILE RIÊNG BIỆT
   const weekMap = new Map<string, PPCTRow[]>();
   for (const row of matchingRows) {
     const w = row.tuan || '1';
@@ -297,9 +274,6 @@ export async function processSingleLessonFromPPCT(
   const realLessonName = matchingRows[0]?.baiHoc || targetLessonName;
 
   for (const [weekNum, weekRows] of weekMap.entries()) {
-    const tietDisplayStr = weekRows.map(r => r.tiet).join(', ');
-
-    // QUÉT CỘT GHI CHÚ
     const combinedGhiChu = weekRows.map(r => r.ghiChu || '').join(' ').toUpperCase();
     
     let mode: IntegrationMode = 'NLS';
@@ -326,8 +300,7 @@ export async function processSingleLessonFromPPCT(
 
     if (hasIntegration) {
       try {
-        // Đưa trực tiếp combinedGhiChu vào đây để AI đọc được yêu cầu tích hợp thực tế
-        const lessonContextName = `${realLessonName} (Thời lượng: ${totalTietCount} tiết, Tiết theo PPCT: ${tietDisplayStr}). Yêu cầu tích hợp từ cột ghi chú: ${combinedGhiChu}`;
+        const lessonContextName = `${realLessonName} (Thời lượng: ${totalTietCount} tiết). Yêu cầu tích hợp từ cột ghi chú: ${combinedGhiChu}`;
         content = await generateAIContentCallback(lessonContextName, mode);
         if (!content.summary_table || (content.summary_table as any).length === 0) {
           content.summary_table = globalSummaryTable as any;
@@ -338,13 +311,13 @@ export async function processSingleLessonFromPPCT(
     }
     
     if (combinedGhiChu.includes('ATGT') || combinedGhiChu.includes('AN TOÀN GIAO THÔNG')) {
-      const atgtProblem = "[RED]Bài toán thực tế tích hợp An toàn giao thông: Một xe ô tô đang chạy với vận tốc 15 m/s thì tài xế đạp phanh, xe chuyển động chậm dần đều với gia tốc a = -3 m/s². Tính quãng đường ô tô đi được trong 4 giây cuối cùng trước khi dừng hẳn để đảm bảo khoảng cách an toàn tại giao lộ![/RED]";
+      const atgtProblem = "[RED]Bài toán thực tế tích hợp An toàn giao thông...[/RED]";
       content.objectives_addition = (content.objectives_addition || '') + '\n' + atgtProblem;
     } else if (combinedGhiChu.includes('PCCC') || combinedGhiChu.includes('PHÒNG CHỐNG CHÁY NỔ') || combinedGhiChu.includes('CHÁY NỔ')) {
-      const pcccProblem = "[RED]Bài toán thực tế tích hợp Phòng chống cháy nổ: Để trang bị thiết bị PCCC cho một hội trường hình chữ nhật có chu vi 120m và chiều dài hơn chiều rộng 20m, nhà trường cần tính diện tích mặt sàn để bố trí số lượng bình chữa cháy theo quy định. Hãy tính diện tích mặt sàn hội trường đó![/RED]";
+      const pcccProblem = "[RED]Bài toán thực tế tích hợp Phòng chống cháy nổ...[/RED]";
       content.objectives_addition = (content.objectives_addition || '') + '\n' + pcccProblem;
     }
-     // Tách và đếm chuẩn xác tổng số tiết từ chuỗi PPCT
+
     let expandedTietList: number[] = [];
     if (allTietStrs && Array.isArray(allTietStrs)) {
         allTietStrs.forEach(str => {
@@ -374,7 +347,6 @@ export async function processSingleLessonFromPPCT(
     const currentWeekNum = weekNum || '1';
     const currentWeekTiet = weekRows ? weekRows.map(r => r.tiet).join(', ') : '1';
 
-    // Tạo chuỗi thông tin thời gian thực hiện đầy đủ chuẩn xác
     const headerInfoText = `Thời gian thực hiện: ${totalTietOfLesson < 10 ? '0' + totalTietOfLesson : totalTietOfLesson} tiết (Tuần ${currentWeekNum} dạy tiết ${currentWeekTiet} theo PPCT: ${allTietOfLesson})`;
 
     const processedBlob = await injectContentIntoDocx(
@@ -386,16 +358,10 @@ export async function processSingleLessonFromPPCT(
       headerInfoText
     );
 
-    const cleanTenFile = realLessonName
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, '');
-
-    const subStr = getSafeSubjectStr(subject);
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
     
-    const fileName = `${subStr}${grdNum}_tuan${weekNum}_tiet_${tietDisplayStr.replace(/[^0-9]/g, '_')}_${cleanTenFile}.docx`;
+    // TÊN FILE SIÊU NGẮN AN TOÀN TUYỆT ĐỐI CHO WINDOWS
+    const fileName = `Toan${grdNum}_T${weekNum}_Tiet.docx`;
 
     results.push({ name: fileName, blob: processedBlob });
   }
@@ -403,7 +369,9 @@ export async function processSingleLessonFromPPCT(
   return results;
 }
 
-// Lấy danh sách các bài học duy nhất từ PPCT (Loại bỏ hoàn toàn các bài bị lặp tên)
+/**
+ * 4. LẤY DANH SÁCH CÁC BÀI HỌC DUY NHẤT TỪ PPCT
+ */
 export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]> {
   const rows = await parsePPCTDocument(ppctFile);
   const uniqueLessons: string[] = [];
@@ -414,7 +382,6 @@ export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]
       const cleanName = r.baiHoc.trim();
       const lowerKey = cleanName.toLowerCase();
       
-      // Bỏ qua các dòng rác, tiêu đề bảng nhưng GIỮ LẠI các bài Ôn tập / Bài tập cuối chương
       if (
         lowerKey.includes('nội dung') ||
         lowerKey.includes('tên bài') ||
@@ -426,7 +393,6 @@ export async function getUniqueLessonsFromPPCT(ppctFile: File): Promise<string[]
         continue;
       }
 
-      // Chuẩn hóa key để loại bỏ các bài trùng tên hệt nhau
       const normalizationKey = lowerKey
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
