@@ -204,13 +204,17 @@ export async function processBatchPPCT(
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, '');
+      .replace(/[^a-z0-9]/g, '_')
+      .substring(0, 15); // Cắt ngắn tên bài tối đa 15 ký tự để chống lỗi đường dẫn dài
 
-    const subStr = getSafeSubjectStr(subject);
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
     const currentWeek = rowsGroup[0]?.tuan || '1';
-    const fileName = `${subStr}${grdNum}_tuan${currentWeek}_tiet_${tietDisplayStr.replace(/[^0-9]/g, '_')}_${cleanTenFile}.docx`;
+    
+    // Đặt tên file cực kỳ ngắn gọn, an toàn tuyệt đối với Windows
+    const fileName = `Toan${grdNum}_T${currentWeek}_${cleanTenFile}.docx`;
 
+    results.push({ name: fileName, blob: processedBlob });
+    
     results.push({ name: fileName, blob: processedBlob });
   }
 
