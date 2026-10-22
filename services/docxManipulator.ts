@@ -33,7 +33,7 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 }
 
 /**
- * 3. HÀM CẬP NHẬT VÀ CĂN GIỮA TUYỆT ĐỐI RA TOÀN TRANG
+ * 3. HÀM CẬP NHẬT VÀ BÔI NỀN VÀNG DÒNG THỜI GIAN THỰC HIỆN
  */
 export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
   if (!ppctInfoText) return xmlContent;
@@ -41,7 +41,8 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
+  // Tạo đoạn XML canh giữa, in nghiêng và BÔI NỀN VÀNG (w:fill="FFFF00") cho toàn dòng
+  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/></w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
   const tblRegex = /<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
   let replacedTable = false;
@@ -77,10 +78,20 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
     }
 
     pXml = pXml.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/gi, '');
-    const newRun = `<w:r><w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
+    // Thêm thẻ bôi nền vàng w:fill="FFFF00" vào đây
+    const newRun = `<w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
     pXml = pXml.replace(/<\/w:p>$/i, `${newRun}</w:p>`);
 
     result = result.replace(match[0], pXml);
+  } else {
+    // Nếu trong template gốc hoàn toàn chưa có dòng này, hệ thống sẽ tự động chèn mới một dòng nền vàng rực rỡ ngay dưới tiêu đề bài học
+    const titleRegex = /<w:p\b[\s\S]*?(?:CHƯƠNG|BÀI|TÊN BÀI)[\s\S]*?<\/w:p>/i;
+    if (titleRegex.test(result)) {
+      result = result.replace(titleRegex, (matchTitle) => `${matchTitle}${centerParagraphXml}`);
+    } else {
+      // Fallback: Chèn lên đầu body nếu không tìm thấy tiêu đề
+      result = result.replace('<w:body>', `<w:body>${centerParagraphXml}`);
+    }
   }
 
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
