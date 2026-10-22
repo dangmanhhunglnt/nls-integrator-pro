@@ -85,7 +85,8 @@ export const injectContentIntoDocx = async (
   mode: IntegrationMode,
   _log: (msg: string) => void,
   colorHex: HighlightColor = 'FF0000',
-  customHeaderPPCT?: string
+  customHeaderPPCT?: string,
+  customWeekDetails?: string
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -104,7 +105,7 @@ export const injectContentIntoDocx = async (
         docXml = cleanExistingNLSContent(docXml);
 
         if (customHeaderPPCT) {
-          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT);
+          docXml = updatePPCTHeaderInfo(docXml, customHeaderPPCT, customWeekDetails);
         }
         
         const hasNewContent = Boolean(content && (content.objectives_addition || content.materials_addition || (content.activities_enhancement && content.activities_enhancement.length > 0)));
