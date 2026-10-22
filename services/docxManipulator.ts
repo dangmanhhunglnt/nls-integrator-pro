@@ -41,19 +41,10 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string, w
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Dòng tổng thời gian thực hiện (bôi nền vàng, canh giữa)
-  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="100"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
+  // 1. Tạo XML cho dòng tổng thời gian (bôi nền vàng, canh giữa)
+  let insertedContent = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="100"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // Xóa bỏ các dòng thông tin cũ nếu có
-  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
-
-  // Tìm tên bài học để chèn ngay phía dưới
-  const lessonTitleRegex = /<w:p\b[\s\S]*?(?:BÀI|Bài)\s*\d+[\s\S]*?<\/w:p>/i;
-  const match = result.match(lessonTitleRegex);
-
-  let insertedContent = centerParagraphXml;
-
-  // Nếu có chi tiết các tiết trong tuần (ví dụ: Tiết 1,2: Đơn điệu hàm số...), thêm vào dưới dạng bôi vàng
+  // 2. Nếu có chi tiết các tiết, tạo thêm các dòng bôi nền vàng nằm ngay phía dưới
   if (weekDetailsText) {
     const lines = weekDetailsText.split('\n').filter(Boolean);
     lines.forEach(line => {
@@ -61,6 +52,13 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string, w
       insertedContent += `<w:p><w:pPr><w:spacing w:before="60" w:after="100"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeLine}</w:t></w:r></w:p>`;
     });
   }
+
+  // Xóa bỏ các thông tin thời gian cũ nếu có để tránh bị trùng lặp
+  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
+
+  // Tìm vị trí tên bài học (BÀI 1, Bài 1...) để chèn toàn bộ khối bôi vàng xuống ngay phía dưới
+  const lessonTitleRegex = /<w:p\b[\s\S]*?(?:BÀI|Bài)\s*\d+[\s\S]*?<\/w:p>/i;
+  const match = result.match(lessonTitleRegex);
 
   if (match) {
     const titleParagraph = match[0];
