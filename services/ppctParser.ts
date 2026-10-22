@@ -192,6 +192,9 @@ export async function processBatchPPCT(
 
     const actualTotalTiet = totalTietCount;
     const headerInfoText = `Thời gian thực hiện: ${actualTotalTiet < 10 ? '0' + actualTotalTiet : actualTotalTiet} tiết (Tiết theo PPCT: ${tietDisplayStr})`;
+    
+    // Thêm dòng này để gom chi tiết các tiết trong nhóm
+    const weekDetailsText = rowsGroup.map(r => `Tiết ${r.tiet}: ${r.noiDung}`).join('\n');
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
@@ -199,7 +202,8 @@ export async function processBatchPPCT(
       hasIntegration ? mode : 'NLS',
       () => {},
       colorHex,
-      headerInfoText
+      headerInfoText,
+      weekDetailsText // <--- Truyền thêm tham số này vào đây
     );
 
     const grdNum = grade ? grade.replace(/[^0-9]/g, '') : '11';
@@ -359,7 +363,8 @@ export async function processSingleLessonFromPPCT(
     const currentWeekNum = weekNum || '1';
     const currentWeekTiet = weekRows ? weekRows.map(r => r.tiet).join(', ') : '1';
 
-    const headerInfoText = `Thời gian thực hiện: ${totalTietOfLesson < 10 ? '0' + totalTietOfLesson : totalTietOfLesson} tiết (Tuần ${currentWeekNum} dạy tiết ${currentWeekTiet} theo PPCT: ${allTietOfLesson})`;
+    const headerInfoText = `Thời gian thực hiện: ${totalTietOfLesson < 10 ? '0' + totalTietOfLesson : totalTietOfLesson} tiết (Tuần ${currentWeekNum} dạy tiết ${currentWeekTiet} theo PPCT: ${allTietOfLesson})` +
+      (weekRows && weekRows.length > 0 ? '\n' + weekRows.map(r => `Tiết ${r.tiet}: ${r.noiDung}`).join('\n') : '');
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
