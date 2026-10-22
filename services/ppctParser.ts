@@ -364,7 +364,7 @@ export async function processSingleLessonFromPPCT(
     const currentWeekTiet = weekRows ? weekRows.map(r => r.tiet).join(', ') : '1';
 
     const headerInfoText = `Thời gian thực hiện: ${totalTietOfLesson < 10 ? '0' + totalTietOfLesson : totalTietOfLesson} tiết (Tuần ${currentWeekNum} dạy tiết ${currentWeekTiet} theo PPCT: ${allTietOfLesson})` +
-      (weekRows && weekRows.length > 0 ? '\n' + weekRows.map(r => `Tiết ${r.tiet}: ${r.noiDung}`).join('\n') : '');
+      (matchingRows && matchingRows.length > 0 ? '\n' + matchingRows.map(r => `Tiết ${r.tiet}: ${r.noiDung}`).join('\n') : '');
 
     const processedBlob = await injectContentIntoDocx(
       templateDocxFile,
