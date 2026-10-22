@@ -44,16 +44,16 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string, w
   // 1. Tạo XML cho dòng tổng thời gian (bôi nền vàng, canh giữa)
   let insertedContent = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="100"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // 2. Nếu có chi tiết các tiết, tạo thêm các dòng bôi nền vàng nằm ngay phía dưới
+  // 2. Tách từng tiết thành các ĐOẠN VĂN BẢN (w:p) RIÊNG BIỆT, mỗi tiết một dòng bôi nền vàng nằm dưới
   if (weekDetailsText) {
     const lines = weekDetailsText.split('\n').filter(Boolean);
     lines.forEach(line => {
       const safeLine = escapeXml(line);
-      insertedContent += `<w:p><w:pPr><w:spacing w:before="60" w:after="100"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeLine}</w:t></w:r></w:p>`;
+      insertedContent += `<w:p><w:pPr><w:spacing w:before="60" w:after="80"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeLine}</w:t></w:r></w:p>`;
     });
   }
 
-  // Xóa bỏ các thông tin thời gian cũ nếu có để tránh bị trùng lặp
+  // Xóa bỏ các dòng thông tin cũ nếu có để tránh trùng lặp
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
   // Tìm vị trí tên bài học (BÀI 1, Bài 1...) để chèn toàn bộ khối bôi vàng xuống ngay phía dưới
