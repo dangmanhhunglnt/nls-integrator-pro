@@ -35,40 +35,47 @@ export function cleanExistingNLSContent(xmlContent: string): string {
 /**
  * 3. HÀM CẬP NHẬT VÀ BÔI NỀN VÀNG DÒNG THỜI GIAN THỰC HIỆN
  */
-export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): string {
+export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string, weekDetailsText?: string): string {
   if (!ppctInfoText) return xmlContent;
 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Đoạn XML định dạng dòng thông tin canh giữa, in nghiêng và bôi nền vàng rực rỡ
-  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
+  // Dòng tổng thời gian thực hiện (bôi nền vàng, canh giữa)
+  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="100"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  // 1. Quét và xóa bỏ các dòng thời gian cũ (nếu có để tránh bị lặp)
+  // Xóa bỏ các dòng thông tin cũ nếu có
   result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  // 2. Tìm chính xác dòng chứa tên bài học (ví dụ: "BÀI 1", "Bài 1",...) để chèn dòng nền vàng xuống NGAY PHÍA DƯỚI nó
+  // Tìm tên bài học để chèn ngay phía dưới
   const lessonTitleRegex = /<w:p\b[\s\S]*?(?:BÀI|Bài)\s*\d+[\s\S]*?<\/w:p>/i;
   const match = result.match(lessonTitleRegex);
 
+  let insertedContent = centerParagraphXml;
+
+  // Nếu có chi tiết các tiết trong tuần (ví dụ: Tiết 1,2: Đơn điệu hàm số...), thêm vào dưới dạng bôi vàng
+  if (weekDetailsText) {
+    const lines = weekDetailsText.split('\n').filter(Boolean);
+    lines.forEach(line => {
+      const safeLine = escapeXml(line);
+      insertedContent += `<w:p><w:pPr><w:spacing w:before="60" w:after="100"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeLine}</w:t></w:r></w:p>`;
+    });
+  }
+
   if (match) {
     const titleParagraph = match[0];
-    // Chèn dòng nền vàng ngay sau thẻ đóng của đoạn tên bài học
-    const replacement = `${titleParagraph}${centerParagraphXml}`;
-    result = result.replace(titleParagraph, replacement);
+    result = result.replace(titleParagraph, `${titleParagraph}${insertedContent}`);
   } else {
-    // Fallback nếu không tìm thấy chữ Bài, sẽ chèn ngay dưới tiêu đề Chương
     const chapterRegex = /<w:p\b[\s\S]*?CHƯƠNG[\s\S]*?<\/w:p>/i;
     if (chapterRegex.test(result)) {
-      result = result.replace(chapterRegex, (matchChap) => `${matchChap}${centerParagraphXml}`);
+      result = result.replace(chapterRegex, (matchChap) => `${matchChap}${insertedContent}`);
     } else {
-      result = result.replace('<w:body>', `<w:body>${centerParagraphXml}`);
+      result = result.replace('<w:body>', `<w:body>${insertedContent}`);
     }
   }
 
   return result;
 }
-
 /**
  * 4. HÀM CHÈN MỐC TIẾT BÔI VÀNG NGAY DƯỚI DÒNG THỜI GIAN THỰC HIỆN
  */
