@@ -41,60 +41,31 @@ export function updatePPCTHeaderInfo(xmlContent: string, ppctInfoText: string): 
   let result = xmlContent;
   const safeNewText = escapeXml(ppctInfoText);
 
-  // Tạo đoạn XML canh giữa, in nghiêng và BÔI NỀN VÀNG (w:fill="FFFF00") cho toàn dòng
-  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/></w:rPr><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
+  // Đoạn XML định dạng dòng thông tin canh giữa, in nghiêng và bôi nền vàng rực rỡ
+  const centerParagraphXml = `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="140" w:after="180"/></w:pPr><w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r></w:p>`;
 
-  const tblRegex = /<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
-  let replacedTable = false;
+  // 1. Quét và xóa bỏ các dòng thời gian cũ (nếu có để tránh bị lặp)
+  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy|Tiết theo PPCT)[\s\S]*?<\/w:p>/gis, '');
 
-  result = result.replace(tblRegex, (tblXml) => {
-    if (!replacedTable && (tblXml.includes("Thời gian thực hiện") || tblXml.includes("Số tiết dạy") || tblXml.includes("Tiết theo PPCT"))) {
-      replacedTable = true;
-      return centerParagraphXml;
-    }
-    return tblXml;
-  });
-
-  if (replacedTable) {
-    result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
-    return result;
-  }
-
-  const pRegex = /<w:p\b[^>]*>(?:(?!<\/w:p>).)*?(?:Thời gian thực hiện|Số tiết dạy)[\s\S]*?<\/w:p>/i;
-  const match = result.match(pRegex);
+  // 2. Tìm chính xác dòng chứa tên bài học (ví dụ: "BÀI 1", "Bài 1",...) để chèn dòng nền vàng xuống NGAY PHÍA DƯỚI nó
+  const lessonTitleRegex = /<w:p\b[\s\S]*?(?:BÀI|Bài)\s*\d+[\s\S]*?<\/w:p>/i;
+  const match = result.match(lessonTitleRegex);
 
   if (match) {
-    let pXml = match[0];
-    if (pXml.includes('<w:pPr>')) {
-      if (pXml.includes('<w:jc')) {
-        pXml = pXml.replace(/<w:jc[^>]*\/>/i, '<w:jc w:val="center"/>');
-      } else {
-        pXml = pXml.replace('<w:pPr>', '<w:pPr><w:jc w:val="center"/>');
-      }
-    } else if (pXml.includes('<w:pPr/>')) {
-      pXml = pXml.replace('<w:pPr/>', '<w:pPr><w:jc w:val="center"/></w:pPr>');
-    } else {
-      pXml = pXml.replace(/(<w:p\b[^>]*>)/i, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
-    }
-
-    pXml = pXml.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/gi, '');
-    // Thêm thẻ bôi nền vàng w:fill="FFFF00" vào đây
-    const newRun = `<w:r><w:rPr><w:shd w:val="clear" w:color="auto" w:fill="FFFF00"/><w:i/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve">${safeNewText}</w:t></w:r>`;
-    pXml = pXml.replace(/<\/w:p>$/i, `${newRun}</w:p>`);
-
-    result = result.replace(match[0], pXml);
+    const titleParagraph = match[0];
+    // Chèn dòng nền vàng ngay sau thẻ đóng của đoạn tên bài học
+    const replacement = `${titleParagraph}${centerParagraphXml}`;
+    result = result.replace(titleParagraph, replacement);
   } else {
-    // Nếu trong template gốc hoàn toàn chưa có dòng này, hệ thống sẽ tự động chèn mới một dòng nền vàng rực rỡ ngay dưới tiêu đề bài học
-    const titleRegex = /<w:p\b[\s\S]*?(?:CHƯƠNG|BÀI|TÊN BÀI)[\s\S]*?<\/w:p>/i;
-    if (titleRegex.test(result)) {
-      result = result.replace(titleRegex, (matchTitle) => `${matchTitle}${centerParagraphXml}`);
+    // Fallback nếu không tìm thấy chữ Bài, sẽ chèn ngay dưới tiêu đề Chương
+    const chapterRegex = /<w:p\b[\s\S]*?CHƯƠNG[\s\S]*?<\/w:p>/i;
+    if (chapterRegex.test(result)) {
+      result = result.replace(chapterRegex, (matchChap) => `${matchChap}${centerParagraphXml}`);
     } else {
-      // Fallback: Chèn lên đầu body nếu không tìm thấy tiêu đề
       result = result.replace('<w:body>', `<w:body>${centerParagraphXml}`);
     }
   }
 
-  result = result.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>).)*?Tiết theo PPCT[\s\S]*?<\/w:p>/gis, '');
   return result;
 }
 
